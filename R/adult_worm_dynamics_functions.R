@@ -77,7 +77,6 @@ weibull.mortality <- function(DT, par1, par2, age.cats)
 #' @param mort.rates vector of mortality rates (adult worms) for each age class/category
 #' @param time.each.comp Duration of each age class for adult worms (q_W in Hamley et al. 2019 supp); 1 year default
 #' @param new.worms.m vector of (binomial) drawn adult male worms from last column of delay matrix
-#' @param new.worms.f vector of (binomial) drawn adult female worms from last column of delay matrix
 #' @param w.f.l.c vector for worms coming from previous compartment (0 when k ==1)
 #' @param num.comps number of age compartments for each worm category
 #'
@@ -206,7 +205,7 @@ change.worm.per.ind.treat <- function(give.treat, iteration, treat.start, times.
 #' @param w.f.l.c vector for worms coming from previous compartment (0 when k ==1)
 #' @param N total human population size
 #' @param cur.Wm.nf number of current non-fertile female worms per individual
-#' @param mort.fem mortality value for females per individual (from change.worm.per.ind1 function)
+#' @param mort.fems mortality value for females per individual (from change.worm.per.ind1 function)
 #' @param cur.Wm.f number of current fertile female worms per individual
 #' @param omeg omega value per individual (from change.worm.per.ind1 function)
 #' @param male.tot.worms vector of total male worms per individual (from change.worm.per.ind1 function)

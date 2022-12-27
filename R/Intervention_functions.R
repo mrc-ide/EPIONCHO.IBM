@@ -5,7 +5,7 @@
 #'
 #' @param all.dt matrix containing (among other things) information on compliance to treatment (whether or not an individual can be treated) and the age of each individual.
 #' @param pncomp proportion non-compliers.
-#' @param covarg total coverage of the population.
+#' @param covrg total coverage of the population.
 #' @param N human population size (default = 400).
 #'
 #' @return matrix of individuals to be treated (?)

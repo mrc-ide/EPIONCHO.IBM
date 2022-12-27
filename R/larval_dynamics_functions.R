@@ -73,6 +73,7 @@ calc.L2 <- function(nuone, L1.in, mu.v, nutwo, mf, a.v, expos)
 #' @description
 #' L3 (parasite life stages) dynamics in the fly population, assumed to be at equilibrium (modelled deterministically).
 #'
+#' @param nutwo per-capita development rate from L2 to L3 larvae (default 201.6 year-1)
 #' @param L2.in vector of L2 from main matrix for each individual
 #' @param a.H proportion of L3 shed per bite (on any blood host); default is 0.8
 #' @param g length of the gonotrophic cycle (0.0096)

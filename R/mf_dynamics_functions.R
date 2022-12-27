@@ -18,7 +18,7 @@ rotate <- function(x) {
 #' @description
 #' function calculates change in the number of microfilariae (mf) (offspring of adult worms) for each mf age compartment in each human using RK4 method
 #' this is called in ep.equi.sim for each mf age class.
-#' @param dat
+#' @param dat main matrix with mf inputs for each individual
 #' @param num.comps number of age classes in adult worms (fecundity rate is a function of adult worm age), default = 21 age classes (specified by c_max in Hamley et al. 2019).
 #' @param mf.cpt age class under consideration.
 #' @param num.mf.comps number of age classes in mf (same as adult worm), default = 21 age classes (specified by c_max in Hamley et al. 2019).

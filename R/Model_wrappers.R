@@ -3,16 +3,32 @@
 #Jonathan Hamley
 
 
-
-
-#ep.equi.sim will run one repeat of the model, typically the mean of 500 repeats is required
-#model must be run to equilibrium (100 years), before treatment can begin
-#treatment is with ivermectin
-#if the mf prevalence is zero 50 years after the final treatment, we assume elimination has occured
-#code is available which saves the equilibrium and receives it as an input
-
-#time.its = number of iterations, ABR = annual biting rate, treat.int = treatment interval, treat.prob = total population coverage
-#give.treat takes 1 (MDA) or 0 (no MDA), pnc = proportion of population which never receive treatment, min.mont.age is the minimum age for giving a skin snip
+#' @title
+#' Run EPIONCHO-IBM epidemiological model with or without interventions
+#' @description
+#' Runs the individual-based Onchocerciasis transmission model (EPIONCHO-IBM), based on Hamley et al. 2019
+#' ep.equi.sim will run one repeat of the model, typically the mean of 500 repeats is required
+#' model must be run to equilibrium (100 years), before treatment can begin
+#' treatment is parameterised based on ivermectin
+#' if the mf prevalence is zero 50 years after the final treatment, we assume elimination has occured
+#' code is available which saves the equilibrium and receives it as an input
+#'
+#' @param time.its number of iterations (this input is a single value)
+#' @param ABR annual biting rate (this input is a single value)
+#' @param DT timestep (must be one day e.g., 1/366)
+#' @param treat.int treatment interval in years e.g., 1 is every 1 year, 0.5 is every 6 months (this input is a single value)
+#' @param treat.prob total population coverage (this input is a single value between 0 - 1)
+#' @param give.treat takes 1 (MDA) or 0 (no MDA)
+#' @param treat.start iteration where treatment starts
+#' @param treat.stop iteration where treatment stops
+#' @param pnc proportion of population which never receive treatment (single input value between 0 - 1)
+#' @param min.mont.age minimum age for giving a skin snip (single input value, default is 5)
+#' @param delta.hz.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to 0)
+#' @param delta.hinf.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
+#' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
+#' @param gam.dis.in this is a new user-input for individual-level exposure in humans (overdispersion parameter k_E determining degree of individual exposure heterogeneity; default value is 0.3)
+#'
+#' @export
 
 ep.equi.sim <- function(time.its,
                         ABR,
