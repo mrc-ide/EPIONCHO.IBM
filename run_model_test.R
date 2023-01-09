@@ -13,7 +13,7 @@ devtools::check()
 
 devtools::install()
 
-library("EPIONCHO.IBM") # when updated/ to install locally
+library(EPIONCHO.IBM) # when updated/ to install locally
 
 
 # ==================================================== #
@@ -47,3 +47,11 @@ output <-  ep.equi.sim(time.its = timesteps,
                        delta.hinf.in = 0.003,
                        c.h.in = 0.008,
                        gam.dis.in = 0.2)
+
+# original parameters
+year_seq <- seq(from= 1/366, to= 114.99727, by = 1/366)
+prev_out <- output[[2]]
+
+plot(x = year_seq, y = prev_out)
+lines(year_seq, prev_out, col="red", lwd=2)
+

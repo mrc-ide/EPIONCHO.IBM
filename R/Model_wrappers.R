@@ -319,14 +319,14 @@ ep.equi.sim <- function(time.its,
 
       from.last <- res #assign output to use at next iteration, indexes 2, 5, 6 (worms moving through compartments)
 
-      #update male worms in matrix for compartment k
+      # update male worms in matrix for compartment k
 
       all.mats.temp[, (6 + num.mf.comps + k)] <- res[[1]]
 
-      #update females worms in matrix
+      # update females worms in matrix
 
-      all.mats.temp[, (6 + num.mf.comps + num.comps.worm + k)] <- res[[3]] #infertile, num.comps.worm skips over males
-      all.mats.temp[, (6 + num.mf.comps + 2*num.comps.worm + k)] <- res[[4]] #fertile, num.comps.worm skips over males and infertile females
+      all.mats.temp[, (6 + num.mf.comps + num.comps.worm + k)] <- res[[3]] # infertile, num.comps.worm skips over males
+      all.mats.temp[, (6 + num.mf.comps + 2*num.comps.worm + k)] <- res[[4]] # fertile, num.comps.worm skips over males and infertile females
 
 
     }
