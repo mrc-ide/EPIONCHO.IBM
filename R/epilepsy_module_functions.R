@@ -13,7 +13,7 @@ OAE_mfcount_prob_func <- function(dat){
 
 
   fit <- glm(prob ~ log(mf + 1), family = gaussian(link = "log"),
-             data = ep_mfcount_prob_df) # fitted logarithmic relationship between prob OAE ~ mean mf load;
+             data = dat) # fitted logarithmic relationship between prob OAE ~ mean mf load;
                                          # generalized linear model with log-link function
 
   newdat <- data.frame(mf = seq(0, 10000, 1)) # generate new dataframe with mf counts from 0 to 1000 by 1
@@ -56,7 +56,7 @@ OAE_mfcount_prob_func <- function(dat){
 #'
 #' @returns vector with positions of new cases in the population
 find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
-                                infected_at_all, age_to_samp, OAE, tested_OAE){
+                                infected_at_all, age_to_samp, OAE, tested_OAE, check_ind){
 
   mf_all <- rowSums(dat[, mf.start : mf.end]) # sum mf per individual across all 21 age classes
 
@@ -68,10 +68,10 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
 
   infected_at_all[ind_new_inf] <-  1 # where new worm infection, give value 1 at individual position in vector
 
-  ind_age <- which(round(all.mats.temp[, 2]) == round(age_to_samp)) # find individuals (position in individual vector) where (rounded)
+  ind_age <- which(round(dat[, 2]) == round(age_to_samp)) # find individuals (position in individual vector) where (rounded)
                                                                     # age at sampling (e.g. between 3 - 10) matches (rounded) age of individual
 
-  ind_sex <- all.mats.temp[, 3] # extract sex of each individual from main matrix
+  ind_sex <- dat[, 3] # extract sex of each individual from main matrix
 
   # print(ind_age)
 
@@ -83,13 +83,15 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
 
   # print(age_to_samp)
 
-  tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp, ind_sex)) # find common (intersect) ??? where same individual (position number in vector)
+  tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp)) # find common (intersect) ??? where same individual (position number in vector)
                                                                                                  # present in all vectors (age sampled, new infection/OAE, no current OAE?,
                                                                                                  # not previously sampled?, sex of individual?)
                                                                                                  # defines new infections/OAE?
+  # tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp, ind_sex)) # old with bug!
+
   check_ind <- c(check_ind, length(tot_ind_ep_samp)) # ?
 
-  return(tot_ind_ep_samp, infected_at_all, check_ind)
+  return(list(tot_ind_ep_samp, infected_at_all, check_ind))
 
 }
 
@@ -109,8 +111,10 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
 #' @param temp.mf vector of all mf per skin snip for each individual
 #' @param tot_ind_ep_samp vector with positions of new cases in the population
 #' @param OAE_probs vector of OAE probabilities for mf counts from 0 to 1000
-#' @param all.mats.temp main matrix tracking age, sex, mf age compartments and worm age compartments for each individual
+#' @param dat main matrix tracking age, sex, mf age compartments and worm age compartments for each individual
 #' @param prev_OAE vector containing prevalence of OAE to update
+#' @param OAE vector of individuals defined as able to develop to OAE/ to determine whether OAE onset occurs
+#' @param tested_OAE vector to specify which individuals have been tested
 #' @param OAE_incidence_DT OAE incidence vector (whole population) to update
 #' @param OAE_incidence_DT_3_5 OAE incidence vector in 3 - 5 years to update
 #' @param OAE_incidence_DT_5_10 OAE incidence vector in 5 - 10 years to update
@@ -120,8 +124,8 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
 #' @returns list containing i) updated OAE prevalence, ii) updated OAE incidence in whole population, iii - vi) updated OAE
 #' incidence in 3 - 5 years, 5 - 10 years, males and females, vii) OAE probabilities for each individual based on mf count,
 #' viii) those tested/sampled
-new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, all.mats.temp,
-                               prev_OAE,
+new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, dat,
+                               prev_OAE, OAE, tested_OAE,
                                OAE_incidence_DT, OAE_incidence_DT_3_5, OAE_incidence_DT_5_10,
                                OAE_incidence_DT_M, OAE_incidence_DT_F){
 
@@ -145,11 +149,11 @@ new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, all.mats.tem
 
   OAE_incidence_DT <- c(OAE_incidence_DT, new_inc) # record + update number of new OAE cases
 
-  new_inc_3_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 3 & all.mats.temp[tot_ind_ep_samp ,2]< 5 )) # new cases in 3 to 5 age group
-  new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 5 & all.mats.temp[tot_ind_ep_samp ,2]<= 10 )) # new cases in 5 to 10 age group
+  new_inc_3_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,2] >= 3 & dat[tot_ind_ep_samp ,2]< 5 )) # new cases in 3 to 5 age group
+  new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,2] >= 5 & dat[tot_ind_ep_samp ,2]<= 10 )) # new cases in 5 to 10 age group
 
-  new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 1)) # new cases in males
-  new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 0)) # new cases in females
+  new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,3] == 1)) # new cases in males
+  new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,3] == 0)) # new cases in females
 
   OAE_incidence_DT_3_5 <- c(OAE_incidence_DT_3_5, new_inc_3_5) # record & update incidence in 3 to 5 age group
   OAE_incidence_DT_5_10 <- c(OAE_incidence_DT_5_10, new_inc_5_10) # record & update incidence in 5 to 10 age group

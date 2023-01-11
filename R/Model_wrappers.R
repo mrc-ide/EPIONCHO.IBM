@@ -27,6 +27,7 @@
 #' @param delta.hinf.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
 #' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
 #' @param gam.dis.in this is a new user-input for individual-level exposure in humans (overdispersion parameter k_E determining degree of individual exposure heterogeneity; default value is 0.3)
+#' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
 #'
 #' @export
 
@@ -43,7 +44,8 @@ ep.equi.sim <- function(time.its,
                         delta.hz.in, # these inputs are new (matt) for testing DD
                         delta.hinf.in,
                         c.h.in,
-                        gam.dis.in)
+                        gam.dis.in,
+                        epilepsy_module)
 
 
 {
@@ -228,7 +230,7 @@ ep.equi.sim <- function(time.its,
     Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
                                mf = c(0, 3, 13, 36, 76, 151, 200))
 
-    OAE_probs <- OAE_mfcount_prob_func(dat = Chensnais_dat)
+    OAE_probs <- OAE_mfcount_prob_func(dat = Chesnais_dat)
   }
 
 
@@ -398,20 +400,22 @@ ep.equi.sim <- function(time.its,
 
     if(epilepsy_module == "YES"){
 
-      if(i = 1){
+      if(i == 1){
 
         OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, tot.worms = tot.worms,
-                          infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE) # step 1
+                          infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE, check_ind = check_ind) # step 1
 
         infected_at_all = OAE_out1[[2]] # updated (when i = 1)
+        check_ind = OAE_out1[[3]] # updated (when i = 1)
 
         temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                 mf.start, mf.end, pop.size = N)
 
-        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, all.mats.temp = all.mats.temp,
-                           prev_OAE = prev_OAE, OAE_incidence_DT = OAE_incidence_DT,
-                           OAE_incidence_DT_3_5 = OAE_incidence_DT_3_5, OAE_incidence_DT_5_10 = OAE_incidence_DT_5_10,
-                           OAE_incidence_DT_M = OAE_incidence_DT_M, OAE_incidence_DT_F = OAE_incidence_DT_F) # step 2
+        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
+                                       OAE = OAE, tested_OAE = tested_OAE,
+                                       prev_OAE = prev_OAE, OAE_incidence_DT = OAE_incidence_DT,
+                                       OAE_incidence_DT_3_5 = OAE_incidence_DT_3_5, OAE_incidence_DT_5_10 = OAE_incidence_DT_5_10,
+                                       OAE_incidence_DT_M = OAE_incidence_DT_M, OAE_incidence_DT_F = OAE_incidence_DT_F) # step 2
 
         OAE = OAE_out2[[8]] # updated (when i = 1)
         tested_OAE = OAE_out2[[9]] # updated (when i = 1)
@@ -420,14 +424,16 @@ ep.equi.sim <- function(time.its,
       if(i > 1){
 
         OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, tot.worms = tot.worms,
-                                        infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE) # step 1
+                                        infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE, check_ind = check_ind) # step 1
 
         infected_at_all = OAE_out1[[2]] # updated (when i > 1)
+        check_ind = OAE_out1[[3]] # updated (when i > 1)
 
         temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                     mf.start, mf.end, pop.size = N)
 
-        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, all.mats.temp = all.mats.temp,
+        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
+                                       OAE = OAE, tested_OAE = tested_OAE,
                                        prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
                                        OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
                                        OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]]) # step 2
