@@ -1,9 +1,7 @@
 Package: EPIONCHO.IBM
 Title: EPIONCHO-IBM; a stochastic, individual-based model of onchocerciasis transmission.
 Version: 0.0.0.9000
-Authors@R: 
-    person("Jonathan", "Hamley", , "jonathan.hamley@dbmr.unibe.ch", role = c("first author from original paper describing the model; Hamley et al. 2019"),
-           comment = c(ORCID = "https://orcid.org/0000-0001-5755-2867"))
+Authors@R: c(person("Jonathan", "Hamley", role = c("aut"), email = "jonathan.hamley@dbmr.unibe.ch"), person("Matthew", "Dixon-Zegeye", role = c("cre"), email = "m.dixon15@imperial.ac.uk"))
 Description: A stochastic, individual-based model of onchocerciasis transmission, including the treatment effect of ivermectin on the microfilariae stage in humans. 
              EPIONCHO-IBM has further been extended to include onchocerciasis-associated epilepsy (OAE); developed by Jacob Stapely.
              The GitHub version of the model has been adapted and developed as a package by Matthew Dixon.
