@@ -45,7 +45,7 @@ ep.equi.sim <- function(time.its,
                         delta.hinf.in,
                         c.h.in,
                         gam.dis.in,
-                        epilepsy_module)
+                        epilepsy_module = "NO")
 
 
 {
@@ -496,7 +496,7 @@ ep.equi.sim <- function(time.its,
                 OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
   } else {
 
-    return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out)) # outputs without epilepsy outputs
+    return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out)) # outputs without epilepsy module
                                                                              # [[2]] is mf prevalence, [[3]] is intensity
   }
 
