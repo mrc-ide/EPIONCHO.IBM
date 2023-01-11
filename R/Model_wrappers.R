@@ -208,6 +208,31 @@ ep.equi.sim <- function(time.its,
 
   i <- 1
 
+  if(epilepsy_module == "YES"){
+
+    # new inputs required #
+    infected_at_all <- rep(1, N)
+    #age_to_samp <- runif(N, min = 3, max = 10)
+    age_to_samp <- sample(seq(3, 10, DT), size = N, replace = TRUE)
+    OAE <- rep(1, N)
+    prev_OAE <- 1
+    tested_OAE <- rep(0, N)
+    check_ind <- c()
+    OAE_incidence_DT <- c()
+    OAE_incidence_DT_3_5 <- c()
+    OAE_incidence_DT_5_10 <- c()
+    OAE_incidence_DT_M <- c()
+    OAE_incidence_DT_F <- c()
+
+    # data and function to obtain OAE probability for a given mf count
+    Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
+                               mf = c(0, 3, 13, 36, 76, 151, 200))
+
+    OAE_probs <- OAE_mfcount_prob_func(dat = Chensnais_dat)
+  }
+
+
+
   while(i < time.its) #over time
 
   {
@@ -368,9 +393,52 @@ ep.equi.sim <- function(time.its,
     mf.delay[, 1] <- rowSums(all.mats.cur[, 7 : (6 + num.mf.comps)])
     exposure.delay[, 1] <- tot.ex.ai
 
+    #===========================#
+    #     OAE module funcs      #
 
-    #new individual exposure for newborns, clear rows for new borns
+    if(epilepsy_module == "YES"){
 
+      if(i = 1){
+
+        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, tot.worms = tot.worms,
+                          infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE) # step 1
+
+        infected_at_all = OAE_out1[[2]] # updated (when i = 1)
+
+        temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+                                mf.start, mf.end, pop.size = N)
+
+        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, all.mats.temp = all.mats.temp,
+                           prev_OAE = prev_OAE, OAE_incidence_DT = OAE_incidence_DT,
+                           OAE_incidence_DT_3_5 = OAE_incidence_DT_3_5, OAE_incidence_DT_5_10 = OAE_incidence_DT_5_10,
+                           OAE_incidence_DT_M = OAE_incidence_DT_M, OAE_incidence_DT_F = OAE_incidence_DT_F) # step 2
+
+        OAE = OAE_out2[[8]] # updated (when i = 1)
+        tested_OAE = OAE_out2[[9]] # updated (when i = 1)
+      }
+
+      if(i > 1){
+
+        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, tot.worms = tot.worms,
+                                        infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE) # step 1
+
+        infected_at_all = OAE_out1[[2]] # updated (when i > 1)
+
+        temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+                                    mf.start, mf.end, pop.size = N)
+
+        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, all.mats.temp = all.mats.temp,
+                                       prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
+                                       OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
+                                       OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]]) # step 2
+
+        OAE = OAE_out2[[8]] # updated (when i > 1)
+        tested_OAE = OAE_out2[[9]] # updated (when i > 1)
+      }
+    }
+
+
+    # new individual exposure for newborns, clear rows for new borns
     if(length(to.die) > 0)
     {
       ex.vec[to.die] <- rgamma(length(to.die), gam.dis, gam.dis)
@@ -385,6 +453,19 @@ ep.equi.sim <- function(time.its,
 
       all.mats.temp[to.die, cols.to.zero] <- 0 #set age, sex and parasites to 0 (includes L1, but not L2 L3)
       all.mats.temp[to.die, 3] <- rbinom(length(to.die), 1, 0.5) #draw sex
+
+      if(epilepsy_module == "YES"){
+
+        infected_at_all[to.die] <- 0 # index those individuals to die as no longer ever infected
+
+        age_to_samp[to.die] <- sample(seq(3, 10, DT), size = length(to.die), replace = TRUE) # for those individuals set to die, resample
+
+        OAE[to.die] <-  0 # index those individuals to die as no longer with OAE
+
+        tested_OAE[to.die] <-  0 # index those individuals to die as no longer tested
+
+      }
+
     }
 
     temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
@@ -402,7 +483,16 @@ ep.equi.sim <- function(time.its,
 
   }
 
-  return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out)) #[[2]] is mf prevalence, [[3]] is intensity
+  if(epilepsy_module == "YES"){
+
+    return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out, OAE, prev_OAE = OAE_out2[[1]], check_ind = OAE_out1[[3]],
+                OAE_incidence_DT = OAE_out2[[2]], OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
+                OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
+  } else {
+
+    return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out)) # outputs without epilepsy outputs
+                                                                             # [[2]] is mf prevalence, [[3]] is intensity
+  }
 
 
 }

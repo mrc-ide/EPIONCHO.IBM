@@ -54,7 +54,7 @@ OAE_mfcount_prob_func <- function(dat){
 #' @param OAE vector of individuals defined as able to develop to OAE/ to determine whether OAE onset occurs
 #' @param tested_OAE vector to specify which individuals have been tested
 #'
-#' @returns vector of OAE probabilities for mf counts from 0 to 1000
+#' @returns vector with positions of new cases in the population
 find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
                                 infected_at_all, age_to_samp, OAE, tested_OAE){
 
@@ -75,37 +75,55 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
 
   # print(ind_age)
 
-  ind_ibf <- which(infected_at_all == 1) # extract position of new worm infections (not ever infected)?
+  ind_ibf <- which(infected_at_all == 1) # extract position of currently with worm infection to inform OAE (not new infection to inform OAE)
 
-  ind_no_OAE <- which(OAE != 1) # extract position of individuals without OAE
+  ind_no_OAE <- which(OAE != 1) # extract position of individuals without OAE (so no current OAE?)
 
-  ind_no_samp <- which(tested_OAE == 0) # extract position of individuals not tested
+  ind_no_samp <- which(tested_OAE == 0) # extract position of individuals not (previously?) tested
 
   # print(age_to_samp)
 
-  tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp, ind_sex)) # find common (intersect) ??? where same
-                                                                                                 # individual (position number in vector)
-                                                                                                 # present in all vectors (age, OAE, no OAE, sampling sex?)
+  tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp, ind_sex)) # find common (intersect) ??? where same individual (position number in vector)
+                                                                                                 # present in all vectors (age sampled, new infection/OAE, no current OAE?,
+                                                                                                 # not previously sampled?, sex of individual?)
+                                                                                                 # defines new infections/OAE?
   check_ind <- c(check_ind, length(tot_ind_ep_samp)) # ?
 
-  return(tot_ind_ep_samp)
+  return(tot_ind_ep_samp, infected_at_all, check_ind)
 
 }
 
 
 
+# temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+#                             mf.start, mf.end, pop.size = N)
 
 
-##INFECTED NEEDS TO BE ADULT WORMS
-
-#mf_round <- round(mf_all[tot_ind_ep_samp]) + 1
-
-temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                            mf.start, mf.end, pop.size = N)
-
-
-
-new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs){
+#' @title
+#' calculate OAE incidence and prevalence
+#'
+#' @description
+#' each individual undergoes a Bernoulli trial (using OAE probabilities based on mf counts; new worm infection)
+#' to ascertain new incident cases of OAE (indexed by those individuals with new infection?)
+#'
+#' @param temp.mf vector of all mf per skin snip for each individual
+#' @param tot_ind_ep_samp vector with positions of new cases in the population
+#' @param OAE_probs vector of OAE probabilities for mf counts from 0 to 1000
+#' @param all.mats.temp main matrix tracking age, sex, mf age compartments and worm age compartments for each individual
+#' @param prev_OAE vector containing prevalence of OAE to update
+#' @param OAE_incidence_DT OAE incidence vector (whole population) to update
+#' @param OAE_incidence_DT_3_5 OAE incidence vector in 3 - 5 years to update
+#' @param OAE_incidence_DT_5_10 OAE incidence vector in 5 - 10 years to update
+#' @param OAE_incidence_DT_M OAE incidence vector in males to update
+#' @param OAE_incidence_DT_F OAE incidence vector in females to update
+#'
+#' @returns list containing i) updated OAE prevalence, ii) updated OAE incidence in whole population, iii - vi) updated OAE
+#' incidence in 3 - 5 years, 5 - 10 years, males and females, vii) OAE probabilities for each individual based on mf count,
+#' viii) those tested/sampled
+new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, all.mats.temp,
+                               prev_OAE,
+                               OAE_incidence_DT, OAE_incidence_DT_3_5, OAE_incidence_DT_5_10,
+                               OAE_incidence_DT_M, OAE_incidence_DT_F){
 
 
   mf_round <- round(temp.mf[[2]][tot_ind_ep_samp]) + 1 # mf count (in those tested ?)
@@ -115,31 +133,31 @@ new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs){
 
   OAE_rates <- OAE_probs[mf_round] # get probabilities (based on individual mf count)
 
-  OAE[tot_ind_ep_samp] <- rbinom(length(tot_ind_ep_samp), 1, OAE_rates) # for individuals with an probability of OAE, they undergo a
-                                                                        # Bernoulli trial to ascertain whether OAE onset realised
+  OAE[tot_ind_ep_samp] <- rbinom(length(tot_ind_ep_samp), 1, OAE_rates) # for individuals (those positions of individuals as new cases)
+                                                                        # with an probability of OAE, they undergo a
+                                                                        # Bernoulli trial to ascertain whether OAE onset realized
 
-#records that they've been tested
-tested_OAE[tot_ind_ep_samp] <- 1
+  tested_OAE[tot_ind_ep_samp] <- 1 # records that they've been tested (those identified in tot_ind_ep_samp are indexed)
 
-prev_OAE <- c(prev_OAE, mean(OAE))
+  prev_OAE <- c(prev_OAE, mean(OAE)) # calculate & update prevalence of OAE
 
-new_inc <- length(which(OAE[tot_ind_ep_samp] == 1)) #how many infections
+  new_inc <- length(which(OAE[tot_ind_ep_samp] == 1)) # how many infections (finds total new infected/OAE in all OAE)
 
-OAE_incidence_DT <- c(OAE_incidence_DT, new_inc)
+  OAE_incidence_DT <- c(OAE_incidence_DT, new_inc) # record + update number of new OAE cases
 
+  new_inc_3_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 3 & all.mats.temp[tot_ind_ep_samp ,2]< 5 )) # new cases in 3 to 5 age group
+  new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 5 & all.mats.temp[tot_ind_ep_samp ,2]<= 10 )) # new cases in 5 to 10 age group
 
-new_inc_3_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 3 & all.mats.temp[tot_ind_ep_samp ,2]< 5 ))
-new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 5 & all.mats.temp[tot_ind_ep_samp ,2]<= 10 ))
+  new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 1)) # new cases in males
+  new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 0)) # new cases in females
 
-new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 1))
-new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 0))
+  OAE_incidence_DT_3_5 <- c(OAE_incidence_DT_3_5, new_inc_3_5) # record & update incidence in 3 to 5 age group
+  OAE_incidence_DT_5_10 <- c(OAE_incidence_DT_5_10, new_inc_5_10) # record & update incidence in 5 to 10 age group
 
+  OAE_incidence_DT_M <- c(OAE_incidence_DT_M, new_inc_M) # record & update incidence in males
+  OAE_incidence_DT_F <- c(OAE_incidence_DT_F, new_inc_F) # record & update incidence in females
 
-
-OAE_incidence_DT_3_5 <- c(OAE_incidence_DT_3_5, new_inc_3_5)
-OAE_incidence_DT_5_10 <- c(OAE_incidence_DT_5_10, new_inc_5_10)
-
-OAE_incidence_DT_M <- c(OAE_incidence_DT_M, new_inc_M)
-OAE_incidence_DT_F <- c(OAE_incidence_DT_F, new_inc_F)
+  return(list(prev_OAE, OAE_incidence_DT, OAE_incidence_DT_3_5, OAE_incidence_DT_5_10, OAE_incidence_DT_F, OAE_incidence_DT_M,
+              OAE_rates, OAE, tested_OAE))
 
 }
