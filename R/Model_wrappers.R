@@ -28,6 +28,7 @@
 #' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
 #' @param gam.dis.in this is a new user-input for individual-level exposure in humans (overdispersion parameter k_E determining degree of individual exposure heterogeneity; default value is 0.3)
 #' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
+#' @param blindness_VI_module this element determines whether the blindness & visual impairment model is turned on ("YES" will activate this)
 #'
 #' @export
 
@@ -45,7 +46,8 @@ ep.equi.sim <- function(time.its,
                         delta.hinf.in,
                         c.h.in,
                         gam.dis.in,
-                        epilepsy_module = "NO")
+                        epilepsy_module = "NO",
+                        blindness_VI_module = "NO")
 
 
 {
@@ -231,6 +233,29 @@ ep.equi.sim <- function(time.its,
                                mf = c(0, 3, 13, 36, 76, 151, 200))
 
     OAE_probs <- OAE_mfcount_prob_func(dat = Chesnais_dat)
+  }
+
+  if(blindness_VI_module == "YES"){
+
+    # new inputs required #
+    infected_at_all <- rep(1, N)
+    blindness <- rep(1, N)
+    prev_blind <- 1
+    tested_blind <- rep(0, N)
+    check_ind_blind <- c()
+    blind_incidence_DT <- c()
+    blind_incidence_DT_M <- c()
+    blind_incidence_DT_F <- c()
+
+    # data and function to obtain blindness probability for a given mf count
+
+    # Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
+    #                            mf = c(0, 3, 13, 36, 76, 151, 200))
+
+    Little_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
+                               mf = c(0, 3, 13, 36, 76, 151, 200))
+
+    blind_probs <- blind_mfcount_prob_func(dat = Little_dat)
   }
 
 
@@ -440,6 +465,54 @@ ep.equi.sim <- function(time.its,
 
         OAE = OAE_out2[[8]] # updated (when i > 1)
         tested_OAE = OAE_out2[[9]] # updated (when i > 1)
+      }
+    }
+
+    #====================================#
+    #     blindness/VI module funcs      #
+
+    if(blindness_VI_module == "YES"){
+
+      if(i == 1){
+
+        blind_out1 <- find_indiv_blindness_func(dat = all.mats.temp, worms.start = worms.start, tot.worms = tot.worms,
+                                        infected_at_all = infected_at_all, blindness = blindness, tested_blind = tested_blind,
+                                        check_ind_blind = check_ind_blind) # step 1
+
+        infected_at_all = blind_out1[[2]] # updated (when i = 1)
+        check_ind_blind = blind_out1[[3]] # updated (when i = 1)
+
+        temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+                                    mf.start, mf.end, pop.size = N)
+
+        blind_out2 <- new_blindness_cases_func(temp.mf = temp.mf, tot_ind_ep_samp_blind = blind_out1[[1]], blind_probs = blind_probs,
+                                               dat = all.mats.temp, blindness = blindness, tested_blind = tested_blind,
+                                               prev_blind = prev_blind, blind_incidence_DT = blind_incidence_DT,
+                                               blind_incidence_DT_M = blind_incidence_DT_M, blind_incidence_DT_F = blind_incidence_DT_F) # step 2
+
+        blindness = blind_out2[[8]] # updated (when i = 1)
+        tested_blind = blind_out2[[9]] # updated (when i = 1)
+      }
+
+      if(i > 1){
+
+        blind_out1 <- find_indiv_blindness_func(dat = all.mats.temp, worms.start = worms.start, tot.worms = tot.worms,
+                                        infected_at_all = infected_at_all, blindness = blindness, tested_blind = tested_blind,
+                                        check_ind_blind = check_ind_blind) # step 1
+
+        infected_at_all = blind_out1[[2]] # updated (when i > 1)
+        check_ind_blind = blind_out1[[3]] # updated (when i > 1)
+
+        temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+                                    mf.start, mf.end, pop.size = N)
+
+        blind_out2 <- new_blindness_cases_func(temp.mf = temp.mf, tot_ind_ep_samp_blind = blind_out1[[1]], blind_probs = blind_probs,
+                                               dat = all.mats.temp, blindness = blindness, tested_blind = tested_blind,
+                                               prev_blind = blind_out2[[1]], blind_incidence_DT = blind_out2[[2]],
+                                               blind_incidence_DT_M = blind_out2[[5]], blind_incidence_DT_F = blind_out2[[6]]) # step 2
+
+        blindness = blind_out2[[8]] # updated (when i > 1)
+        tested_blind = blind_out2[[9]] # updated (when i > 1)
       }
     }
 

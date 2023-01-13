@@ -89,9 +89,9 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
                                                                                                  # defines new infections/OAE?
   # tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp, ind_sex)) # old with bug!
 
-  check_ind <- c(check_ind, length(tot_ind_ep_samp)) # ?
+  check_ind_blind <- c(check_ind, length(tot_ind_ep_samp)) # ?
 
-  return(list(tot_ind_ep_samp, infected_at_all, check_ind))
+  return(list(tot_ind_ep_samp, infected_at_all, check_ind_blind))
 
 }
 
