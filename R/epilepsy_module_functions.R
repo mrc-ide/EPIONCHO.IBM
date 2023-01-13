@@ -69,7 +69,7 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, tot.worms,
   infected_at_all[ind_new_inf] <-  1 # where new worm infection, give value 1 at individual position in vector
 
   ind_age <- which(round(dat[, 2]) == round(age_to_samp)) # find individuals (position in individual vector) where (rounded)
-                                                                    # age at sampling (e.g. between 3 - 10) matches (rounded) age of individual
+                                                          # age at sampling (e.g. between 3 - 10) matches (rounded) age of individual
 
   ind_sex <- dat[, 3] # extract sex of each individual from main matrix
 

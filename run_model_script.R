@@ -1,17 +1,13 @@
 # ====================================================================================================================#
 #                       Compiling/loading package, testing etc                                                        #
 
-# devtools::has_devel()
-#
-# library(devtools)
-#
-# # use_mit_license("EPIONCHO.IBM")
-#
-# devtools::load_all()
-#
-# devtools::check()
-#
-# devtools::install()
+# ==================== #
+#    install first     #
+
+#install.packages("remotes")
+#remotes::install_github("Mad206/EPIONCHO.IBM") # need to change from Mad206 to mrc-ide
+
+# load locally #
 
 library(EPIONCHO.IBM) # when updated/ to install locally
 
