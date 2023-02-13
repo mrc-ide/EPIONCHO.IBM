@@ -318,33 +318,27 @@ ep.equi.sim <- function(time.its,
 
       if(k == 1) {from.last <- rep(0, N)} #create vector for worms coming from previous compartment (needs to be 0 when k ==1)
 
-#
-#       res <- change.worm.per.ind(delta.hz = delta.hz, delta.hinf = delta.hinf, c.h = c.h, L3 = L3.in, m = m , beta = beta, compartment = k,
-#                                  total.dat = all.mats.cur, num.comps = num.comps.worm,
-#                                  w.f.l.c = from.last, lambda.zero = lambda.zero, omeg = omeg, expos = tot.ex.ai,
-#                                  ws = worms.start, DT = DT, mort.rates = mort.rates.worms, time.each.comp = time.each.comp.worms, new.worms.m = new.worms.m,
-#                                  new.worms.nf.fo = new.worms.nf, lam.m = lam.m, phi = phi, treat.stop = treat.stop, iteration = i, treat.int = treat.int, treat.prob = treat.prob,
-#                                  cum.infer = cum.infer, treat.vec = treat.vec.in,
-#                                  give.treat = give.treat, treat.start = treat.start, N = N, onchosim.cov = cov.in, times.of.treat = times.of.treat.in)
 
+       res.w1 <- change.worm.per.ind1(treat.vec = treat.vec.in, lambda.zero = lambda.zero, DT = DT, omeg = omeg,
+                                      ws = worms.start, compartment = k, total.dat = all.mats.cur, mort.rates = mort.rates.worms,
+                                      time.each.comp = time.each.comp.worms, new.worms.m = new.worms.m, w.f.l.c = from.last,
+                                      num.comps = num.comps.worm)
 
-      res.w1 <- change.worm.per.ind1(treat.vec = treat.vec.in, lambda.zero = lambda.zero, DT = DT, omeg = omeg,
-                                     ws = worms.start, compartment = k, total.dat = all.mats.cur, mort.rates = mort.rates.worms,
-                                     time.each.comp = time.each.comp.worms, new.worms.m = new.worms.m, w.f.l.c = from.last,
-                                     num.comps = num.comps.worm)
+       res.w.treat <- change.worm.per.ind.treat(give.treat = give.treat, iteration = i, treat.start = treat.start, times.of.treat = times.of.treat.in, treat.stop = treat.stop,
+                                      onchosim.cov = cov.in, treat.vec = treat.vec.in, DT = DT, cum.infer = cum.infer, lam.m = lam.m, phi = phi, N = res.w1[[3]],
+                                      mort.fems = res.w1[[2]], lambda.zero.in = res.w1[[1]])
 
-      res.w.treat <- change.worm.per.ind.treat(give.treat = give.treat, iteration = i, treat.start = treat.start, times.of.treat = times.of.treat.in, treat.stop = treat.stop,
-                                     onchosim.cov = cov.in, treat.vec = res.w1[[6]], DT = DT, cum.infer = cum.infer, lam.m = lam.m, phi = phi, N = res.w1[[3]],
-                                     mort.fems = res.w1[[2]], lambda.zero.in = res.w1[[1]])
+       res.w2 <- change.worm.per.ind2(DT = DT, time.each.comp = time.each.comp.worms, compartment = k, new.worms.nf.fo = new.worms.nf, w.f.l.c = from.last,
+                                      N = res.w1[[3]], cur.Wm.nf = res.w1[[4]], mort.fems = res.w.treat[[3]], cur.Wm.f = res.w1[[5]], omeg = res.w1[[7]],
+                                      male.tot.worms = res.w1[[8]], worm.loss.males = res.w1[[9]],
+                                      lambda.zero.in = res.w.treat[[1]], treat.vec = res.w.treat[[2]])
 
-      res.w2 <- change.worm.per.ind2(DT = DT, time.each.comp = time.each.comp.worms, compartment = k, new.worms.nf.fo = new.worms.nf, w.f.l.c = from.last,
-                                     N = res.w1[[3]], cur.Wm.nf = res.w1[[4]], mort.fems = res.w1[[2]], cur.Wm.f = res.w1[[5]], omeg = res.w1[[7]],
-                                     male.tot.worms = res.w1[[8]], worm.loss.males = res.w1[[9]],
-                                     lambda.zero.in = res.w.treat[[1]], treat.vec = res.w.treat[[2]])
 
       res <- res.w2 # (matt: re-label the final result output to res so do not have to change res below)
 
-      from.last <- res #assign output to use at next iteration, indexes 2, 5, 6 (worms moving through compartments)
+      from.last <- res # (matt: re-label the final result output to res so do not have to change res below)
+
+      # from.last <- res #assign output to use at next iteration, indexes 2, 5, 6 (worms moving through compartments)
 
       # update male worms in matrix for compartment k
 

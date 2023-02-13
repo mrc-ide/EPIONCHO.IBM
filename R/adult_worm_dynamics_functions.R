@@ -183,14 +183,9 @@ change.worm.per.ind.treat <- function(give.treat, iteration, treat.start, times.
 
     lambda.zero.in <- lambda.zero.in + f.to.nf.rate #update 'standard' fertile to non fertile rate to account for treatment
 
-  } else {
-
-    treat.vec <- treat.vec
-
-    lambda.zero.in <- lambda.zero.in
   }
 
-  return(list(lambda.zero.in, treat.vec))
+  return(list(lambda.zero.in, treat.vec, mort.fems))
 
 }
 
@@ -284,3 +279,5 @@ change.worm.per.ind2 <- function(DT, time.each.comp, compartment, new.worms.nf.f
               worm.loss.age.f, treat.vec))
 
 }
+
+
