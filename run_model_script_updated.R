@@ -64,17 +64,22 @@ treat.strt = 1; treat.stp = 16 #if treatment stops in year 26, the last round is
 gv.trt = 1
 trt.int = 1
 
+timesteps = 30
+treat.strt = 1; treat.stp = 26 #if treatment stops in year 26, the last round is at the beginning of year 15
+gv.trt = 1
+trt.int = 1
+
 #treat.strt = 1/366
 
 output_treat_annual <- ep.equi.sim(time.its = timesteps,
                                    ABR = ABR.in,
                                    N.in = 440,
                                    treat.int = trt.int,
-                                   treat.prob = 0.65,
+                                   treat.prob = 0.8,
                                    give.treat = gv.trt,
                                    treat.start = treat.strt,
                                    treat.stop = treat.stp,
-                                   pnc = 0.05,
+                                   pnc = 0.01,
                                    min.mont.age = 5,
                                    delta.hz.in = 0.186,
                                    delta.hinf.in = 0.003,
@@ -82,9 +87,10 @@ output_treat_annual <- ep.equi.sim(time.its = timesteps,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
                                    equilibrium = output_equilibrium[[4]],
-                                   print_progress = FALSE)
+                                   print_progress = TRUE)
 
 tme <- seq(0, 20*366-1)/366
+tme <- seq(0, 30*366-1)/366
 
 plot(tme, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 

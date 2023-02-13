@@ -15,6 +15,7 @@
 #'
 #' @param time.its number of iterations (this input is a single value)
 #' @param ABR annual biting rate (this input is a single value)
+#' @param N.in human population size
 #' @param DT timestep (must be one day e.g., 1/366)
 #' @param treat.int treatment interval in years e.g., 1 is every 1 year, 0.5 is every 6 months (this input is a single value)
 #' @param treat.prob total population coverage (this input is a single value between 0 - 1)
@@ -28,12 +29,15 @@
 #' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
 #' @param gam.dis.in this is a new user-input for individual-level exposure in humans (overdispersion parameter k_E determining degree of individual exposure heterogeneity; default value is 0.3)
 #' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
+#' @param run_equilibrium specify whether to run to equilibrium first
+#' @param equilibrium equilibrium input given to continue model
+#' @param print_progess print the current status of the model run
 #'
 #' @export
 
 ep.equi.sim <- function(time.its,
                         ABR,
-                        DT,
+                        N.in,
                         treat.int,
                         treat.prob,
                         give.treat,
@@ -45,20 +49,35 @@ ep.equi.sim <- function(time.its,
                         delta.hinf.in,
                         c.h.in,
                         gam.dis.in,
+                        run_equilibrium,
+                        equilibrium,
+                        print_progress = TRUE,
                         epilepsy_module = "NO")
 
 
 {
+  # ====================== #
+  # Set-up time parameters #
+
+  DT <- 1/366
+  time.its <- round(time.its / (DT))
+  year_its <- seq(0, time.its, 366)
+  # if(give.treat == 1) #calculate timesteps at which treatment is given
+  # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
+  # else {times.of.treat.in <- 0}
+  if(give.treat == 1)
+  {
+    treat.stop <- round(treat.stop / (DT))
+    if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
+    if(treat.start == 0) {treat.start <-  1}
+  }
 
   # ================ #
   # hard coded parms #
 
   # density dep pars (worm establishment in humans)
-  #delta.hz <- 0.1864987
   delta.hz <- delta.hz.in
-  #delta.hinf <- 0.002772749
   delta.hinf <- delta.hinf.in
-  #c.h <-  0.004900419
   c.h <- c.h.in
 
   m = ABR * ((1/104) / 0.63) # matt: m = vector to host ratio (V/H) ?; ABR = beta * V/H, where V/H = ABR/beta or V/H = ABR/(h/g), or V/H = ABR * (g/h) which you see here (note, V/H is inferred from the ABR - KEY INPUT for adjusting endemicity level of EPIONCHO-IBM sims)
@@ -100,9 +119,26 @@ ep.equi.sim <- function(time.its,
   E0 = 0; q = 0; m.exp = 1.08; f.exp = 0.9; age.exp.m = 0.007; age.exp.f = -0.023 #age-dependent exposure to fly bites age.exp.m or .f = alpha_m or alpha_f)
 
 
-  if(give.treat == 1) #calculate timesteps at which treatment is given
-  {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
-  else {times.of.treat.in <- 0}
+  # print error messages when incorrect inputs / combination of inputs specified #
+
+  if(give.treat == 1)
+  {
+    if(treat.prob > 1) stop('treatment probability must be between 0 & 1')
+    if(treat.stop > time.its) stop('not enough time for requested MDA duration')
+    #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
+    times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)
+
+    print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
+
+    print('MDA given at')
+    print(paste(round(times.of.treat.in / 366, digits = 2), 'yrs', sep = ''))
+
+    print(times.of.treat.in)
+  }
+  else {times.of.treat.in <- 0; print('no MDA to be simulated')}
+
+  if(is.logical(run_equilibrium) == FALSE) stop('no input indicating if model needs to be run to equilibrium')
+
 
   #columns to set to zero when an individual dies
   cols.to.zero <- seq(from = 1, to = (6 + num.mf.comps + 3*num.comps.worm))
@@ -112,7 +148,6 @@ ep.equi.sim <- function(time.its,
   tot.worms <- num.comps.worm*3
   num.cols <- 6 + num.mf.comps + tot.worms
   worms.start <- 7 + num.mf.comps
-
 
   nfw.start <- 7 + num.mf.comps + num.comps.worm #start of infertile worms
   fw.end <- num.cols #end of fertile worms
@@ -132,8 +167,9 @@ ep.equi.sim <- function(time.its,
   #DT not relevent here because RK4 is used to calculate change in mf
   mort.rates.mf <- weibull.mortality(DT = 1, par1 = mu.mf1, par2 = mu.mf2, age.cats = age.cats.mf)
 
-  #create inital age distribution and simulate stable age distribution
-
+  # ========================================================================================================== #
+  # create inital age distribution and simulate stable age distribution (where equilibrium input not provided) #
+  if(isTRUE(run_equilibrium)){
   cur.age <- rep(0, N)
 
   #(the approach below must be used, drawing human lifespans from an exponential distribution eventually leads to a non-exponential distribution)
@@ -148,7 +184,7 @@ ep.equi.sim <- function(time.its,
   }
 
 
-  ex.vec <-rgamma(N, gam.dis, gam.dis) #individual level exposure to fly bites (matt: individual-specific exposure factor assigned at birth - drawn from gamma dist, with shape par (K_E = gam.dis, and rate par set to this))
+  ex.vec <- rgamma(N, gam.dis, gam.dis) #individual level exposure to fly bites (matt: individual-specific exposure factor assigned at birth - drawn from gamma dist, with shape par (K_E = gam.dis, and rate par set to this))
 
   ###############################################
   #matrix for delay in L3 establishment in humans
@@ -207,8 +243,9 @@ ep.equi.sim <- function(time.its,
 
   prev <-  c()
   mean.mf.per.snip <- c()
+  L3_vec <- vector()
 
-  i <- 1
+  # i <- 1
 
   if(epilepsy_module == "YES"){
 
@@ -232,20 +269,83 @@ ep.equi.sim <- function(time.its,
 
     OAE_probs <- OAE_mfcount_prob_func(dat = Chesnais_dat)
   }
+  }
+
+  # =============================================================================================#
+  # set-up main structures for tracking human/parasite stages if equilibrium inputs not provided #
+  if(isFALSE(run_equilibrium))
+
+  {
+    if(is.list(equilibrium) == FALSE) stop('equilibrium condition not in correct format')
+    if(epilepsy_module == "YES") stop(' cannot run epilepsy model unless model run at/to equilibrium first')
+
+    ex.vec <- equilibrium[[2]] #exposure
+
+    ###############################################
+    #matrix for delay in l3 establishment in humans
+    num.delay.cols <- l3.delay * (28 / dt.days)
+    l.extras <- equilibrium[[4]]
+    inds.l.mat <- seq(2,(length(l.extras[1,]))) #for moving columns along with time
+
+    ################################################
+    l1.delay <- equilibrium[[6]]
+
+    ###############################################
+    #matrix for tracking mf for l1 delay
+    num.mfd.cols <- 4 / dt.days
+    mf.delay <- equilibrium[[5]]
+    inds.mfd.mats <- seq(2,(length(mf.delay[1,])))
+
+    ###############################################
+    #matrix for exposure for L1 delay
+    num.exp.cols <- 4 / dt.days
+
+    #matrix for first time step
+    all.mats.temp <- equilibrium[[1]]
 
 
+    exposure.delay <- equilibrium[[8]]
+    inds.exp.mats <- seq(2,(length(exposure.delay[1,])))
 
+    temp <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+                             mf.start, mf.end, pop.size = N)
+
+
+    prev <-  prevalence.for.age(age = 5, ss.in = temp, main.dat = all.mats.temp)
+
+    mean.mf.per.snip <- mean(temp[[2]][which(all.mats.temp[,2] >= 5)])
+
+    L3_vec <- mean(all.mats.temp[, 6])
+
+    treat.vec.in <- equilibrium[[3]]
+  }
+
+  # prev <-  c()
+  # mean.mf.per.snip <- c()
+
+  i <- 1
+
+  # ================================================================================================= #
+  #               Main loop for running through processes in model with i > 1                         #
   while(i < time.its) #over time
 
   {
-    print(paste(round(i * DT, digits = 2), 'yrs', sep = ' '))
+    #print(paste(round(i * DT, digits = 2), 'yrs', sep = ' '))
+
+    # if(isTRUE(print_progress)) {print(paste(round(i * DT, digits = 2), 'yrs', sep=' '))}
+
+    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs', sep=' '))}
+    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i/time.its * 100, digits = 1), '%', sep=' '))}
+
+    if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
+                                                                   (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
 
     #stores mean L3 and adult worms from previous timesteps
 
     all.mats.cur <- all.mats.temp
 
     #which individuals will be treated if treatment is given
-    if(i >= treat.start) {cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)}
+    if(i >= treat.start & give.treat==1) {cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)}
 
     #sex and age dependent exposure, mean exposure must be 1, so ABR is meaningful
 
@@ -437,6 +537,19 @@ ep.equi.sim <- function(time.its,
       }
     }
 
+    #save prevalence at current timestep
+    temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+                                mf.start, mf.end, pop.size = N)
+
+    prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
+
+
+    mean.mf.per.snip <- c(mean.mf.per.snip, mean(temp.mf[[2]][which(all.mats.temp[,2] >= min.mont.age)]))
+
+    mf.per.skin.snp.out <- temp.mf[[2]] #to extract out mf per skin snip for each individual?
+
+    L3_vec <- c(L3_vec, mean(all.mats.temp[, 6]))
+
 
     # new individual exposure for newborns, clear rows for new borns
     if(length(to.die) > 0)
@@ -468,16 +581,6 @@ ep.equi.sim <- function(time.its,
 
     }
 
-    temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                                mf.start, mf.end, pop.size = N)
-
-    prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
-
-
-    mean.mf.per.snip <- c(mean.mf.per.snip, mean(temp.mf[[2]][which(all.mats.temp[,2] >= min.mont.age)]))
-
-    mf.per.skin.snp.out <- temp.mf[[2]] #to extract out mf per skin snip for each individual?
-
 
     i <- i + 1
 
@@ -490,8 +593,25 @@ ep.equi.sim <- function(time.its,
                 OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
   } else {
 
-    return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out)) # outputs without epilepsy module
-                                                                             # [[2]] is mf prevalence, [[3]] is intensity
+   # return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out)) # outputs without epilepsy module
+   #                                                                         # [[2]] is mf prevalence, [[3]] is intensity
+
+
+    #enough outputs to restart sims
+    if(isTRUE(run_equilibrium))
+    {
+      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay))
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs')
+      return(outp)
+    }
+
+    #assuming output will not be used for further sims
+    if(isFALSE(run_equilibrium))
+    {
+      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp)
+      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens')
+      return(outp)
+    }
   }
 
 

@@ -169,7 +169,7 @@ change.worm.per.ind.treat <- function(give.treat, iteration, treat.start, times.
 
       treat.vec[inds.to.treat]  <-  (iteration-1) * DT #alter time since treatment
       #cum.infer is the proportion of female worms made permanently infertile, killed for simplicity
-      if(iteration > treat.start) {mort.fems[inds.to.treat] <- mort.fems[inds.to.treat] + (cum.infer); print('cum.infer')} #alter mortality
+      if(iteration > treat.start) {mort.fems[inds.to.treat] <- mort.fems[inds.to.treat] + (cum.infer)} #alter mortality
     }
 
 
