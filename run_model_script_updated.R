@@ -13,6 +13,9 @@ devtools::load_all()
 
 library(EPIONCHO.IBM) # when updated/ to install locally
 
+
+devtools::build_rmd("vignettes/Running_EPIONCHO_IBM.Rmd")
+
 # ==================================================== #
 #     baseline model run                               #
 # ==================================================== #
@@ -94,7 +97,9 @@ tme <- seq(0, 30*366-1)/366
 
 plot(tme, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
-abline(v = seq(0, 20), col = 'black', lwd = 0.1)
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+
+abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
 
 plot(tme, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
 

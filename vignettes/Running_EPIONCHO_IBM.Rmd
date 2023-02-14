@@ -1,13 +1,31 @@
 ---
-title: "EPIONCHO-IBM"
+title: "Installing and Running EPIONCHO-IBM"
 author:
 - name: Jonathan Hamley
   affiliation: Imperial College London, University of Bern
+  role:         # Contributorship roles (e.g., CRediT)
+  - Conceptualization
+  - Writing - Original Draft Preparation
+  - Writing - Review & Editing
+  - Software
 - name: Martin Walker
   affiliation: Royal Veterinary College, Imperial College London
+  role:         
+  - Conceptualization
+  - Software
 - name: Philip Milton
   affiliation: Imperial College London
-date: "May 15, 2021"
+  role:         
+  - Conceptualization
+  - Writing - Original Draft Preparation
+  - Writing - Review & Editing
+  - Software
+- name: Matthew A Dixon
+  affiliation: Imperial College London, SCI Foundation 
+  role:         
+  - Software
+  - Data/ code curation 
+date: "Febuary 14, 2023"
 output:
   html_document:
     df_print: paged
@@ -26,13 +44,12 @@ EPIONCHO IBM is written in R (1) which is freely available for installation on W
 
 # 2. Installation guide
 
-The model code can be downloaded and installed directly from a GitHub repository (https://github.com/jonathanhamley/EPIONCHO-IBM). The RCurl (2) package must be installed to do this. Installation should take no more than a few seconds on most desktop or laptop machines.
+The model package can be downloaded and installed directly from a GitHub repository (https://github.com/mrc-ide/EPIONCHO.IBM). The remotes (2) package must be installed to do this. Installation should take no more than a few seconds on most desktop or laptop machines.
 
 
-```{r, eval=F, echo = TRUE, collapse=TRUE}
-install.packages("RCurl")
-script <- RCurl::getURL("https://raw.githubusercontent.com/jonathanhamley/EPIONCHO-IBM/master/EPIONCHO_IBM_basic.R",ssl.verifypeer = FALSE)
-eval(parse(text = script))
+```{r, eval=T, echo = TRUE, collapse=TRUE}
+remotes::install_github("mrc-ide/EPIONCHO.IBM")
+library(EPIONCHO.IBM)
 ```
 
 # 3. Demo
@@ -41,7 +58,7 @@ eval(parse(text = script))
 
 Before simulating treatment, the model must be simulated to the endemic equilibrium. It is best to run the model to equilibrium (```run_equilibrium = TRUE```, ```give.treat = 0 ```), save the output and use this as the starting point for MDA. Note that running the model to the equilibrium can be slow, taking in excess of 5 minutes (depending on machine performance). To run the model to equilibrium without treating in the same run, use the following code:
 
-```{r, eval=F, echo = TRUE, collapse=TRUE}
+```{r}
 #length of simulation in years
 timesteps = 30
 
@@ -72,19 +89,20 @@ output_equilibrium <- ep.equi.sim(time.its = timesteps,
                                   print_progress = TRUE)
 ```
 
-To stop the printing of the time as the model runs, set ```print_progress = FALSE```. If ```run_equilibrium = TRUE``` then no input is expected for ```equilibrium```, which is where a previously simulated endemic equilibrium can be entered. This will be discussed later in section 3.3. Above, no MDA is not requested by setting ```gv.trt = 0```. Note that values must be entered for treatment start, stop and interval (1 is annual, 0.5 is biannual), e.g ```treat.strt = 0; treat.stp = 16; trt.int = 1```, even if ```gv.trt = 0```.
+To stop the printing of the time as the model runs, set ```print_progress = FALSE```. Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed.
+If ```run_equilibrium = TRUE``` then no input is expected for ```equilibrium```, which is where a previously simulated endemic equilibrium can be entered. This will be discussed later in section 3.3. Above, no MDA is not requested by setting ```gv.trt = 0```. Note that values must be entered for treatment start, stop and interval (1 is annual, 0.5 is biannual), e.g ```treat.strt = 0; treat.stp = 16; trt.int = 1```, even if ```gv.trt = 0```.
 
 ## 3.2 Visualising microfilarial infection prevalence through time
 
 The output from run_EPIONCHO_IBM is a list with four elements.
 
-```{r, eval=T, echo=T, comment=NA}
+```{r}
 names(output_equilibrium)
 ```
 
 The first three elements contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5) and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
 
-```{r, eval=T, echo=T, comment=NA}
+```{r}
 tme <- seq(1, 30*366-1)/366
 
 plot(tme, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
@@ -102,7 +120,7 @@ The fourth element,```"all_equilibrium_outputs"``` is the element required to si
 
 Assuming you have already run the model and saved the output as described in section 3.1, you can simulate 15 years of annual mass drug administration with ivermectin by running:
 
-```{r, eval=F, echo=T, comment=NA}
+```{r}
 timesteps = 30 
 treat.strt = 1; treat.stp = 26 #if model run stops in year 30, the last round is at the beginning of year 25
 gv.trt = 1
@@ -128,27 +146,28 @@ output_treat_annual <- ep.equi.sim(time.its = timesteps,
 
 ```
 
-Above ```print_progress = FALSE```, but when ```gv.trt = 1```, the duration of MDA will be printed. Note that ```timesteps``` is the total number of years for which the model is run. ```treat.start``` and ```treat.stop``` are the years within this duration at which MDA is given.
+If in the above model run ```print_progress = FALSE``` is called, but ```gv.trt = 1``` is also specified, only the duration of MDA will be printed (no progress updates). Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed as before.
+Note that ```timesteps``` is the total number of years for which the model is run. ```treat.start``` and ```treat.stop``` are the years within this duration at which MDA is given.
 
 To visualise the infection dynamics through time during annual MDA, use:
 
-```{r, eval=T, echo=T, comment=NA}
+```{r}
 tme <- seq(0, 30*366-1)/366
 
 plot(tme, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
-abline(v = seq(0, 30), col = 'black', lwd = 0.1)
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
 plot(tme, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
 
-abline(v = seq(0, 30), col = 'black', lwd = 0.1)
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```
 
 ### 3.3.2 Biannual MDA
 
 Assuming you have run the model to the endemic equilibrium (as described in secton 3.1), temporal infection trends during biannual MDA can be obtained by running:
 
-```{r, eval=F, echo=T, comment=NA}
+```{r}
 timesteps = 30 
 treat.strt = 1; treat.stp = 26 #if treatment stops in year 16, the last round is at the beginning of year 15
 gv.trt = 1
@@ -171,22 +190,22 @@ output_treat_biannual <- ep.equi.sim(time.its = timesteps,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
                                    equilibrium = output_equilibrium[[4]],
-                                   print_progress = FALSE)
+                                   print_progress = TRUE)
 
 ```
 
 Note than above ```trt.int = 0.5``` (rather than ```trt.int = 1```) to request biannual MDA. The output can be visualised using:
 
-```{r, eval=T, echo=T, comment=NA}
+```{r}
 tme <- seq(0, 30*366-1)/366
 
 plot(tme, output_treat_biannual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
-abline(v = seq(0, 30), col = 'black', lwd = 0.1)
+abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
 
 plot(tme, output_treat_biannual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
 
-abline(v = seq(0, 30), col = 'black', lwd = 0.1)
+abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
 ```
 
 ### 3.3.3 Coverage and non-compliance
@@ -197,6 +216,6 @@ The population level coverage is a proportion and is entered via ```treat.prob``
 
 1. R Core Team. R: A language and environment for statistical computing. (R Foundation for Statistical Computing, 2018).
 
-2. Lang, D. T. & CRAN team. RCurl: General network (http/ftp/...) client interface for r. (2019).
+2. Csárdi, G. RCurl: Package ‘remotes’: R Package Installation from Remote Repositories, Including 'GitHub'. (2022). https://cran.r-project.org/web/packages/remotes/ 
 
 

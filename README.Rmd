@@ -45,9 +45,11 @@ You can install the development version of EPIONCHO.IBM from [GitHub](https://gi
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("mrc-ide/EPIONCHO.IBM")
+# install.packages("remotes")
+remotes::install_github("mrc-ide/EPIONCHO.IBM")
 ```
 
 ## Using EPIONCHO-IBM
 
-Two vignettes are in development to provide a comprehensive guide to running baseline (endemic) dynamics and interventions in EPIONCHO-IBM. 
+For a detailed practical guide please see the [Installing and Running EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM.Rmd) vignette
+
