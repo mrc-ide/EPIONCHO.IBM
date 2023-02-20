@@ -143,3 +143,103 @@ plot(tme, output_treat_biannual$mf_intens, type = 'l', xlab = 'time', ylab = 'me
 
 abline(v = seq(0, 20), col = 'black', lwd = 0.1)
 
+
+#=====================================================================================================================================#
+#                           EPILEPSY MODEL WITH NEW STRUCTURE                                                                         #
+# =================================================================================================================================== #
+
+#length of simulation in years
+timesteps = 200
+
+#should treatment be given, when and how often
+give.treat.in = 0
+treat.strt = 1; treat.stp = 16
+trt.int = 1
+
+#annual biting rate, which determines infection prevalence
+ABR.in = 41922
+
+output_equilibrium_OAE <- ep.equi.sim(time.its = timesteps,
+                                  ABR = ABR.in,
+                                  N.in = 440,
+                                  treat.int = trt.int,
+                                  treat.prob = 0.65,
+                                  give.treat = give.treat.in,
+                                  treat.start = treat.strt,
+                                  treat.stop = treat.stp,
+                                  pnc = 0.05,
+                                  min.mont.age = 5,
+                                  delta.hz.in = 0.186,
+                                  delta.hinf.in = 0.003,
+                                  c.h.in = 0.005,
+                                  gam.dis.in = 0.3,
+                                  run_equilibrium = TRUE,
+                                  equilibrium,
+                                  print_progress = TRUE,
+                                  epilepsy_module = "YES")
+
+names(output_equilibrium_OAE)
+
+# OAE_prev_out <- output_equilibrium_OAE[[2]]
+# OAE_prev_out <- output_equilibrium_OAE[[6]]
+# OAE_incid_out <- output_equilibrium_OAE[[8]]
+
+tme <- seq(1, 200*366-1)/366
+
+plot(tme, output_equilibrium_OAE[[2]], type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+tme2 <- seq(1, 200*366)/366
+tme3 <- seq(1, 200*366)
+
+plot(tme2, output_equilibrium_OAE[[6]], type = 'l', xlab = 'time (years)', ylab = 'OAE prevalence', ylim = c(0, 1))
+plot(tme3, output_equilibrium_OAE[[6]], type = 'l', xlab = 'time (days)', ylab = 'OAE prevalence', ylim = c(0, 0.1), xlim = c(25000,80000))
+
+
+
+# ============================================ #
+#   With MDA (& running equilibirium)          #
+
+#length of simulation in years
+timesteps = 235
+
+#should treatment be given, when and how often
+give.treat.in = 1
+treat.strt = 200; treat.stp = 225
+trt.int = 1
+
+#annual biting rate, which determines infection prevalence
+ABR.in = 41922
+
+output_equilibrium_OAE_MDA <- ep.equi.sim(time.its = timesteps,
+                                      ABR = ABR.in,
+                                      N.in = 440,
+                                      treat.int = trt.int,
+                                      treat.prob = 0.65,
+                                      give.treat = give.treat.in,
+                                      treat.start = treat.strt,
+                                      treat.stop = treat.stp,
+                                      pnc = 0.05,
+                                      min.mont.age = 5,
+                                      delta.hz.in = 0.186,
+                                      delta.hinf.in = 0.003,
+                                      c.h.in = 0.005,
+                                      gam.dis.in = 0.3,
+                                      run_equilibrium = TRUE,
+                                      equilibrium,
+                                      print_progress = TRUE,
+                                      epilepsy_module = "YES")
+
+names(output_equilibrium_OAE_MDA)
+
+
+tme <- seq(1, 235*366-1)/366
+
+plot(tme, output_equilibrium_OAE_MDA[[2]], type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(tme, output_equilibrium_OAE_MDA[[2]], type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1), xlim = c(190, 235))
+
+tme2 <- seq(1, 235*366)/366
+tme3 <- seq(1, 235*366)
+
+plot(tme2, output_equilibrium_OAE_MDA[[6]], type = 'l', xlab = 'time (years)', ylab = 'OAE prevalence', ylim = c(0, 1))
+plot(tme3, output_equilibrium_OAE_MDA[[6]], type = 'l', xlab = 'time (days)', ylab = 'OAE prevalence', ylim = c(0, 0.1), xlim = c(25000,366*200))
+plot(tme3, output_equilibrium_OAE_MDA[[6]], type = 'l', xlab = 'time (days)', ylab = 'OAE prevalence', ylim = c(0, 0.1), xlim = c(366*190,366*235))

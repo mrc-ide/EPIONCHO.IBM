@@ -588,14 +588,37 @@ ep.equi.sim <- function(time.its,
 
   if(epilepsy_module == "YES"){
 
-    return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out, OAE, prev_OAE = OAE_out2[[1]], check_ind = OAE_out1[[3]],
-                OAE_incidence_DT = OAE_out2[[2]], OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
-                OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
+    # return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out, OAE, prev_OAE = OAE_out2[[1]], check_ind = OAE_out1[[3]],
+    #             OAE_incidence_DT = OAE_out2[[2]], OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
+    #             OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
+
+    if(isTRUE(run_equilibrium)){
+      outp <- (list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
+                    OAE, prev_OAE = OAE_out2[[1]], check_ind = OAE_out1[[3]], OAE_incidence_DT = OAE_out2[[2]],
+                    OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
+                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
+
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'OAE', 'OAE_prev','check_ind', 'OAE_incidence',
+                     'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females')
+    return(outp)
+    }
+
+    if(isFALSE(run_equilibrium))
+    {
+      outp <- (list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp,
+                    OAE, prev_OAE = OAE_out2[[1]], check_ind = OAE_out1[[3]], OAE_incidence_DT = OAE_out2[[2]],
+                    OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
+                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
+
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'ABR','all_equilibrium_outputs', 'OAE', 'OAE_prev','check_ind', 'OAE_incidence',
+                       'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females')
+      return(outp)
+    }
+
   } else {
 
-   # return(list(all.mats.temp, prev, mean.mf.per.snip, mf.per.skin.snp.out)) # outputs without epilepsy module
-   #                                                                         # [[2]] is mf prevalence, [[3]] is intensity
-
+    # ================================#
+    #  When epilpsy module not called #
 
     #enough outputs to restart sims
     if(isTRUE(run_equilibrium))
