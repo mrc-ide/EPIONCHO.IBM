@@ -28,10 +28,12 @@
 #' @param delta.hinf.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
 #' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
 #' @param gam.dis.in this is a new user-input for individual-level exposure in humans (overdispersion parameter k_E determining degree of individual exposure heterogeneity; default value is 0.3)
-#' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
 #' @param run_equilibrium specify whether to run to equilibrium first
 #' @param equilibrium equilibrium input given to continue model
 #' @param print_progess print the current status of the model run
+#' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
+#' @param OAE_equilibrium OAE equilibrium input given to continue model
+#' @param OAE_infection OAE prevalence and incidence inputs at equilibrium
 #'
 #' @export
 
@@ -52,7 +54,8 @@ ep.equi.sim <- function(time.its,
                         run_equilibrium,
                         equilibrium,
                         print_progress = TRUE,
-                        epilepsy_module = "NO")
+                        epilepsy_module = "NO",
+                        OAE_equilibrium)
 
 
 {
@@ -277,7 +280,7 @@ ep.equi.sim <- function(time.its,
 
   {
     if(is.list(equilibrium) == FALSE) stop('equilibrium condition not in correct format')
-    if(epilepsy_module == "YES") stop(' cannot run epilepsy model unless model run at/to equilibrium first')
+    # if(epilepsy_module == "YES") stop(' cannot run epilepsy model unless model run at/to equilibrium first')
 
     ex.vec <- equilibrium[[2]] #exposure
 
@@ -318,10 +321,52 @@ ep.equi.sim <- function(time.its,
     L3_vec <- mean(all.mats.temp[, 6])
 
     treat.vec.in <- equilibrium[[3]]
+
+    if(epilepsy_module == "YES"){
+
+      OAE <- OAE_equilibrium[[1]]
+      age_to_samp <- OAE_equilibrium[[2]]
+      tested_OAE <- OAE_equilibrium[[3]]
+      infected_at_all <- OAE_equilibrium[[4]]
+      check_ind <- OAE_equilibrium[[5]]
+      tot_ind_ep_samp <- OAE_equilibrium[[6]]
+      OAE_probs <- OAE_equilibrium[[7]]
+
+      prev_OAE <- mean(OAE) # calculate & update prevalence of OAE
+
+      new_inc <- length(which(OAE[tot_ind_ep_samp] == 1)) # how many infections (finds total new infected/OAE in all OAE)
+
+      OAE_incidence_DT <- new_inc # record + update number of new OAE cases
+
+      new_inc_3_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 3 & all.mats.temp[tot_ind_ep_samp ,2]< 5 )) # new cases in 3 to 5 age group
+      new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 5 & all.mats.temp[tot_ind_ep_samp ,2]<= 10 )) # new cases in 5 to 10 age group
+
+      new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 1)) # new cases in males
+      new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 0)) # new cases in females
+
+      OAE_incidence_DT_3_5 <- new_inc_3_5 # record & update incidence in 3 to 5 age group
+      OAE_incidence_DT_5_10 <- new_inc_5_10 # record & update incidence in 5 to 10 age group
+
+      OAE_incidence_DT_M <- new_inc_M # record & update incidence in males
+      OAE_incidence_DT_F <- new_inc_F # record & update incidence in females
+
+      # # if taking straight from eq input
+      # prev_OAE <- OAE_infection[[1]] # calculate & update prevalence of OAE
+      #
+      # OAE_incidence_DT <- OAE_infection[[2]] # record + update number of new OAE cases
+      #
+      # OAE_incidence_DT_3_5 <- OAE_infection[[3]] # record & update incidence in 3 to 5 age group
+      # OAE_incidence_DT_5_10 <- OAE_infection[[4]] # record & update incidence in 5 to 10 age group
+      #
+      # OAE_incidence_DT_M <- OAE_infection[[5]] # record & update incidence in males
+      # OAE_incidence_DT_F <- OAE_infection[[6]] # record & update incidence in females
+
+
+
+    }
+
   }
 
-  # prev <-  c()
-  # mean.mf.per.snip <- c()
 
   i <- 1
 
@@ -593,25 +638,32 @@ ep.equi.sim <- function(time.its,
     #             OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
 
     if(isTRUE(run_equilibrium)){
-      outp <- (list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
-                    OAE, prev_OAE = OAE_out2[[1]], check_ind = OAE_out1[[3]], OAE_incidence_DT = OAE_out2[[2]],
+      outp <- (list(prev, mean.mf.per.snip, L3_vec,
+                    list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
+                    prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
                     OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
-                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
+                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]],
+                    list(OAE, age_to_samp, tested_OAE, infected_at_all, check_ind = OAE_out1[[3]],
+                    tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs))) #[[2]] is mf prevalence, [[3]] is intensity
 
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'OAE', 'OAE_prev','check_ind', 'OAE_incidence',
-                     'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females')
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
+                     'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females',
+                     'all_OAE_equilibirum_ouputs')
     return(outp)
     }
 
     if(isFALSE(run_equilibrium))
     {
       outp <- (list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp,
-                    OAE, prev_OAE = OAE_out2[[1]], check_ind = OAE_out1[[3]], OAE_incidence_DT = OAE_out2[[2]],
+                    prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
                     OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
-                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]])) #[[2]] is mf prevalence, [[3]] is intensity
+                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]],
+                    list(OAE, age_to_samp, tested_OAE, infected_at_all, check_ind = OAE_out1[[3]],
+                    tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs))) #[[2]] is mf prevalence, [[3]] is intensity
 
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'ABR','all_equilibrium_outputs', 'OAE', 'OAE_prev','check_ind', 'OAE_incidence',
-                       'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females')
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'ABR','all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
+                       'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females',
+                       'all_OAE_equilibirum_ouputs')
       return(outp)
     }
 
