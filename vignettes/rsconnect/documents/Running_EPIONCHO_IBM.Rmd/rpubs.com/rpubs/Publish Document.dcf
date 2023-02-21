@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/1005855/3265f0f45e8241239d6441dac76942a8
+bundleId: https://api.rpubs.com/api/v1/document/1005855/3265f0f45e8241239d6441dac76942a8
+url: http://rpubs.com/mad206/1005855/edit
+when: 1677000826.57225
+lastSyncTime: 1677000826.57225

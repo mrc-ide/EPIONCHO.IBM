@@ -113,7 +113,7 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, nfw.start, f
 #' @param OAE vector of individuals defined as able to develop to OAE/ to determine whether OAE onset occurs
 #' @param tested_OAE vector to specify which individuals have been tested
 #' @param OAE_incidence_DT OAE incidence vector (whole population) to update
-#' @param OAE_incidence_DT_under_5 OAE incidence vector in under 5 years to update
+#' @param OAE_incidence_DT_under_5 OAE incidence vector in under 5 years (3 - 5 years) to update
 #' @param OAE_incidence_DT_5_10 OAE incidence vector in 5 - 10 years to update
 #' @param OAE_incidence_DT_11_15 OAE incidence vector in 10 - 15 years to update
 #' @param OAE_incidence_DT_M OAE incidence vector in males to update

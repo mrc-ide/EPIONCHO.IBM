@@ -47,7 +47,7 @@ EPIONCHO IBM is written in R (1) which is freely available for installation on W
 The model package can be downloaded and installed directly from a GitHub repository (https://github.com/mrc-ide/EPIONCHO.IBM). The remotes (2) package must be installed to do this. Installation should take no more than a few seconds on most desktop or laptop machines.
 
 
-```{r, eval=T, echo = TRUE, collapse=TRUE}
+```{r, eval=T, echo = FALSE, collapse= FALSE}
 remotes::install_github("mrc-ide/EPIONCHO.IBM")
 library(EPIONCHO.IBM)
 ```
@@ -90,7 +90,9 @@ output_equilibrium <- ep.equi.sim(time.its = timesteps,
 ```
 
 To stop the printing of the time as the model runs, set ```print_progress = FALSE```. Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed.
-If ```run_equilibrium = TRUE``` then no input is expected for ```equilibrium```, which is where a previously simulated endemic equilibrium can be entered. This will be discussed later in section 3.3. Above, no MDA is not requested by setting ```gv.trt = 0```. Note that values must be entered for treatment start, stop and interval (1 is annual, 0.5 is biannual), e.g ```treat.strt = 0; treat.stp = 16; trt.int = 1```, even if ```gv.trt = 0```.
+If ```run_equilibrium = TRUE``` then no input is expected for ```equilibrium```, which is where a previously simulated endemic equilibrium can be entered. This will be discussed later in section 3.3. Above, no MDA is not requested by setting ```gv.trt = 0```. Note that values must be entered for treatment start, stop and interval (1 is annual, 0.5 is biannual), e.g ```treat.strt = 0; treat.stp = 16; trt.int = 1```, even if ```gv.trt = 0```. 
+
+It is also possible to manually change the density-dependent parameters relating to the establishment of the adult *Onchocerca volvulus* (```delta.hz.in```, ```delta.hinf.in``` and ```c.h.in```) and individual exposure heterogeneity in humans (```gam.dis.in```), in the function calling the model (above). This feature enables the user to modify these parameters to capture the combinations of  exposure heterogeneity parameter values and fitted density-dependent parameters in [Hamley et al. 2019](https://journals.plos.org/plosntds/article?id=10.1371/journal.pntd.0007557). 
 
 ## 3.2 Visualising microfilarial infection prevalence through time
 
