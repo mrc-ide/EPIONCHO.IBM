@@ -194,6 +194,7 @@ plot(tme2, output_equilibrium_OAE[[5]], type = 'l', xlab = 'time (years)', ylab 
 plot(tme3, output_equilibrium_OAE[[5]], type = 'l', xlab = 'time (days)', ylab = 'OAE prevalence', ylim = c(0, 0.1), xlim = c(25000,80000))
 plot(tme3, output_equilibrium_OAE[[5]], type = 'l', xlab = 'time (days)', ylab = 'OAE prevalence', ylim = c(0.02, 0.06), xlim = c(25000,80000))
 
+tail(output_equilibrium_OAE[[5]])
 
 
 # =========================================== #
@@ -229,7 +230,7 @@ output_treat_annual_OAE <- ep.equi.sim(time.its = timesteps,
                                    equilibrium = output_equilibrium_OAE[[4]],
                                    print_progress = TRUE,
                                    epilepsy_module = "YES",
-                                   OAE_equilibrium = output_equilibrium_OAE[[11]])
+                                   OAE_equilibrium = output_equilibrium_OAE[[12]])
 
 # plot
 tme <- seq(0, 26*366-1)/366
@@ -247,7 +248,7 @@ abline(v = seq(0, 20), col = 'black', lwd = 0.1)
 # OAE
 tme3 <- seq(1, 26*366)
 
-plot(tme, output_treat_annual_OAE$OAE_prev, type = 'l', xlab = 'time', ylab = 'OAE prevalence', ylim = c(0, 0.06))
+plot(tme, output_treat_annual_OAE$OAE_prev, type = 'l', xlab = 'time', ylab = 'OAE prevalence', ylim = c(0, 0.1))
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 

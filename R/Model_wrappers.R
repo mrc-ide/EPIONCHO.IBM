@@ -152,8 +152,8 @@ ep.equi.sim <- function(time.its,
   num.cols <- 6 + num.mf.comps + tot.worms
   worms.start <- 7 + num.mf.comps
 
-  nfw.start <- 7 + num.mf.comps + num.comps.worm #start of infertile worms
-  fw.end <- num.cols #end of fertile worms
+  nfw.start <- 7 + num.mf.comps + num.comps.worm # start of infertile worms
+  fw.end <- num.cols # end of fertile worms
   mf.start <- 7
   mf.end <- 6 + num.mf.comps
 
@@ -255,14 +255,15 @@ ep.equi.sim <- function(time.its,
     # new inputs required #
     infected_at_all <- rep(1, N)
     #age_to_samp <- runif(N, min = 3, max = 10)
-    age_to_samp <- sample(seq(3, 10, DT), size = N, replace = TRUE)
+    age_to_samp <- sample(seq(3, 15, DT), size = N, replace = TRUE)
     OAE <- rep(1, N)
     prev_OAE <- 1
     tested_OAE <- rep(0, N)
     check_ind <- c()
     OAE_incidence_DT <- c()
-    OAE_incidence_DT_3_5 <- c()
+    OAE_incidence_DT_under_5 <- c()
     OAE_incidence_DT_5_10 <- c()
+    OAE_incidence_DT_11_15 <- c()
     OAE_incidence_DT_M <- c()
     OAE_incidence_DT_F <- c()
 
@@ -338,14 +339,17 @@ ep.equi.sim <- function(time.its,
 
       OAE_incidence_DT <- new_inc # record + update number of new OAE cases
 
-      new_inc_3_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 3 & all.mats.temp[tot_ind_ep_samp ,2]< 5 )) # new cases in 3 to 5 age group
+
+      new_inc_under_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 3 & all.mats.temp[tot_ind_ep_samp ,2]< 5 )) # new cases in 3 to 5 age group
       new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 5 & all.mats.temp[tot_ind_ep_samp ,2]<= 10 )) # new cases in 5 to 10 age group
+      new_inc_11_15 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 10 & all.mats.temp[tot_ind_ep_samp ,2]<= 15 )) # new cases in 10 to 15 age group
 
       new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 1)) # new cases in males
       new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 0)) # new cases in females
 
-      OAE_incidence_DT_3_5 <- new_inc_3_5 # record & update incidence in 3 to 5 age group
+      OAE_incidence_DT_under_5 <- new_inc_under_5 # record & update incidence in 3 to 5 age group
       OAE_incidence_DT_5_10 <- new_inc_5_10 # record & update incidence in 5 to 10 age group
+      OAE_incidence_DT_11_15 <- new_inc_11_15 # record & update incidence in 10 to 15 age group
 
       OAE_incidence_DT_M <- new_inc_M # record & update incidence in males
       OAE_incidence_DT_F <- new_inc_F # record & update incidence in females
@@ -360,8 +364,6 @@ ep.equi.sim <- function(time.its,
       #
       # OAE_incidence_DT_M <- OAE_infection[[5]] # record & update incidence in males
       # OAE_incidence_DT_F <- OAE_infection[[6]] # record & update incidence in females
-
-
 
     }
 
@@ -541,7 +543,7 @@ ep.equi.sim <- function(time.its,
 
       if(i == 1){
 
-        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, tot.worms = tot.worms,
+        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, nfw.start = nfw.start, fw.end = fw.end,
                           infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE, check_ind = check_ind) # step 1
 
         infected_at_all = OAE_out1[[2]] # updated (when i = 1)
@@ -553,16 +555,16 @@ ep.equi.sim <- function(time.its,
         OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
                                        OAE = OAE, tested_OAE = tested_OAE,
                                        prev_OAE = prev_OAE, OAE_incidence_DT = OAE_incidence_DT,
-                                       OAE_incidence_DT_3_5 = OAE_incidence_DT_3_5, OAE_incidence_DT_5_10 = OAE_incidence_DT_5_10,
+                                       OAE_incidence_DT_under_5 = OAE_incidence_DT_under_5, OAE_incidence_DT_5_10 = OAE_incidence_DT_5_10, OAE_incidence_DT_11_15 = OAE_incidence_DT_11_15,
                                        OAE_incidence_DT_M = OAE_incidence_DT_M, OAE_incidence_DT_F = OAE_incidence_DT_F) # step 2
 
-        OAE = OAE_out2[[8]] # updated (when i = 1)
-        tested_OAE = OAE_out2[[9]] # updated (when i = 1)
+        OAE = OAE_out2[[9]] # updated (when i = 1)
+        tested_OAE = OAE_out2[[10]] # updated (when i = 1)
       }
 
       if(i > 1){
 
-        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, tot.worms = tot.worms,
+        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, nfw.start = nfw.start, fw.end = fw.end,
                                         infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE, check_ind = check_ind) # step 1
 
         infected_at_all = OAE_out1[[2]] # updated (when i > 1)
@@ -574,11 +576,11 @@ ep.equi.sim <- function(time.its,
         OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
                                        OAE = OAE, tested_OAE = tested_OAE,
                                        prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
-                                       OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
-                                       OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]]) # step 2
+                                       OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
+                                       OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]]) # step 2
 
-        OAE = OAE_out2[[8]] # updated (when i > 1)
-        tested_OAE = OAE_out2[[9]] # updated (when i > 1)
+        OAE = OAE_out2[[9]] # updated (when i > 1)
+        tested_OAE = OAE_out2[[10]] # updated (when i > 1)
       }
     }
 
@@ -616,7 +618,7 @@ ep.equi.sim <- function(time.its,
 
         infected_at_all[to.die] <- 0 # index those individuals to die as no longer ever infected
 
-        age_to_samp[to.die] <- sample(seq(3, 10, DT), size = length(to.die), replace = TRUE) # for those individuals set to die, resample
+        age_to_samp[to.die] <- sample(seq(3, 15, DT), size = length(to.die), replace = TRUE) # for those individuals set to die, resample
 
         OAE[to.die] <-  0 # index those individuals to die as no longer with OAE
 
@@ -641,13 +643,14 @@ ep.equi.sim <- function(time.its,
       outp <- (list(prev, mean.mf.per.snip, L3_vec,
                     list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
                     prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
-                    OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
-                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]],
-                    list(OAE, age_to_samp, tested_OAE, infected_at_all, check_ind = OAE_out1[[3]],
-                    tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs))) #[[2]] is mf prevalence, [[3]] is intensity
+                    OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
+                    OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
+                    list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
+                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs)))
 
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
-                     'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females',
+                     'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
+                     'OAE_incidence_males','OAE_incidence_females',
                      'all_OAE_equilibirum_ouputs')
     return(outp)
     }
@@ -656,13 +659,14 @@ ep.equi.sim <- function(time.its,
     {
       outp <- (list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp,
                     prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
-                    OAE_incidence_DT_3_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]],
-                    OAE_incidence_DT_M = OAE_out2[[5]], OAE_incidence_DT_F = OAE_out2[[6]],
-                    list(OAE, age_to_samp, tested_OAE, infected_at_all, check_ind = OAE_out1[[3]],
-                    tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs))) #[[2]] is mf prevalence, [[3]] is intensity
+                    OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
+                    OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
+                    list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
+                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs)))
 
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'ABR','all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
-                       'OAE_incidence_3_5yrs','OAE_incidence_5_10yrs','OAE_incidence_males','OAE_incidence_females',
+                       'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
+                       'OAE_incidence_males','OAE_incidence_females',
                        'all_OAE_equilibirum_ouputs')
       return(outp)
     }
