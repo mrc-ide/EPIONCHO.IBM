@@ -145,7 +145,7 @@ change.worm.per.ind1 <- function(treat.vec, lambda.zero, DT, omeg, ws, compartme
 #' @param treat.vec vector of times since treatment for each individual
 #' @param DT timestep
 #' @param cum.infer proportion of adult female worms made permanently infertility due to ivermectin at each round (lambda'_p in Hamley et al. 2019 supp); default is 0.345
-#' @param lam.m embryostatic effects of ivermectin; lam.m is the max rate of treatment-induced sterility (lambda_max in Hamley et al. 2019 supp): default is 32.4 year-1
+#' @param lam.m embryostatic effects of ivermectin; lam.m is the max rate of transient treatment-induced sterility (lambda_max in Hamley et al. 2019 supp): default is 32.4 year-1
 #' @param phi rate of decay of ivermectin-induced female worm sterlisation; default is 19.6 year-1
 #' @param N total human population size
 #' @param mort.fems vector of mortality rates (adult worms) for each age class/category; updated in change.worm.per.ind1
