@@ -24,6 +24,9 @@
 #' @param treat.stop iteration where treatment stops
 #' @param pnc proportion of population which never receive treatment (single input value between 0 - 1)
 #' @param min.mont.age minimum age for giving a skin snip (single input value, default is 5)
+#' @param vector.control.strt start year for vector control
+#' @param vector.control.duration duration in years for vector control
+#' @param vector.control.efficacy efficacy of vector (proportion of original ABR value)
 #' @param delta.hz.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to 0)
 #' @param delta.hinf.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
 #' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
@@ -47,6 +50,9 @@ ep.equi.sim <- function(time.its,
                         treat.stop,
                         pnc,
                         min.mont.age,
+                        vector.control.strt,
+                        vector.control.duration,
+                        vector.control.efficacy,
                         delta.hz.in, # these inputs are new (matt) for testing DD
                         delta.hinf.in,
                         c.h.in,
@@ -74,6 +80,20 @@ ep.equi.sim <- function(time.its,
     if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
     if(treat.start == 0) {treat.start <-  1}
   }
+
+  # vector control #
+  if(!is.na(vector.control.strt)){
+  # if(vector.control.strt >= 0){
+
+    vc.iter.strt <- round(vector.control.strt / (DT))
+    vc.iter.stp <- vc.iter.strt + round(vector.control.duration / (DT))
+
+  } else {
+    vc.iter.strt <- NA
+    vc.iter.stp <- NA
+    vector.control.duration <- NA
+  }
+
 
   # ================ #
   # hard coded parms #
@@ -247,6 +267,7 @@ ep.equi.sim <- function(time.its,
   prev <-  c()
   mean.mf.per.snip <- c()
   L3_vec <- vector()
+  ABR_recorded <- c()
 
   # i <- 1
 
@@ -448,6 +469,29 @@ ep.equi.sim <- function(time.its,
     #mean number of L3 in fly population
     L3.in <- mean(all.mats.cur[, 6])
 
+
+    # change m based on ABR change due to vector control if called (during vector control duration iteration period)
+    if(!is.na(vector.control.strt)){
+
+      if (i >= vc.iter.strt && i < vc.iter.stp) {
+
+      ABR_updated <- ABR - (ABR * vector.control.efficacy) # proportional reduction in ABR (x efficacy) during VC
+
+      m = ABR_updated * ((1/104) / 0.63) # update m
+      }
+    }
+
+    # to track #
+    if (i >= vc.iter.strt && i < vc.iter.stp) {
+
+      ABR_upd <- ABR_updated
+
+      } else {
+
+      ABR_upd <- ABR
+    }
+
+
     #rate of infections in humans
     #delta.hz, delta.hinf, c.h are density dependence parameters, expos is the exposure of each person to bites
     nw.rate <- Wplus1.rate(delta.hz, delta.hinf, c.h, L3 = L3.in, m ,
@@ -597,6 +641,7 @@ ep.equi.sim <- function(time.its,
 
     L3_vec <- c(L3_vec, mean(all.mats.temp[, 6]))
 
+    ABR_recorded <- c(ABR_recorded, ABR_upd)
 
     # new individual exposure for newborns, clear rows for new borns
     if(length(to.die) > 0)
@@ -679,8 +724,8 @@ ep.equi.sim <- function(time.its,
     #enough outputs to restart sims
     if(isTRUE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay))
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs')
+      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded)
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded')
       return(outp)
     }
 

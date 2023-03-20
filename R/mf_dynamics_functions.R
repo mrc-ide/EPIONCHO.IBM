@@ -239,3 +239,63 @@ prevalence.for.age <- function(age, ss.in, main.dat)
 
   return(out)
 }
+
+
+
+#' @title
+#' mf prevalence by strata
+#' @description
+#' calculates mf prevalence in people based on a skin snip for different population strata (age and sex)
+#' @param ss.in takes mf per skin snip count object for each individual to convert to binary variable for prevalence
+#' @param main.dat main matrix contain age of each individual (to ensure only calculate prevalence based o age from which skin snips are taken)
+#' @param lwr_age lower age to measure prevalence from
+#' @param upr_age lower age to measure prevalence to
+#' @param sex  sex of strata to measure prevalence in
+#'
+#' @returns value for prevalence
+prevalence.for.age_sex.strata <- function(ss.in, main.dat, lwr_age, upr_age, sex)
+
+{
+  if(sex == "male"){
+    sex_ind <- 1
+  } else {
+    sex_ind <- 0
+  }
+
+  inds <- which(main.dat[,2] >= lwr_age & main.dat[,2] < upr_age & main.dat[,3] == sex_ind)
+
+  out <- length(which(ss.in[[2]][inds] > 0)) / length(inds)
+
+  return(out)
+}
+
+
+#' @title
+#' mf prevalence by strata (including compliance)
+#' @description
+#' calculates mf prevalence in people based on a skin snip for different population strata (age, sex and compliance)
+#' @param ss.in takes mf per skin snip count object for each individual to convert to binary variable for prevalence
+#' @param main.dat main matrix contain age of each individual (to ensure only calculate prevalence based o age from which skin snips are taken)
+#' @param lwr_age lower age to measure prevalence from
+#' @param upr_age lower age to measure prevalence to
+#' @param sex  sex of strata to measure prevalence in
+#'
+#' @returns value for prevalence
+prevalence.for.age_sex_compl.strata <- function(ss.in, main.dat, lwr_age, upr_age, sex, compliance)
+
+{
+  if(sex == "male"){
+    sex_ind <- 1
+  } else {
+    sex_ind <- 0
+  }
+
+  inds <- which(main.dat[,2] >= lwr_age & main.dat[,2] < upr_age)
+
+  out <- length(which(ss.in[[2]][inds] > 0)) / length(inds)
+
+  return(out)
+}
+
+
+
