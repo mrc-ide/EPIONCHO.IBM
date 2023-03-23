@@ -18,6 +18,7 @@
 #' @param N.in human population size
 #' @param DT timestep (must be one day e.g., 1/366)
 #' @param treat.int treatment interval in years e.g., 1 is every 1 year, 0.5 is every 6 months (this input is a single value)
+#' @param treat.timing specific timing of treatment rounds (default is NA)
 #' @param treat.prob total population coverage (this input is a single value between 0 - 1)
 #' @param give.treat takes 1 (MDA) or 0 (no MDA)
 #' @param treat.start iteration where treatment starts
@@ -44,6 +45,7 @@ ep.equi.sim <- function(time.its,
                         ABR,
                         N.in,
                         treat.int,
+                        treat.timing,
                         treat.prob,
                         give.treat,
                         treat.start,
@@ -74,16 +76,18 @@ ep.equi.sim <- function(time.its,
   # if(give.treat == 1) #calculate timesteps at which treatment is given
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
   # else {times.of.treat.in <- 0}
+
   if(give.treat == 1)
   {
     treat.stop <- round(treat.stop / (DT))
     if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
     if(treat.start == 0) {treat.start <-  1}
-  }
+
+    #if(!is.NA(treat.timing)) {treat.timing <- round((treat.timing) / (DT)) + 1} # if treat.timing vector specified
+   }
 
   # vector control #
   if(!is.na(vector.control.strt)){
-  # if(vector.control.strt >= 0){
 
     vc.iter.strt <- round(vector.control.strt / (DT))
     vc.iter.stp <- vc.iter.strt + round(vector.control.duration / (DT))
@@ -149,7 +153,10 @@ ep.equi.sim <- function(time.its,
     if(treat.prob > 1) stop('treatment probability must be between 0 & 1')
     if(treat.stop > time.its) stop('not enough time for requested MDA duration')
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
-    times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)
+    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)}
+    if(all(is.na(treat.timing)))
+      {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
+    else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
@@ -482,7 +489,7 @@ ep.equi.sim <- function(time.its,
     }
 
     # to track #
-    if (i >= vc.iter.strt && i < vc.iter.stp) {
+    if (!is.na(vector.control.strt) && i >= vc.iter.strt && i < vc.iter.stp) {
 
       ABR_upd <- ABR_updated
 
@@ -551,7 +558,8 @@ ep.equi.sim <- function(time.its,
 
       res.mf <- change.micro(dat = all.mats.cur, num.comps =num.comps.worm, mf.cpt = mf.c,
                              num.mf.comps = num.mf.comps, ws=worms.start, DT=DT, time.each.comp = time.each.comp.mf,
-                             mu.rates.mf = mort.rates.mf, fec.rates = fec.rates.worms, mf.move.rate = mf.move.rate, up = up, kap = kap, iteration = i, treat.vec = treat.vec.in, give.treat = give.treat, treat.start = treat.start)
+                             mu.rates.mf = mort.rates.mf, fec.rates = fec.rates.worms, mf.move.rate = mf.move.rate, up = up, kap = kap, iteration = i,
+                             treat.vec = treat.vec.in, give.treat = give.treat, treat.start = treat.start)
 
       all.mats.temp[, 6 + mf.c] <- res.mf
     }
