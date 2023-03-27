@@ -177,16 +177,21 @@ derivmf.rest <- function(mf.in, mf.mort, mf.move, mf.comp.minus.one, k.in)
 #' @param mf.start column (first age compartment) in matrix where mf begin
 #' @param mf.end column (last age compartment) in matrix where mf ends
 #' @param pop.size human population size
+#' @param kM.const.toggle if set to YES then kM is a constant (default = 15)
 #'
 #' @returns element (1) in list is mean of mf per skin snip; element (2) contains all mf per skin snip for each individual
 mf.per.skin.snip <- function(ss.wt, num.ss, slope.kmf, int.kMf, data, nfw.start, fw.end,  ###check vectorization
-                             mf.start, mf.end, pop.size)
+                             mf.start, mf.end, pop.size, kM.const.toggle)
 
 {
 
   all.mfobs <- c()
 
-  kmf <- slope.kmf * (rowSums(data[,nfw.start:fw.end])) + int.kMf #rowSums(da... sums up adult worms for all individuals giving a vector of kmfs
+  if(isTRUE(kM.const.toggle)){
+    kmf <- 0 * (rowSums(data[,nfw.start:fw.end])) + 15}
+  else {
+     kmf <- slope.kmf * (rowSums(data[,nfw.start:fw.end])) + int.kMf #rowSums(da... sums up adult worms for all individuals giving a vector of kmfs
+  }
 
   mfobs <- rnbinom(pop.size, size = kmf, mu = ss.wt * (rowSums(data[,mf.start:mf.end])))
 
