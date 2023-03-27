@@ -18,16 +18,22 @@
 #' @param N.in human population size
 #' @param DT timestep (must be one day e.g., 1/366)
 #' @param treat.int treatment interval in years e.g., 1 is every 1 year, 0.5 is every 6 months (this input is a single value)
+#' @param treat.timing specific timing of treatment rounds (default is NA)
 #' @param treat.prob total population coverage (this input is a single value between 0 - 1)
+#' @param treat.prob.variable variable total population coverage (value between 0 - 1) specified as a vector of coverages for each treatment round
 #' @param give.treat takes 1 (MDA) or 0 (no MDA)
 #' @param treat.start iteration where treatment starts
 #' @param treat.stop iteration where treatment stops
 #' @param pnc proportion of population which never receive treatment (single input value between 0 - 1)
 #' @param min.mont.age minimum age for giving a skin snip (single input value, default is 5)
+#' @param vector.control.strt start year for vector control
+#' @param vector.control.duration duration in years for vector control
+#' @param vector.control.efficacy efficacy of vector (proportion of original ABR value)
 #' @param delta.hz.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to 0)
 #' @param delta.hinf.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
 #' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
 #' @param gam.dis.in this is a new user-input for individual-level exposure in humans (overdispersion parameter k_E determining degree of individual exposure heterogeneity; default value is 0.3)
+#' @param kM.const.toggle specifies whether kM set to constant (if yes, then overdispersion in mf in skin set to 15)
 #' @param run_equilibrium specify whether to run to equilibrium first
 #' @param equilibrium equilibrium input given to continue model
 #' @param print_progess print the current status of the model run
@@ -41,16 +47,22 @@ ep.equi.sim <- function(time.its,
                         ABR,
                         N.in,
                         treat.int,
+                        treat.timing,
                         treat.prob,
+                        treat.prob.variable = NA,
                         give.treat,
                         treat.start,
                         treat.stop,
                         pnc,
                         min.mont.age,
+                        vector.control.strt,
+                        vector.control.duration,
+                        vector.control.efficacy,
                         delta.hz.in, # these inputs are new (matt) for testing DD
                         delta.hinf.in,
                         c.h.in,
                         gam.dis.in,
+                        kM.const.toggle = FALSE,
                         run_equilibrium,
                         equilibrium,
                         print_progress = TRUE,
@@ -68,12 +80,26 @@ ep.equi.sim <- function(time.its,
   # if(give.treat == 1) #calculate timesteps at which treatment is given
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
   # else {times.of.treat.in <- 0}
+
   if(give.treat == 1)
   {
     treat.stop <- round(treat.stop / (DT))
     if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
     if(treat.start == 0) {treat.start <-  1}
   }
+
+  # vector control #
+  if(!is.na(vector.control.strt)){
+
+    vc.iter.strt <- round(vector.control.strt / (DT))
+    vc.iter.stp <- vc.iter.strt + round(vector.control.duration / (DT))
+
+  } else {
+    vc.iter.strt <- NA
+    vc.iter.stp <- NA
+    vector.control.duration <- NA
+  }
+
 
   # ================ #
   # hard coded parms #
@@ -115,7 +141,7 @@ ep.equi.sim <- function(time.its,
   fec.w.1 = 70; fec.w.2 = 0.72 #parameters controlling age-dependent fecundity in adult worms (matt: fec.w.1 = F and fec.w.2 = G in Supp table E)
   l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
   lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
-  cum.infer= 0.345 #permenent infertility in worms due to ivermectin
+  cum.infer= 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
   up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
   # gam.dis = 0.3 #individual level exposure heterogeneity (matt: shape par in gamma dist, K_E)
   gam.dis <- gam.dis.in # when specifying user input (K_E)
@@ -126,10 +152,16 @@ ep.equi.sim <- function(time.its,
 
   if(give.treat == 1)
   {
-    if(treat.prob > 1) stop('treatment probability must be between 0 & 1')
+    if(all(is.na(treat.prob.variable))){ if(treat.prob > 1) stop('treatment probability must be between 0 & 1') }
+    else {if(any(treat.prob.variable > 1)) stop('treatment probability must be between 0 & 1')}
+
     if(treat.stop > time.its) stop('not enough time for requested MDA duration')
+
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
-    times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)
+    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)}
+    if(all(is.na(treat.timing)))
+      {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
+    else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
@@ -137,6 +169,17 @@ ep.equi.sim <- function(time.its,
     print(paste(round(times.of.treat.in / 366, digits = 2), 'yrs', sep = ''))
 
     print(times.of.treat.in)
+
+    print('Coverage at each round')
+    if(all(!is.na(treat.prob.variable))) {print(paste(treat.prob.variable*100, "%", sep = ''))}
+    else{print(paste(treat.prob*100, "%", sep = ''))}
+
+    print('ABR is')
+    print(paste(ABR, 'bites person-1 yr-1 at endemic equilibria'))
+    if(!is.na(vector.control.strt)){
+      print('ABR changes to the following due to vector control')
+      print(paste((ABR - (ABR * vector.control.efficacy)), 'bites person-1 yr-1 at', vector.control.strt, 'yrs'))}
+
   }
   else {times.of.treat.in <- 0; print('no MDA to be simulated')}
 
@@ -247,6 +290,8 @@ ep.equi.sim <- function(time.its,
   prev <-  c()
   mean.mf.per.snip <- c()
   L3_vec <- vector()
+  ABR_recorded <- c()
+  coverage.recorded <- c()
 
   # i <- 1
 
@@ -312,7 +357,7 @@ ep.equi.sim <- function(time.its,
     inds.exp.mats <- seq(2,(length(exposure.delay[1,])))
 
     temp <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                             mf.start, mf.end, pop.size = N)
+                             mf.start, mf.end, pop.size = N, kM.const.toggle)
 
 
     prev <-  prevalence.for.age(age = 5, ss.in = temp, main.dat = all.mats.temp)
@@ -391,6 +436,21 @@ ep.equi.sim <- function(time.its,
 
     all.mats.cur <- all.mats.temp
 
+    # extract element from treat.prob.variable depending on specific treatment round (iteration in times.of.treat.in) #
+    if(all(!is.na(treat.prob.variable))){
+
+      if(any(i == times.of.treat.in)) {
+        index.iter.treat <- match(i, times.of.treat.in) # find element where iteration number matches a time in times.of.treat vector
+        treat.prob <- treat.prob.variable[index.iter.treat]} # index prob value from treat.prob.variable vector
+
+    }
+
+    # to track variable coverage
+    if(i >= treat.start & i <= treat.stop & give.treat == 1){
+      coverage.upd <- treat.prob
+    } else
+    {coverage.upd <- 0}
+
     #which individuals will be treated if treatment is given
     if(i >= treat.start & give.treat==1) {cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)}
 
@@ -447,6 +507,29 @@ ep.equi.sim <- function(time.its,
 
     #mean number of L3 in fly population
     L3.in <- mean(all.mats.cur[, 6])
+
+
+    # change m based on ABR change due to vector control if called (during vector control duration iteration period)
+    if(!is.na(vector.control.strt)){
+
+      if (i >= vc.iter.strt && i < vc.iter.stp) {
+
+      ABR_updated <- ABR - (ABR * vector.control.efficacy) # proportional reduction in ABR (x efficacy) during VC
+
+      m = ABR_updated * ((1/104) / 0.63) # update m
+      }
+    }
+
+    # to track #
+    if (!is.na(vector.control.strt) && i >= vc.iter.strt && i < vc.iter.stp) {
+
+      ABR_upd <- ABR_updated
+
+      } else {
+
+      ABR_upd <- ABR
+    }
+
 
     #rate of infections in humans
     #delta.hz, delta.hinf, c.h are density dependence parameters, expos is the exposure of each person to bites
@@ -507,7 +590,8 @@ ep.equi.sim <- function(time.its,
 
       res.mf <- change.micro(dat = all.mats.cur, num.comps =num.comps.worm, mf.cpt = mf.c,
                              num.mf.comps = num.mf.comps, ws=worms.start, DT=DT, time.each.comp = time.each.comp.mf,
-                             mu.rates.mf = mort.rates.mf, fec.rates = fec.rates.worms, mf.move.rate = mf.move.rate, up = up, kap = kap, iteration = i, treat.vec = treat.vec.in, give.treat = give.treat, treat.start = treat.start)
+                             mu.rates.mf = mort.rates.mf, fec.rates = fec.rates.worms, mf.move.rate = mf.move.rate, up = up, kap = kap, iteration = i,
+                             treat.vec = treat.vec.in, give.treat = give.treat, treat.start = treat.start)
 
       all.mats.temp[, 6 + mf.c] <- res.mf
     }
@@ -550,7 +634,7 @@ ep.equi.sim <- function(time.its,
         check_ind = OAE_out1[[3]] # updated (when i = 1)
 
         temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                                mf.start, mf.end, pop.size = N)
+                                mf.start, mf.end, pop.size = N, kM.const.toggle)
 
         OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
                                        OAE = OAE, tested_OAE = tested_OAE,
@@ -571,7 +655,7 @@ ep.equi.sim <- function(time.its,
         check_ind = OAE_out1[[3]] # updated (when i > 1)
 
         temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                                    mf.start, mf.end, pop.size = N)
+                                    mf.start, mf.end, pop.size = N, kM.const.toggle)
 
         OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
                                        OAE = OAE, tested_OAE = tested_OAE,
@@ -586,7 +670,7 @@ ep.equi.sim <- function(time.its,
 
     #save prevalence at current timestep
     temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                                mf.start, mf.end, pop.size = N)
+                                mf.start, mf.end, pop.size = N, kM.const.toggle)
 
     prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
 
@@ -597,6 +681,9 @@ ep.equi.sim <- function(time.its,
 
     L3_vec <- c(L3_vec, mean(all.mats.temp[, 6]))
 
+    ABR_recorded <- c(ABR_recorded, ABR_upd) # tracking changing ABR
+
+    coverage.recorded <- c(coverage.recorded, coverage.upd) # track changing coverage if specified
 
     # new individual exposure for newborns, clear rows for new borns
     if(length(to.die) > 0)
@@ -679,8 +766,8 @@ ep.equi.sim <- function(time.its,
     #enough outputs to restart sims
     if(isTRUE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay))
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs')
+      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded)
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded')
       return(outp)
     }
 

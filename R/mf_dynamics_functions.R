@@ -177,16 +177,21 @@ derivmf.rest <- function(mf.in, mf.mort, mf.move, mf.comp.minus.one, k.in)
 #' @param mf.start column (first age compartment) in matrix where mf begin
 #' @param mf.end column (last age compartment) in matrix where mf ends
 #' @param pop.size human population size
+#' @param kM.const.toggle if set to YES then kM is a constant (default = 15)
 #'
 #' @returns element (1) in list is mean of mf per skin snip; element (2) contains all mf per skin snip for each individual
 mf.per.skin.snip <- function(ss.wt, num.ss, slope.kmf, int.kMf, data, nfw.start, fw.end,  ###check vectorization
-                             mf.start, mf.end, pop.size)
+                             mf.start, mf.end, pop.size, kM.const.toggle)
 
 {
 
   all.mfobs <- c()
 
-  kmf <- slope.kmf * (rowSums(data[,nfw.start:fw.end])) + int.kMf #rowSums(da... sums up adult worms for all individuals giving a vector of kmfs
+  if(isTRUE(kM.const.toggle)){
+    kmf <- 0 * (rowSums(data[,nfw.start:fw.end])) + 15}
+  else {
+     kmf <- slope.kmf * (rowSums(data[,nfw.start:fw.end])) + int.kMf #rowSums(da... sums up adult worms for all individuals giving a vector of kmfs
+  }
 
   mfobs <- rnbinom(pop.size, size = kmf, mu = ss.wt * (rowSums(data[,mf.start:mf.end])))
 
@@ -239,3 +244,63 @@ prevalence.for.age <- function(age, ss.in, main.dat)
 
   return(out)
 }
+
+
+
+#' @title
+#' mf prevalence by strata
+#' @description
+#' calculates mf prevalence in people based on a skin snip for different population strata (age and sex)
+#' @param ss.in takes mf per skin snip count object for each individual to convert to binary variable for prevalence
+#' @param main.dat main matrix contain age of each individual (to ensure only calculate prevalence based o age from which skin snips are taken)
+#' @param lwr_age lower age to measure prevalence from
+#' @param upr_age lower age to measure prevalence to
+#' @param sex  sex of strata to measure prevalence in
+#'
+#' @returns value for prevalence
+prevalence.for.age_sex.strata <- function(ss.in, main.dat, lwr_age, upr_age, sex)
+
+{
+  if(sex == "male"){
+    sex_ind <- 1
+  } else {
+    sex_ind <- 0
+  }
+
+  inds <- which(main.dat[,2] >= lwr_age & main.dat[,2] < upr_age & main.dat[,3] == sex_ind)
+
+  out <- length(which(ss.in[[2]][inds] > 0)) / length(inds)
+
+  return(out)
+}
+
+
+#' @title
+#' mf prevalence by strata (including compliance)
+#' @description
+#' calculates mf prevalence in people based on a skin snip for different population strata (age, sex and compliance)
+#' @param ss.in takes mf per skin snip count object for each individual to convert to binary variable for prevalence
+#' @param main.dat main matrix contain age of each individual (to ensure only calculate prevalence based o age from which skin snips are taken)
+#' @param lwr_age lower age to measure prevalence from
+#' @param upr_age lower age to measure prevalence to
+#' @param sex  sex of strata to measure prevalence in
+#'
+#' @returns value for prevalence
+prevalence.for.age_sex_compl.strata <- function(ss.in, main.dat, lwr_age, upr_age, sex, compliance)
+
+{
+  if(sex == "male"){
+    sex_ind <- 1
+  } else {
+    sex_ind <- 0
+  }
+
+  inds <- which(main.dat[,2] >= lwr_age & main.dat[,2] < upr_age)
+
+  out <- length(which(ss.in[[2]][inds] > 0)) / length(inds)
+
+  return(out)
+}
+
+
+
