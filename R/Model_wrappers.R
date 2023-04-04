@@ -321,7 +321,7 @@ ep.equi.sim <- function(time.its,
   }
 
   # =============================================================================================#
-  # set-up main structures for tracking human/parasite stages if equilibrium inputs not provided #
+  # set-up main structures for tracking human/parasite stages if equilibrium dataframe given     #
   if(isFALSE(run_equilibrium))
 
   {
@@ -367,6 +367,9 @@ ep.equi.sim <- function(time.its,
     L3_vec <- mean(all.mats.temp[, 6])
 
     treat.vec.in <- equilibrium[[3]]
+
+    ABR_recorded <- c()
+    coverage.recorded <- c()
 
     if(epilepsy_module == "YES"){
 
@@ -733,12 +736,13 @@ ep.equi.sim <- function(time.its,
                     OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
                     OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
                     list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
-                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs)))
+                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs),
+                    ABR_recorded, coverage.recorded))
 
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
                      'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
-                     'OAE_incidence_males','OAE_incidence_females',
-                     'all_OAE_equilibirum_ouputs')
+                     'OAE_incidence_males','OAE_incidence_females','all_OAE_equilibirum_ouputs',
+                     'ABR_recorded', 'coverage.recorded')
     return(outp)
     }
 
@@ -749,12 +753,13 @@ ep.equi.sim <- function(time.its,
                     OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
                     OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
                     list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
-                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs)))
+                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs),
+                    ABR_recorded, coverage.recorded))
 
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'ABR','all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
                        'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
-                       'OAE_incidence_males','OAE_incidence_females',
-                       'all_OAE_equilibirum_ouputs')
+                       'OAE_incidence_males','OAE_incidence_females','all_OAE_equilibirum_ouputs',
+                       'ABR_recorded', 'coverage.recorded')
       return(outp)
     }
 
@@ -774,8 +779,8 @@ ep.equi.sim <- function(time.its,
     #assuming output will not be used for further sims
     if(isFALSE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp)
-      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens')
+      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
+      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
       return(outp)
     }
   }
