@@ -1,0 +1,267 @@
+---
+title: "Running complex interventions in EPIONCHO-IBM"
+author:
+- name: Matthew A Dixon
+  affiliation: Imperial College London, SCI Foundation 
+  role:       # Contributorship roles (e.g., CRediT)   
+  - Software
+  - Data/ code curation 
+- name: Jonathan Hamley
+  affiliation: Imperial College London, University of Bern
+  role:        
+  - Conceptualization
+  - Writing - Original Draft Preparation
+  - Writing - Review & Editing
+  - Software
+- name: Martin Walker
+  affiliation: Royal Veterinary College, Imperial College London
+  role:         
+  - Conceptualization
+  - Software
+
+date: "Febuary 14, 2023"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  radix::radix_article: default
+  pdf_document: default
+description: |
+  A stochastic, individual-based model for onchocerciasis transmission
+---
+
+**EPIONCH0-IBM is a stochastic, individual-based model for onchocerciasis transmission. A mathematical description can be found at https://doi.org/10.1371/journal.pntd.0007557.**
+
+# 1. System requirements
+
+EPIONCHO IBM is written in R (1) which is freely available for installation on Windows, Mac OS and Linux platforms from https://www.r-project.org. It is also recommended to install R Studio https://www.rstudio.com which provides a helpful user interface for R. EPIONCHO-IBM has been tested on Mac OS and Windows, but should be compatible with Linux and run on any desktop or laptop machine.
+
+# 2. Installation guide
+
+The model package can be downloaded and installed directly from a GitHub repository (https://github.com/mrc-ide/EPIONCHO.IBM). The remotes (2) package must be installed to do this. Installation should take no more than a few seconds on most desktop or laptop machines.
+
+
+```{r, eval=T, echo = FALSE, collapse= FALSE}
+remotes::install_github("mrc-ide/EPIONCHO.IBM")
+library(EPIONCHO.IBM)
+```
+
+# 3. Demo
+
+## 3.1 Simulating an endemic equilibrium without MDA
+
+As in the previous vignette, before simulating treatment, the model can be simulated to the endemic equilibrium. It is best to run the model to equilibrium (```run_equilibrium = TRUE```, ```give.treat = 0 ```), save the output and use this as the starting point for MDA. Note that running the model to the equilibrium can be slow, taking in excess of 5 minutes (depending on machine performance). To run the model to equilibrium without treating in the same run, use the following code:
+
+```{r}
+#length of simulation in years
+timesteps = 30
+
+#should treatment be given, when and how often
+give.treat.in = 0
+treat.strt = 1; treat.stp = 16
+trt.int = 1
+
+#annual biting rate, which determines infection prevalence (60% microfilarae prevalence)
+ABR.in = 1082
+
+output_equilibrium <- ep.equi.sim(time.its = timesteps,
+                                  ABR = ABR.in,
+                                  N.in = 440,
+                                  treat.int = trt.int,
+                                  treat.prob = 0.65,
+                                  give.treat = give.treat.in,
+                                  treat.start = treat.strt,
+                                  treat.stop = treat.stp,
+                                  pnc = 0.05,
+                                  min.mont.age = 5,
+                                  vector.control.strt = NA,
+                                  delta.hz.in = 0.186,
+                                  delta.hinf.in = 0.003,
+                                  c.h.in = 0.005,
+                                  gam.dis.in = 0.3,
+                                  run_equilibrium = TRUE,
+                                  equilibrium,
+                                  print_progress = TRUE)
+```
+
+To stop the printing of the time as the model runs, set ```print_progress = FALSE```. Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed. For full details of inputs used in the ```ep.equi.sim``` function for endemic equilibrium runs, please see the introductory vignette: [Installing and Running EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM.Rmd). 
+
+The fourth element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
+
+
+## 3.2 Simulating more complex interventions: variable coverage and frequency of mass drug administration with ivermectin
+
+### 3.2.1 Variable MDA coverage
+
+Assuming you have already run the model and saved the output as described in section 3.1, you can simulate 25 years of annual mass drug administration with ivermectin with different coverage values at each round by running:
+
+```{r}
+timesteps = 30
+treat.strt = 1; treat.stp = 26 #if model run stops in year 30, the last round is at the beginning of year 25
+gv.trt = 1
+trt.int = 1
+
+treat.prob.variable.in <- c(0.65, 0.75, 0.5, 0.85, 0.9, 0.85, 0.5, 0.65, 0.9, 0.8, 0.6, 0.7, 0.95, 0.9, 0.95, 0.6, 0.5,
+                            0.8, 0.85, 0.9, 0.95, 0.9, 0.9, 0.85, 0.85) # this is vector of variable coverages at each round
+
+output_treat_annual <- ep.equi.sim(time.its = timesteps,
+                                   ABR = ABR.in,
+                                   N.in = 440,
+                                   treat.timing = NA,
+                                   treat.int = trt.int,
+                                   treat.prob.variable = treat.prob.variable.in,
+                                   give.treat = gv.trt,
+                                   treat.start = treat.strt,
+                                   treat.stop = treat.stp,
+                                   pnc = 0.05,
+                                   min.mont.age = 5,
+                                   vector.control.strt = NA,
+                                   delta.hz.in = 0.186,
+                                   delta.hinf.in = 0.003,
+                                   c.h.in = 0.005,
+                                   gam.dis.in = 0.3,
+                                   run_equilibrium = FALSE,
+                                   equilibrium = output_equilibrium[[4]],
+                                   print_progress = TRUE)
+```
+Variable coverage is specified with the ```treat.prob.variable``` input, and note that the ```treat.prob``` input is no longer specified, which previously gave a single coverage for all rounds.
+
+If in the above model run ```print_progress = FALSE``` is called, but ```gv.trt = 1``` is also specified, only the duration of MDA will be printed (no progress updates). Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed as before.
+Note that ```timesteps``` is the total number of years for which the model is run. ```treat.start``` and ```treat.stop``` are the years within this duration at which MDA is given.
+
+To visualise the infection dynamics through time during annual MDA, use:
+
+```{r}
+tme <- seq(0, 30*366-1)/366
+
+plot(tme, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+
+plot(tme, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+```
+
+### 3.2.2 Variable timing (or frequency) of MDA
+
+Assuming you have run the model to the endemic equilibrium (as described in secton 3.1), temporal infection trends during MDA specified with varying frequency (or different lengths of gaps between rounds) can be specified for a 25 year MDA programme by:
+
+```{r}
+timesteps = 30
+treat.strt = 1; treat.stp = 26 #if model run stops in year 30, the last round is at the beginning of year 25
+gv.trt = 1
+trt.int = 1
+
+treat.timing.in <-  c(1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+                      22, 23, 24, 25)
+
+output_treat_variable <- ep.equi.sim(time.its = timesteps,
+                                   ABR = ABR.in,
+                                   N.in = 440,
+                                   treat.timing = treat.timing.in,
+                                   treat.prob = 0.8,
+                                   give.treat = gv.trt,
+                                   treat.start = treat.strt,
+                                   treat.stop = treat.stp,
+                                   pnc = 0.05,
+                                   min.mont.age = 5,
+                                   vector.control.strt = NA,
+                                   delta.hz.in = 0.186,
+                                   delta.hinf.in = 0.003,
+                                   c.h.in = 0.005,
+                                   gam.dis.in = 0.3,
+                                   run_equilibrium = FALSE,
+                                   equilibrium = output_equilibrium[[4]],
+                                   print_progress = TRUE)
+```
+
+Variable treatment timing over the course of the MDA programme is specified with the ```treat.timing.in``` input. Note that the ```treat.int``` input is no longer specified, which gave a fixed interval previously across all rounds. 
+
+```{r}
+tme <- seq(0, 30*366-1)/366
+
+plot(tme, output_treat_variable$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+plot(tme, output_treat_variable$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+
+abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+```
+
+## 3.3 Vector control
+
+Vector control is modelled in EPIONCHO-IBM by a proportional reduction in the annual biting rate (ABR), for a set period of time, as follows: 
+
+```{r}
+
+timesteps = 30
+treat.strt = 1; treat.stp = 26 #if model run stops in year 30, the last round is at the beginning of year 25
+gv.trt = 0 # no treatment given
+trt.int = 1
+
+output_VC <- ep.equi.sim(time.its = timesteps,
+                                   ABR = ABR.in,
+                                   N.in = 440,
+                                   treat.timing = NA, #
+                                   treat.int = trt.int,
+                                   treat.prob = 0.65,
+                                   give.treat = gv.trt,
+                                   treat.start = treat.strt,
+                                   treat.stop = treat.stp,
+                                   pnc = 0.05,
+                                   min.mont.age = 5,
+                                   vector.control.strt = 3,
+                                   vector.control.duration = 14,
+                                   vector.control.efficacy = 0.75,
+                                   delta.hz.in = 0.186,
+                                   delta.hinf.in = 0.003,
+                                   c.h.in = 0.005,
+                                   gam.dis.in = 0.3,
+                                   run_equilibrium = FALSE,
+                                   equilibrium = output_equilibrium[[4]],
+                                   print_progress = TRUE)
+
+```
+
+The following inputs specify vector control parameters: ```vector.control.strt``` specifies when vector control begins (which year); ```vector.control.duration``` specifies for how long (in years); and ```vector.control.efficacy``` specifies the efficacy of vector control (the proportional reduction in ABR), currently set to a default of 0.75.
+
+We can visualise the impact of vector control with the following:
+
+```{r}
+# first we look at when the reduction in ABR occurs:
+
+tme <- seq(0, 30*366-2)/366
+
+plot(tme, output_VC$ABR_recorded, type = 'l', xlab = 'time', ylab = 'ABR', ylim = c(0, 1100))
+
+# now we look at the impact on mf prevalence and intensity: 
+
+tme2 <- seq(0, 30*366-1)/366
+
+plot(tme2, output_VC$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+abline(v = c(3, 17), col = 'grey', lwd = 0.1) # lines specifying where VC period
+mtext("Vector control period", side=3, line=0.5, at=9.5, col="darkgrey") # Rotated y axis label
+
+plot(tme2, output_VC$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+
+abline(v = c(3, 17), col = 'grey', lwd = 0.1) # lines specifying where VC period
+mtext("Vector control period", side=3, line=0.5, at=9.5, col="darkgrey") # Rotated y axis label
+
+
+```
+
+Future work will involve modelling vector control in a more sophisticated manner and to capture secular trends in biting rates. 
+
+
+
+### 4. References
+
+1. R Core Team. R: A language and environment for statistical computing. (R Foundation for Statistical Computing, 2018).
+
+2. Csárdi, G. RCurl: Package ‘remotes’: R Package Installation from Remote Repositories, Including 'GitHub'. (2022). https://cran.r-project.org/web/packages/remotes/ 
+
+
