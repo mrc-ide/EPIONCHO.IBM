@@ -644,7 +644,7 @@ ep.equi.sim <- function(time.its,
     #new values for delay parts
     l1.delay <- all.mats.temp[, 4]
     mf.delay[, 1] <- rowSums(all.mats.cur[, 7 : (6 + num.mf.comps)])
-    exposure.delay[, 1] <- tot.ex.ai
+    exposure.delay[, 1] <- tot.ex.ai + 0
 
     #===========================#
     #     OAE module funcs      #
