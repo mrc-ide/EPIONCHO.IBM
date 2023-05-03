@@ -67,7 +67,9 @@ ep.equi.sim <- function(time.its,
                         equilibrium,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
-                        OAE_equilibrium)
+                        OAE_equilibrium,
+                        calc_ov16=FALSE,
+                        testing_thing=TRUE)
 
 
 {
@@ -192,7 +194,8 @@ ep.equi.sim <- function(time.its,
 
   #columns, used to perform operations on different worm and mf compartments
   tot.worms <- num.comps.worm*3
-  num.cols <- 6 + num.mf.comps + tot.worms
+  ov16.col <- ifelse(calc_ov16, 1, 0)
+  num.cols <- 6 + num.mf.comps + tot.worms + ov16.col
   worms.start <- 7 + num.mf.comps
 
   nfw.start <- 7 + num.mf.comps + num.comps.worm # start of infertile worms
@@ -216,108 +219,108 @@ ep.equi.sim <- function(time.its,
   # ========================================================================================================== #
   # create inital age distribution and simulate stable age distribution (where equilibrium input not provided) #
   if(isTRUE(run_equilibrium)){
-  cur.age <- rep(0, N)
+    cur.age <- rep(0, N)
 
-  #(the approach below must be used, drawing human lifespans from an exponential distribution eventually leads to a non-exponential distribution)
-  for(i in 1 : 75000) #if at equilibrium you saved the age at which inds die and simulated further, you should get an exponential distribution
-  {
-    cur.age <- cur.age + DT
+    #(the approach below must be used, drawing human lifespans from an exponential distribution eventually leads to a non-exponential distribution)
+    for(i in 1 : 75000) #if at equilibrium you saved the age at which inds die and simulated further, you should get an exponential distribution
+    {
+      cur.age <- cur.age + DT
 
-    death.vec <- rbinom(N, 1, (1/mean.age) * DT) # Matt: human mortality (constant with age) - no. of deaths at time step t is a random variable drawn from binomial distribution (N = human pop size?)
+      death.vec <- rbinom(N, 1, (1/mean.age) * DT) # Matt: human mortality (constant with age) - no. of deaths at time step t is a random variable drawn from binomial distribution (N = human pop size?)
 
-    cur.age[which(death.vec == 1)] <- 0 #set individuals which die to age 0
-    cur.age[which(cur.age >= real.max.age)] <- 0 #all individuals >= maximum imposed age die (matt: distribution truncated to prevent excessively long life spans - a_max)
-  }
+      cur.age[which(death.vec == 1)] <- 0 #set individuals which die to age 0
+      cur.age[which(cur.age >= real.max.age)] <- 0 #all individuals >= maximum imposed age die (matt: distribution truncated to prevent excessively long life spans - a_max)
+    }
 
 
-  ex.vec <- rgamma(N, gam.dis, gam.dis) #individual level exposure to fly bites (matt: individual-specific exposure factor assigned at birth - drawn from gamma dist, with shape par (K_E = gam.dis, and rate par set to this))
+    ex.vec <- rgamma(N, gam.dis, gam.dis) #individual level exposure to fly bites (matt: individual-specific exposure factor assigned at birth - drawn from gamma dist, with shape par (K_E = gam.dis, and rate par set to this))
 
-  ###############################################
-  #matrix for delay in L3 establishment in humans
-  num.delay.cols <- l3.delay * (28 / dt.days)
-  l.extras <- matrix(0, ncol= num.delay.cols, nrow= N)
-  inds.l.mat <- seq(2,(length(l.extras[1,]))) #for moving columns along with time
+    ###############################################
+    #matrix for delay in L3 establishment in humans
+    num.delay.cols <- l3.delay * (28 / dt.days)
+    l.extras <- matrix(0, ncol= num.delay.cols, nrow= N)
+    inds.l.mat <- seq(2,(length(l.extras[1,]))) #for moving columns along with time
 
-  ################################################
-  #L1 delay in flies
-  l1.delay <- rep(int.L1, N)
+    ################################################
+    #L1 delay in flies
+    l1.delay <- rep(int.L1, N)
 
-  ###############################################
-  #matrix for tracking mf for L1 delay
-  num.mfd.cols <- 4 / dt.days
-  mf.delay <- matrix(int.mf, ncol= num.mfd.cols, nrow= N)
-  inds.mfd.mats <- seq(2,(length(mf.delay[1,])))
+    ###############################################
+    #matrix for tracking mf for L1 delay
+    num.mfd.cols <- 4 / dt.days
+    mf.delay <- matrix(int.mf, ncol= num.mfd.cols, nrow= N)
+    inds.mfd.mats <- seq(2,(length(mf.delay[1,])))
 
-  ###############################################
-  #matrix for exposure (to fly bites) for L1 delay
-  num.exp.cols <- 4 / dt.days
-  exposure.delay <- matrix(ex.vec, ncol= num.exp.cols, nrow= N)
-  inds.exp.mats <- seq(2,(length(exposure.delay[1,])))
+    ###############################################
+    #matrix for exposure (to fly bites) for L1 delay
+    num.exp.cols <- 4 / dt.days
+    exposure.delay <- matrix(ex.vec, ncol= num.exp.cols, nrow= N)
+    inds.exp.mats <- seq(2,(length(exposure.delay[1,])))
 
-  #matrix for first timestep, contains all parasite values, human age, sex and compliance
+    #matrix for first timestep, contains all parasite values, human age, sex and compliance
 
-  #all.mats.temp <- matrix(, nrow=N, ncol=num.cols) # error here? (remove the ,)
-  all.mats.temp <- matrix(nrow=N, ncol=num.cols) # error here? (remove the ,)
+    #all.mats.temp <- matrix(, nrow=N, ncol=num.cols) # error here? (remove the ,)
+    all.mats.temp <- matrix(nrow=N, ncol=num.cols) # error here? (remove the ,)
 
-  all.mats.temp[,  (worms.start) : num.cols] <- int.worms
+    all.mats.temp[,  (worms.start) : num.cols] <- int.worms
 
-  all.mats.temp[, 4] <- int.L1
+    all.mats.temp[, 4] <- int.L1
 
-  all.mats.temp[, 5] <- int.L2
+    all.mats.temp[, 5] <- int.L2
 
-  all.mats.temp[, 6] <- int.L3
+    all.mats.temp[, 6] <- int.L3
 
-  all.mats.temp[, 7 : (7 + (num.mf.comps-1))] <- int.mf
+    all.mats.temp[, 7 : (7 + (num.mf.comps-1))] <- int.mf
 
-  all.mats.temp[,1] <- rep(0, N) #column used during treatment
-  all.mats.temp[,2] <- cur.age
+    all.mats.temp[,1] <- rep(0, N) #column used during treatment
+    all.mats.temp[,2] <- cur.age
 
-  #assign sex to humans
+    #assign sex to humans
 
-  sex <- rbinom(N, 1, sex.rat) # matt: randomly assigned (binomal dist) with equal probability (e.g., psi_F = 0.5, psi_m = 0.5)
+    sex <- rbinom(N, 1, sex.rat) # matt: randomly assigned (binomal dist) with equal probability (e.g., psi_F = 0.5, psi_m = 0.5)
 
-  all.mats.temp[,3] <- sex
+    all.mats.temp[,3] <- sex
 
-  #non-compliant people
-  non.comp <- ceiling(N * pnc)
-  out.comp <- rep(0, N)
-  s.comp <- sample(N, non.comp)
-  out.comp[s.comp] <- 1
-  all.mats.temp[,1] <- out.comp
+    #non-compliant people
+    non.comp <- ceiling(N * pnc)
+    out.comp <- rep(0, N)
+    s.comp <- sample(N, non.comp)
+    out.comp[s.comp] <- 1
+    all.mats.temp[,1] <- out.comp
 
-  treat.vec.in <- rep(NA, N) #for time since treatment calculations
+    treat.vec.in <- rep(NA, N) #for time since treatment calculations
 
-  prev <-  c()
-  mean.mf.per.snip <- c()
-  L3_vec <- vector()
-  ABR_recorded <- c()
-  coverage.recorded <- c()
+    prev <-  c()
+    mean.mf.per.snip <- c()
+    L3_vec <- vector()
+    ABR_recorded <- c()
+    coverage.recorded <- c()
 
-  # i <- 1
+    # i <- 1
 
-  if(epilepsy_module == "YES"){
+    if(epilepsy_module == "YES"){
 
-    # new inputs required #
-    infected_at_all <- rep(1, N)
-    #age_to_samp <- runif(N, min = 3, max = 10)
-    age_to_samp <- sample(seq(3, 15, DT), size = N, replace = TRUE)
-    OAE <- rep(1, N)
-    prev_OAE <- 1
-    tested_OAE <- rep(0, N)
-    check_ind <- c()
-    OAE_incidence_DT <- c()
-    OAE_incidence_DT_under_5 <- c()
-    OAE_incidence_DT_5_10 <- c()
-    OAE_incidence_DT_11_15 <- c()
-    OAE_incidence_DT_M <- c()
-    OAE_incidence_DT_F <- c()
+      # new inputs required #
+      infected_at_all <- rep(1, N)
+      #age_to_samp <- runif(N, min = 3, max = 10)
+      age_to_samp <- sample(seq(3, 15, DT), size = N, replace = TRUE)
+      OAE <- rep(1, N)
+      prev_OAE <- 1
+      tested_OAE <- rep(0, N)
+      check_ind <- c()
+      OAE_incidence_DT <- c()
+      OAE_incidence_DT_under_5 <- c()
+      OAE_incidence_DT_5_10 <- c()
+      OAE_incidence_DT_11_15 <- c()
+      OAE_incidence_DT_M <- c()
+      OAE_incidence_DT_F <- c()
 
-    # data and function to obtain OAE probability for a given mf count
-    Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
-                               mf = c(0, 3, 13, 36, 76, 151, 200))
+      # data and function to obtain OAE probability for a given mf count
+      Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
+                                 mf = c(0, 3, 13, 36, 76, 151, 200))
 
-    OAE_probs <- OAE_mfcount_prob_func(dat = Chesnais_dat)
-  }
+      OAE_probs <- OAE_mfcount_prob_func(dat = Chesnais_dat)
+    }
   }
 
   # =============================================================================================#
@@ -414,6 +417,17 @@ ep.equi.sim <- function(time.its,
 
   }
 
+  if(calc_ov16) {
+    Ov16_Seropositive <- rep(0, N)
+    mf_inv_prev <- rep(0, N)
+
+    # 80% of pop is able to mount Antibody response to Ov16
+    susc_Ov16 <- rep(c(1,1,1,1,1,1,1,1,0,0), N*0.1)
+
+    all.mats.temp[,91] <- susc_Ov16
+
+    prev_Ov16 <- 0
+  }
 
   i <- 1
 
@@ -431,6 +445,15 @@ ep.equi.sim <- function(time.its,
 
     if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
                                                                    (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
+
+    # extract ov16 results before treatment
+    if (calc_ov16 & i == treat.start) {
+
+      all.mats.temp_pre_treat <- all.mats.temp
+      Ov16_Seropositive_pre_treat <- Ov16_Seropositive
+      mf_indv_prev_pre_treat <- mf_indv_prev
+
+    }
 
     #stores mean L3 and adult worms from previous timesteps
 
@@ -681,9 +704,25 @@ ep.equi.sim <- function(time.its,
 
     L3_vec <- c(L3_vec, mean(all.mats.temp[, 6]))
 
-    ABR_recorded <- c(ABR_recorded, ABR_upd) # tracking changing ABR
+    #ov16_sero
+    if(calc_ov16) {
+      female_L5 <- all.mats.temp[, nfw.start]
+      male_L5 <- all.mats.temp[, worms.start]
 
-    coverage.recorded <- c(coverage.recorded, coverage.upd) # track changing coverage if specified
+      new_inf_Ov16 <- which((male_L5 > 0 | female_L5 > 0) & Ov16_Seropositive == 0 & all.mats.temp[,91] == 1)
+      Ov16_Seropositive[new_inf_Ov16] <- 1
+
+      mf_indv_prev <- as.integer(temp.mf[[2]] > 0) #as.integer(mf.temp > 0)
+      prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive)/N)
+    }
+
+    if(!is.na(vector.control.strt)) {
+      ABR_recorded <- c(ABR_recorded, ABR_upd) # tracking changing ABR
+    }
+
+    if(isTRUE(run_equilibrium) & i >= treat.start & i <= treat.stop & give.treat == 1) {
+      coverage.recorded <- c(coverage.recorded, coverage.upd) # track changing coverage if specified
+    }
 
     # new individual exposure for newborns, clear rows for new borns
     if(length(to.die) > 0)
@@ -700,6 +739,11 @@ ep.equi.sim <- function(time.its,
 
       all.mats.temp[to.die, cols.to.zero] <- 0 #set age, sex and parasites to 0 (includes L1, but not L2 L3)
       all.mats.temp[to.die, 3] <- rbinom(length(to.die), 1, 0.5) #draw sex
+
+      if(calc_ov16) {
+        Ov16_Seropositive[to.die] <- 0
+        mf_indv_prev[to.die] <- 0
+      }
 
       if(epilepsy_module == "YES"){
 
@@ -763,6 +807,7 @@ ep.equi.sim <- function(time.its,
     # ================================#
     #  When epilpsy module not called #
 
+
     #enough outputs to restart sims
     if(isTRUE(run_equilibrium))
     {
@@ -776,6 +821,11 @@ ep.equi.sim <- function(time.its,
     {
       outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp)
       names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens')
+      if(calc_ov16) {
+        ov16_output <- list(Ov16_Seropositive, mf_indv_prev, Ov16_Seropositive_pre_treat, mf_indv_prev_pre_treat, all.mats.temp_pre_treat)
+        names(ov16_output) <- c('ov16_seropositive', 'mf_indv_prevalence', 'ov16_seropositive_pre_treatment', 'mf_indv_prevalence_pre_treatment', 'all_infection_burdens_pre_treatment')
+        outp <- append(outp, ov16_output)
+      }
       return(outp)
     }
   }
