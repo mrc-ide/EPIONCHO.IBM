@@ -523,6 +523,16 @@ ep.equi.sim <- function(time.its,
       }
     }
 
+    # change m back to original after VC finishes (can change when this occurs i.e, one year after VC ends)
+    if(!is.na(vector.control.strt)){
+
+      if (i >= vc.iter.stp) {
+
+        m = ABR * ((1/104) / 0.63) # update m
+      }
+    }
+
+
     # to track #
     if (!is.na(vector.control.strt) && i >= vc.iter.strt && i < vc.iter.stp) {
 
