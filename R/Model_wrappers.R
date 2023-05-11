@@ -68,8 +68,7 @@ ep.equi.sim <- function(time.its,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
                         OAE_equilibrium,
-                        calc_ov16=FALSE,
-                        testing_thing=TRUE)
+                        calc_ov16=FALSE)
 
 
 {
