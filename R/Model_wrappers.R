@@ -68,8 +68,7 @@ ep.equi.sim <- function(time.its,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
                         OAE_equilibrium,
-                        calc_ov16=FALSE,
-                        testing_thing=TRUE)
+                        calc_ov16=FALSE)
 
 
 {
@@ -195,7 +194,7 @@ ep.equi.sim <- function(time.its,
   #columns, used to perform operations on different worm and mf compartments
   tot.worms <- num.comps.worm*3
   ov16.col <- ifelse(calc_ov16, 1, 0)
-  num.cols <- 6 + num.mf.comps + tot.worms + ov16.col
+  num.cols <- 6 + num.mf.comps + tot.worms
   worms.start <- 7 + num.mf.comps
 
   nfw.start <- 7 + num.mf.comps + num.comps.worm # start of infertile worms
@@ -260,7 +259,7 @@ ep.equi.sim <- function(time.its,
     #matrix for first timestep, contains all parasite values, human age, sex and compliance
 
     #all.mats.temp <- matrix(, nrow=N, ncol=num.cols) # error here? (remove the ,)
-    all.mats.temp <- matrix(nrow=N, ncol=num.cols) # error here? (remove the ,)
+    all.mats.temp <- matrix(nrow=N, ncol=num.cols+ov16.col) # error here? (remove the ,)
 
     all.mats.temp[,  (worms.start) : num.cols] <- int.worms
 
@@ -422,12 +421,11 @@ ep.equi.sim <- function(time.its,
 
   if(calc_ov16) {
     Ov16_Seropositive <- rep(0, N)
-    mf_inv_prev <- rep(0, N)
+    mf_indv_prev <- rep(0, N)
 
     # 80% of pop is able to mount Antibody response to Ov16
     susc_Ov16 <- rep(c(1,1,1,1,1,1,1,1,0,0), N*0.1)
-
-    all.mats.temp[,91] <- susc_Ov16
+    all.mats.temp[,num.cols+ov16.col] <- susc_Ov16
 
     prev_Ov16 <- 0
   }
@@ -644,7 +642,7 @@ ep.equi.sim <- function(time.its,
     #new values for delay parts
     l1.delay <- all.mats.temp[, 4]
     mf.delay[, 1] <- rowSums(all.mats.cur[, 7 : (6 + num.mf.comps)])
-    exposure.delay[, 1] <- tot.ex.ai
+    exposure.delay[, 1] <- tot.ex.ai + 0
 
     #===========================#
     #     OAE module funcs      #
