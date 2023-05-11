@@ -80,18 +80,18 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, nfw.start, f
 
   # print(ind_age)
 
-  ind_ibf <- which(infected_at_all == 1) # extract position of currently with worm infection to inform OAE (not new infection to inform OAE)
+  ind_ibf <- which(infected_at_all == 1) # extract position (vector) of all those infected with a pair of mating worms
 
-  ind_no_OAE <- which(OAE != 1) # extract position of individuals without OAE (so no current OAE?)
+  ind_no_OAE <- which(OAE != 1) # extract position of individuals not with OAE (so the same people aren't counted twice)
 
-  ind_no_samp <- which(tested_OAE == 0) # extract position of individuals not (previously?) tested
+  ind_no_samp <- which(tested_OAE == 0) # extract position of individuals not previously tested
 
   # print(age_to_samp)
 
-  tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp)) # find common (intersect) ??? where same individual (position number in vector)
-                                                                                                 # present in all vectors (age sampled, new infection/OAE, no current OAE?,
-                                                                                                 # not previously sampled?, sex of individual?)
-                                                                                                 # defines new infections/OAE?
+  tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp)) # goes through each of the individual lists
+                                                                                        # (individual criteria for whether a person)
+                                                                                        # If individual has satisfied all those (intersect finds commonalities in columns)
+                                                                                        # form pool of individuals which are then sampled for new OAE onset
   check_ind <- c(check_ind, length(tot_ind_ep_samp)) #
 
   return(list(tot_ind_ep_samp, infected_at_all, check_ind))
@@ -128,7 +128,7 @@ new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, dat,
                                OAE_incidence_DT_M, OAE_incidence_DT_F){
 
 
-  mf_round <- round(temp.mf[[2]][tot_ind_ep_samp]) + 1 # mf count (in those tested ?)
+  mf_round <- round(temp.mf[[2]][tot_ind_ep_samp]) + 1 # mf count (in those tested)
                                                        # note: if zero the first probability comes from from ep_probs
                                                        # note: +1 to account for (log) 0
 
