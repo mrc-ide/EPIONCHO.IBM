@@ -1,10 +1,16 @@
+library(dplyr)
+library(ggplot2)
+
 allOutputs <- data.frame(matrix(ncol=9))
 colnames(allOutputs) <- c("age", "sex", "ov16_pos", "mf_prev", "age_pre", "sex_pre", "ov16_pos_pre", "mf_prev_pre", "run_num")
 
+files <- c('ov16_output_1/', 'ov16_output_l3/', 'ov16_output_l3_2/', 'ov16_output_l3_3/')
+fileToUse <- paste("data/", files[4], sep="")
+
 i <- 1
-for (file in list.files('data/ov16_output_1/')) {
+for (file in list.files(fileToUse)) {
   print(i)
-  tmpRDSData <- readRDS(paste('data/ov16_output_1/', file,sep=""))
+  tmpRDSData <- readRDS(paste(fileToUse, file,sep=""))
   age <- tmpRDSData$all_infection_burdens[,2]
   age_pre <- tmpRDSData$all_infection_burdens_pre_treatment[,2]
 
@@ -80,6 +86,7 @@ tmpDf2 <- allOutputs %>% dplyr::group_by(age_groups_pre, sex_pre) %>% dplyr::sum
 tmpDf2[(dim(tmpDf2)[1]+1),] <- list(0, 'Female', 0, 0)
 tmpDf2[(dim(tmpDf2)[1]+1),] <- list(0, 'Male', 0, 0)
 
+
 ov16_graph <- ggplot() +
   geom_line(aes(x=age_groups_pre, y=ov16_prev_pre*100, color="Pre Treatment", linetype=sex_pre), data=tmpDf2) +
   geom_line(aes(x=age_groups, y=ov16_prev*100, color='Post Treatment', linetype=sex), data=tmpDf) +
@@ -87,12 +94,12 @@ ov16_graph <- ggplot() +
   ylab("OV16 Seroprevalence (%)") +
   ylim(0, 100) +
   scale_linetype_manual(values=c("dashed", "dotted")) +
+  ggtitle("Ov16 Seroprevalence upon L3 Exposure") +
   scale_color_manual(values=c("red", "black"))
 
 ov16_graph
 
-ggsave("ov16_graph.png", ov16_graph, width=3500, height = 2000, units="px", dpi=600)
-
+ggsave("ov16_graph.png", ov16_graph, width=7000, height = 4000, units="px", dpi=600)
 
 mf_prev_graph <- ggplot()  +
   theme(
