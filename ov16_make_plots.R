@@ -5,7 +5,7 @@ allOutputs <- data.frame(matrix(ncol=9))
 colnames(allOutputs) <- c("age", "sex", "ov16_pos", "mf_prev", "age_pre", "sex_pre", "ov16_pos_pre", "mf_prev_pre", "run_num")
 
 files <- c('ov16_output_1/', 'ov16_output_l3/', 'ov16_output_l3_2/', 'ov16_output_l3_3/')
-fileToUse <- paste("data/", files[4], sep="")
+fileToUse <- paste("data/", files[1], sep="")
 
 i <- 1
 for (file in list.files(fileToUse)) {
@@ -94,12 +94,12 @@ ov16_graph <- ggplot() +
   ylab("OV16 Seroprevalence (%)") +
   ylim(0, 100) +
   scale_linetype_manual(values=c("dashed", "dotted")) +
-  ggtitle("Ov16 Seroprevalence upon L3 Exposure") +
+  ggtitle("Ov16 Seroprevalence Any Adult Worm") +
   scale_color_manual(values=c("red", "black"))
 
 ov16_graph
 
-ggsave("ov16_graph.png", ov16_graph, width=7000, height = 4000, units="px", dpi=600)
+ggsave("ov16_any_adult_worm_graph.png", ov16_graph, width=7000, height = 4000, units="px", dpi=600)
 
 mf_prev_graph <- ggplot()  +
   theme(
