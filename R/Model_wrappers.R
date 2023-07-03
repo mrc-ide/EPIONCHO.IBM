@@ -70,7 +70,12 @@ ep.equi.sim <- function(time.its,
                         OAE_equilibrium,
                         morbidity_module = "NO",
                         morbidity_module2 = "NO",
-                        morbidity_module3 = "NO")
+                        morbidity_module3 = "NO",
+                        morbidity_eq,
+                        morbidity_ageprev_eq,
+                        morbidity_prev_eq,
+                        mf_ageprev_eq,
+                        mf_agintens_eq)
 
 {
   # ====================== #
@@ -722,8 +727,23 @@ ep.equi.sim <- function(time.its,
 
 
     prev <-  prevalence.for.age(age = 5, ss.in = temp, main.dat = all.mats.temp)
+    prev0_1 <- mf_ageprev_eq[[1]]
+    prev2_4 <-  mf_ageprev_eq[[2]]
+    prev5_9 <-  mf_ageprev_eq[[3]]
+    prev10_19 <-  mf_ageprev_eq[[4]]
+    prev20_29 <-  mf_ageprev_eq[[5]]
+    prev30_49 <-  mf_ageprev_eq[[6]]
+    prev50_80 <-  mf_ageprev_eq[[7]]
 
     mean.mf.per.snip <- mean(temp[[2]][which(all.mats.temp[,2] >= 5)])
+    mean.mf.per.snip0_1 <- mf_agintens_eq[[1]]
+    mean.mf.per.snip2_4 <- mf_agintens_eq[[2]]
+    mean.mf.per.snip5_9 <- mf_agintens_eq[[3]]
+    mean.mf.per.snip10_19 <- mf_agintens_eq[[4]]
+    mean.mf.per.snip20_29 <- mf_agintens_eq[[5]]
+    mean.mf.per.snip30_49 <- mf_agintens_eq[[6]]
+    mean.mf.per.snip50_80 <- mf_agintens_eq[[7]]
+
 
     L3_vec <- mean(all.mats.temp[, 6])
 
@@ -774,6 +794,78 @@ ep.equi.sim <- function(time.its,
       # OAE_incidence_DT_M <- OAE_infection[[5]] # record & update incidence in males
       # OAE_incidence_DT_F <- OAE_infection[[6]] # record & update incidence in females
 
+    }
+
+    if(morbidity_module2 == "YES"){
+
+      # extract probabilities for each condition
+      #skin.disease.probs <- readRDS("~/EPIONCHO-IBM/data/skin_disease_probabilties_updated2.rds")
+
+      # SI_probs_df <- subset(skin.disease.probs, sequela == "severe itching")
+      # SI_probs <- SI_probs_df$fit
+
+      # RSD_probs_df <- subset(skin.disease.probs, sequela == "reactive skin disease")
+      # RSD_probs <- RSD_probs_df$fit
+
+      #==================#
+
+      all.morb.temp <-  morbidity_eq[[1]]
+
+      age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
+      age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
+
+      sequela.postive.mat1 <- morbidity_eq[[2]] # 7-day delay sequelae matrix (SI)
+      sequela.postive.mat2 <- morbidity_eq[[3]] # 7-day delay sequelae matrix (RSD)
+
+      inds.sequela.mat <- seq(2,(length(sequela.postive.mat1[1,]))) # for moving columns along with time
+
+      # assign prevalence vectors from equilibrium ouput
+      SI_prev <-  morbidity_prev_eq[[1]]
+      RSD_prev <-  morbidity_prev_eq[[2]]
+      Atrp_prev <-  morbidity_prev_eq[[3]]
+      HG_prev <-  morbidity_prev_eq[[4]]
+      depigm_prev <-  morbidity_prev_eq[[5]]
+
+      # assign age-prev from equilibrium ouput
+      SI_prev0_1 <-  morbidity_ageprev_eq[[1]]
+      SI_prev2_4 <-  morbidity_ageprev_eq[[2]]
+      SI_prev5_9 <-  morbidity_ageprev_eq[[3]]
+      SI_prev10_19 <-  morbidity_ageprev_eq[[4]]
+      SI_prev20_29 <-  morbidity_ageprev_eq[[5]]
+      SI_prev30_49 <-  morbidity_ageprev_eq[[6]]
+      SI_prev50_80 <-  morbidity_ageprev_eq[[7]]
+
+      RSD_prev0_1 <-  morbidity_ageprev_eq[[8]]
+      RSD_prev2_4 <-  morbidity_ageprev_eq[[9]]
+      RSD_prev5_9 <-  morbidity_ageprev_eq[[10]]
+      RSD_prev10_19 <-  morbidity_ageprev_eq[[11]]
+      RSD_prev20_29 <-  morbidity_ageprev_eq[[12]]
+      RSD_prev30_49 <-  morbidity_ageprev_eq[[13]]
+      RSD_prev50_80 <-  morbidity_ageprev_eq[[14]]
+
+      Atrp_prev0_1 <-  morbidity_ageprev_eq[[15]]
+      Atrp_prev2_4 <-  morbidity_ageprev_eq[[16]]
+      Atrp_prev5_9 <-  morbidity_ageprev_eq[[17]]
+      Atrp_prev10_19 <-  morbidity_ageprev_eq[[18]]
+      Atrp_prev20_29 <-  morbidity_ageprev_eq[[19]]
+      Atrp_prev30_49 <-  morbidity_ageprev_eq[[20]]
+      Atrp_prev50_80 <-  morbidity_ageprev_eq[[21]]
+
+      HG_prev0_1 <-  morbidity_ageprev_eq[[22]]
+      HG_prev2_4 <-  morbidity_ageprev_eq[[23]]
+      HG_prev5_9 <-  morbidity_ageprev_eq[[24]]
+      HG_prev10_19 <-  morbidity_ageprev_eq[[25]]
+      HG_prev20_29 <-  morbidity_ageprev_eq[[26]]
+      HG_prev30_49 <-  morbidity_ageprev_eq[[27]]
+      HG_prev50_80 <-  morbidity_ageprev_eq[[28]]
+
+      depigm_prev0_1 <-  morbidity_ageprev_eq[[29]]
+      depigm_prev2_4 <-  morbidity_ageprev_eq[[30]]
+      depigm_prev5_9 <-  morbidity_ageprev_eq[[31]]
+      depigm_prev10_19 <-  morbidity_ageprev_eq[[32]]
+      depigm_prev20_29 <-  morbidity_ageprev_eq[[33]]
+      depigm_prev30_49 <-  morbidity_ageprev_eq[[34]]
+      depigm_prev50_80 <- morbidity_ageprev_eq[[35]]
     }
 
   }
@@ -1467,8 +1559,10 @@ ep.equi.sim <- function(time.its,
         # all.morb.updated[to.die,12] <- sample(seq(20, 80, DT), size = length(to.die), replace = TRUE) # hanging groin - (age- restricted?)
         # all.morb.updated[to.die,13] <- sample(seq(20, 80, DT), size = length(to.die), replace = TRUE) # depigmentation - (age- restricted?)
 
-        # update sequela 7-day delay matrix if any individual dies
-        sequela.postive.mat[to.die, ] <- 0
+        # update sequela 7-day delay matrices if any individual dies
+        sequela.postive.mat1[to.die, ] <- 0
+
+        sequela.postive.mat2[to.die, ] <- 0
       }
 
     }
@@ -1575,7 +1669,7 @@ ep.equi.sim <- function(time.its,
 
   } else if (morbidity_module2 == "YES"){
 
-    if(isTRUE(run_equilibrium)){
+    if(isTRUE(run_equilibrium) || isFALSE(run_equilibrium)){
       outp <- (list(prev, mean.mf.per.snip, L3_vec,
                     list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
                     SI_prev = morbidity_prev_out[[1]], RSD_prev = morbidity_prev_out[[2]], Atrp_prev = morbidity_prev_out[[3]],
@@ -1595,7 +1689,7 @@ ep.equi.sim <- function(time.its,
                           depigm_prev0_1 =  morbidity_prev_out[[34]], depigm_prev2_4 =  morbidity_prev_out[[35]], depigm_prev5_9 =  morbidity_prev_out[[36]],
                           depigm_prev10_19 =  morbidity_prev_out[[37]], depigm_prev20_29 =  morbidity_prev_out[[38]], depigm_prev30_49 =  morbidity_prev_out[[39]],
                           depigm_prev50_80 =  morbidity_prev_out[[40]]),
-                    ABR_recorded, coverage.recorded, all.morb.updated,
+                    ABR_recorded, coverage.recorded, list(all.morb.updated, sequela.postive.mat1, sequela.postive.mat2),
                     list(mfprev0_1 = prev0_1, mfprev2_4 = prev2_4, mfprev5_9 = prev5_9, mfprev10_19 = prev10_19,
                          mfprev20_29 = prev20_29, mfprev30_49 = prev30_49, mfprev50_80 = prev50_80),
                     list(mf_intens0_1 = mean.mf.per.snip0_1, mf_intens2_4 = mean.mf.per.snip2_4, mf_intens5_9 = mean.mf.per.snip5_9,
@@ -1604,9 +1698,10 @@ ep.equi.sim <- function(time.its,
 
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs',
                        'severe_itch_prev', 'RSD_prev', 'atrophy_prev','hanging_groin_prev', 'depigmentation_prev',
-                       'morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.matrix', 'mf_ageprev_out', 'mf_agintens_out')
+                       'morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs', 'mf_ageprev_out', 'mf_agintens_out')
       return(outp)
     }
+
 
     } else {
 

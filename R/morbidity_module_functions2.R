@@ -238,8 +238,16 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp_mf, SI_probs, RSD_probs
   # morb.mat.tmp[,52] <- ifelse(morb.mat.tmp[,36] == 1, rbinom(sum(morb.mat.tmp[,36]), 1, morb.mat.tmp[,44]), morb.mat.tmp[,52]) # HG (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
   # morb.mat.tmp[,53] <- ifelse(morb.mat.tmp[,37] == 1, rbinom(sum(morb.mat.tmp[,37]), 1, morb.mat.tmp[,44]), morb.mat.tmp[,53]) # depigmentation (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
 
-  morb.mat.tmp[,46] <- ifelse(morb.mat.tmp[,30] == 1, rbinom(sum(morb.mat.tmp[,30]), 1, SI_probs), 0) # severe itch (stay as prior disease condition status if test does not take place)
-  morb.mat.tmp[,50] <- ifelse(morb.mat.tmp[,34] == 1, rbinom(sum(morb.mat.tmp[,34]), 1, RSD_probs), 0) # RSD (stay as prior disease condition status if test does not take place)
+  # CURRENTLY WORKING #
+  # morb.mat.tmp[,46] <- ifelse(morb.mat.tmp[,30] == 1, rbinom(sum(morb.mat.tmp[,30]), 1, SI_probs), 0) # severe itch (stay as prior disease condition status if test does not take place)
+  # morb.mat.tmp[,50] <- ifelse(morb.mat.tmp[,34] == 1, rbinom(sum(morb.mat.tmp[,34]), 1, RSD_probs), 0) # RSD (stay as prior disease condition status if test does not take place)
+  # morb.mat.tmp[,51] <- ifelse(morb.mat.tmp[,35] == 1, rbinom(sum(morb.mat.tmp[,35]), 1, Atrp_probs), morb.mat.tmp[,51]) # atrophy (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  # morb.mat.tmp[,52] <- ifelse(morb.mat.tmp[,36] == 1, rbinom(sum(morb.mat.tmp[,36]), 1, Hg_probs), morb.mat.tmp[,52]) # HG (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  # morb.mat.tmp[,53] <- ifelse(morb.mat.tmp[,37] == 1, rbinom(sum(morb.mat.tmp[,37]), 1, Depigm_probs), morb.mat.tmp[,53]) # depigmentation (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+
+  # NOW TESTING #
+  morb.mat.tmp[,46] <- ifelse(morb.mat.tmp[,30] == 1, rbinom(sum(morb.mat.tmp[,30]), 1, SI_probs), morb.mat.tmp[,46]) # severe itch (stay as prior disease condition status if test does not take place)
+  morb.mat.tmp[,50] <- ifelse(morb.mat.tmp[,34] == 1, rbinom(sum(morb.mat.tmp[,34]), 1, RSD_probs), morb.mat.tmp[,50]) # RSD (stay as prior disease condition status if test does not take place)
   morb.mat.tmp[,51] <- ifelse(morb.mat.tmp[,35] == 1, rbinom(sum(morb.mat.tmp[,35]), 1, Atrp_probs), morb.mat.tmp[,51]) # atrophy (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
   morb.mat.tmp[,52] <- ifelse(morb.mat.tmp[,36] == 1, rbinom(sum(morb.mat.tmp[,36]), 1, Hg_probs), morb.mat.tmp[,52]) # HG (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
   morb.mat.tmp[,53] <- ifelse(morb.mat.tmp[,37] == 1, rbinom(sum(morb.mat.tmp[,37]), 1, Depigm_probs), morb.mat.tmp[,53]) # depigmentation (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
@@ -283,7 +291,7 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
   sequela.postive.mat2[,1] <- morb.mat.tmp[,50] # update first col with current sequela state on that day
 
   # new steps : update current sequela state in morb.mat if 7th day of morbidity to 0 #
-  morb.mat.tmp[,23] <- sequela.postive.mat1[,7] # assign day 7 from sequela delay matrix
+  morb.mat.tmp[,23] <- sequela.postive.mat2[,7] # assign day 7 from sequela delay matrix
   morb.mat.tmp[,50] <- ifelse(morb.mat.tmp[,23] == 1, 0, morb.mat.tmp[,50]) # update current disease status
 
   return(list(sequela.postive.mat1, sequela.postive.mat2, morb.mat.tmp))
