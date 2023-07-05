@@ -15,7 +15,7 @@ devtools::load_all()
 #set.seed(iter + (iter*3758))
 
 DT.in <- 1/366
-timesteps = 200
+timesteps = 100
 give.treat.in = 0
 treat.strt = 1; treat.stp = 16
 trt.int = 1
@@ -45,7 +45,8 @@ output_equilibrium <-  ep.equi.sim(time.its = timesteps,
                        c.h.in = 0.005,
                        gam.dis.in = 0.3,
                        run_equilibrium=TRUE,
-                       print_progress=TRUE)
+                       print_progress=TRUE,
+                       calc_ov16 = TRUE)
 
 
 # Now add treatment
