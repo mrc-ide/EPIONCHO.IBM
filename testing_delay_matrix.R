@@ -29,7 +29,7 @@ N <- 440
 
 # ======== #
 # at i = 1 #
-num.days.cols <- 7
+num.days.cols <- 3
 sequela.postive.mat <- matrix(0, ncol = num.days.cols, nrow = N)
 inds.sequela.mat <- seq(2,(length(sequela.postive.mat[1,]))) # for moving columns along with time
 

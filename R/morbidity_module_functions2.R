@@ -263,14 +263,14 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp_mf, SI_probs, RSD_probs
 #' update reversible conditions
 #'
 #' @description
-#' update 7-day delay matrix for tracking how long someone has been disease positive (7th day return to 0) & updating morbidity matrix
+#' update 3-day delay matrix for tracking how long someone has been disease positive (3th day return to 0) & updating morbidity matrix
 #'
-#' @param sequela.postive.mat1 7-day delay matrix for tracking SI disease state
-#' @param sequela.postive.mat2 7-day delay matrix for tracking RSD disease state
+#' @param sequela.postive.mat1 3-day delay matrix for tracking SI disease state
+#' @param sequela.postive.mat2 3-day delay matrix for tracking RSD disease state
 #' @param inds.sequela.mat vector to move delay matrix by one day
 #' @param morb.mat.tmp morbidity matrix to update (reversible conditions)
 #'
-#' @returns a) updated SI 7-day delay matrix b) updated RSD 7-day delay matrix c) updated morbidity matrix
+#' @returns a) updated SI 3-day delay matrix b) updated RSD 3-day delay matrix c) updated morbidity matrix
 update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive.mat2, inds.sequela.mat,
                                            morb.mat.tmp){
 
@@ -280,8 +280,8 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
   sequela.postive.mat1[,inds.sequela.mat] <- sequela.postive.mat1[,(inds.sequela.mat-1)] # move sequela state along one col
   sequela.postive.mat1[,1] <- morb.mat.tmp[,46] # update first col with current sequela state on that day
 
-  # new steps : update current sequela state in morb.mat if 7th day of morbidity to 0 #
-  morb.mat.tmp[,22] <- sequela.postive.mat1[,7] # assign day 7 from sequela delay matrix
+  # new steps : update current sequela state in morb.mat if 3th day of morbidity to 0 #
+  morb.mat.tmp[,22] <- sequela.postive.mat1[,3] # assign day 3 from sequela delay matrix
   morb.mat.tmp[,46] <- ifelse(morb.mat.tmp[,22] == 1, 0, morb.mat.tmp[,46]) # update current disease status
 
   # =============== #
@@ -290,8 +290,8 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
   sequela.postive.mat2[,inds.sequela.mat] <- sequela.postive.mat2[,(inds.sequela.mat-1)] # move sequela state along one col
   sequela.postive.mat2[,1] <- morb.mat.tmp[,50] # update first col with current sequela state on that day
 
-  # new steps : update current sequela state in morb.mat if 7th day of morbidity to 0 #
-  morb.mat.tmp[,23] <- sequela.postive.mat2[,7] # assign day 7 from sequela delay matrix
+  # new steps : update current sequela state in morb.mat if 3th day of morbidity to 0 #
+  morb.mat.tmp[,23] <- sequela.postive.mat2[,3] # assign day 7 from sequela delay matrix
   morb.mat.tmp[,50] <- ifelse(morb.mat.tmp[,23] == 1, 0, morb.mat.tmp[,50]) # update current disease status
 
   return(list(sequela.postive.mat1, sequela.postive.mat2, morb.mat.tmp))

@@ -625,8 +625,8 @@ ep.equi.sim <- function(time.its,
     # Depigm_probs <- Depigm_probs_df$fit
 
 
-    # set up reversible sequela (SI and RSD) 7-day delay matrix #
-    num.days.cols <- 7
+    # set up reversible sequela (SI and RSD) 3-day delay matrix #
+    num.days.cols <- 3
     sequela.postive.mat <- matrix(0, ncol = num.days.cols, nrow = N)
     inds.sequela.mat <- seq(2,(length(sequela.postive.mat[1,]))) # for moving columns along with time
 
@@ -814,8 +814,8 @@ ep.equi.sim <- function(time.its,
       age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
       age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
 
-      sequela.postive.mat1 <- morbidity_eq[[2]] # 7-day delay sequelae matrix (SI)
-      sequela.postive.mat2 <- morbidity_eq[[3]] # 7-day delay sequelae matrix (RSD)
+      sequela.postive.mat1 <- morbidity_eq[[2]] # 3-day delay sequelae matrix (SI)
+      sequela.postive.mat2 <- morbidity_eq[[3]] # 3-day delay sequelae matrix (RSD)
 
       inds.sequela.mat <- seq(2,(length(sequela.postive.mat1[1,]))) # for moving columns along with time
 
@@ -1559,7 +1559,7 @@ ep.equi.sim <- function(time.its,
         # all.morb.updated[to.die,12] <- sample(seq(20, 80, DT), size = length(to.die), replace = TRUE) # hanging groin - (age- restricted?)
         # all.morb.updated[to.die,13] <- sample(seq(20, 80, DT), size = length(to.die), replace = TRUE) # depigmentation - (age- restricted?)
 
-        # update sequela 7-day delay matrices if any individual dies
+        # update sequela 3-day delay matrices if any individual dies
         sequela.postive.mat1[to.die, ] <- 0
 
         sequela.postive.mat2[to.die, ] <- 0
@@ -1570,21 +1570,21 @@ ep.equi.sim <- function(time.its,
     # update sequela matrix if any individual has reached 7th day with SI/RSD
     if(morbidity_module2 == "YES"){
 
-      # SI 7-day matrix #
-    current_day7_SI <- which(sequela.postive.mat1[,7] == 1)
+      # SI 3-day matrix #
+    current_day3_SI <- which(sequela.postive.mat1[,3] == 1)
 
-    if(length(current_day7_SI) > 0) {
+    if(length(current_day3_SI) > 0) {
 
-      sequela.postive.mat1[current_day7_SI, ] <- 0
+      sequela.postive.mat1[current_day3_SI, ] <- 0
 
     }
 
-    #RSD 7-day matrix #
-    current_day7_RSD <- which(sequela.postive.mat2[,7] == 1)
+    #RSD 3-day matrix #
+    current_day3_RSD <- which(sequela.postive.mat2[,3] == 1)
 
-    if(length(current_day7_RSD) > 0) {
+    if(length(current_day3_RSD) > 0) {
 
-      sequela.postive.mat2[current_day7_RSD, ] <- 0
+      sequela.postive.mat2[current_day3_RSD, ] <- 0
 
     }
     }
