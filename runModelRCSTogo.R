@@ -1,6 +1,8 @@
+library(devtools)
+devtools::load_all()
 library(dplyr)
 
-iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
+iter <- 1#as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 set.seed(iter + (iter*3758))
 
 DT.in <- 1/366
@@ -34,14 +36,25 @@ DT.in <- 1/366
 # # kE = 0.3
 # ABR.in <- 180
 # mda.val <- 0
+ABR.in <- round(rgamma(1, 18.9, .0072)) # 70%
 
-# try 13/14 as well
-treat.len = mda.val; treat.strt.yrs = 100; yrs.post.treat = 5
+# For Keran
+mda.val <- 26
+
+vctr.control.strt <- 80
+vctr.control.duration <- 31
+vector.control.efficacies <- rep(c(.60, .75, .95), 3300)
+vctr.control.efficacy <- vector.control.efficacies[iter]
+
+# treat.strt.yrs = 1989
+treat.len = mda.val; treat.strt.yrs = 93; yrs.post.treat = 10
 
 treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
 timesteps = treat.stp + yrs.post.treat #final duration
+cstm_treat_params <- list(start_biannual=treat.strt.yrs+14, coverage_changes=c(treat.strt.yrs+7, treat.strt.yrs+14), coverage_change_values=c(0.55, 0.75, 0.85))
 
-give.treat.in = 0; trt.int = 1
+
+give.treat.in = 1; trt.int = 1
 
 output <- ep.equi.sim(time.its = timesteps,
                       ABR = ABR.in,
@@ -53,7 +66,9 @@ output <- ep.equi.sim(time.its = timesteps,
                       treat.timing = NA,
                       pnc = 0.01,
                       min.mont.age = 5,
-                      vector.control.strt = NA,
+                      vector.control.strt = vctr.control.strt,
+                      vector.control.duration = vctr.control.duration,
+                      vector.control.efficacy = vctr.control.efficacy,
                       delta.hz.in =  0.385,
                       delta.hinf.in = 0.003,
                       c.h.in = 0.008,
@@ -63,7 +78,9 @@ output <- ep.equi.sim(time.its = timesteps,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
                       #ov16_equilibrium = output_equilibrium$ov16_equilibrium,
-                      no_prev_run=TRUE)
+                      no_prev_run=TRUE,
+                      custom_treat_params=cstm_treat_params,
+                      seroreversion=FALSE)
 
 params <- list(mda.val, ABR.in)
 names(params) <- c('MDA', 'ABR')

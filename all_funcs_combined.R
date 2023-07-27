@@ -1002,7 +1002,7 @@ ep.equi.sim <- function(time.its,
     if(treat.start == 0) {treat.start <-  1}
     ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(1/DT)+1)
   } else {
-    ov16_store_times <- c(round(time.its/2), time.its-1)
+    ov16_store_times <- c(time.its-1)
   }
   print("Sero Store Times")
   print(ov16_store_times)
@@ -1246,6 +1246,7 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_mating_no_mf <- rep(0, N)
       Ov16_Seropositive_mating_detectable_mf <- rep(0, N)
       Ov16_Seropositive_mating_any_mf <- rep(0, N)
+      time_since_mf_neg <- matrix(-1, nrow=N, ncol=6)
 
 
       mf_indv_prev <- rep(0, N)
@@ -1662,23 +1663,33 @@ ep.equi.sim <- function(time.its,
       any_juvy_worms <- (rowSums(all.mats.temp[, worms.start:num.cols]) > 0)
       any_l3_exposure <- (l.extras[,1] > 0)
       l4_development <- (l.extras[,floor(length(l.extras[1,])/2)] > 0)
-      mating_worm_no_mf <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
-      mating_worm_detectable_mf <- (mating_worm_no_mf & temp.mf[[2]] > 0)
-      mating_worm_any_mf <- (mating_worm_no_mf == TRUE & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
+      any_worms <- rowSums(all.mats.temp[,worms.start:fw.end])
+      mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
+      mating_worm_detectable_mf <- (mating_worm & temp.mf[[2]] > 0)
+      mating_worm_any_mf <- (mating_worm == TRUE & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
 
       indv_antibody_response <- all.mats.temp[,91]
 
-      findPositives <- function(exposure_array, curr_array, antibody_resp) {
+      findPositives <- function(exposure_array, curr_array, antibody_resp, mf_neg_index) {
         curr_array[which(exposure_array == TRUE & curr_array == 0 & antibody_resp == 1)] <- 1
+        # hard seroreversion
+        #curr_array[which(curr_array == 1 & exposure_array == FALSE & any_worms == FALSE & rowSums(all.mats.temp[,mf.start:mf.end]) == 0)] <- 0
+
+        # From kamlan et al.
+        actual_mf_ov16_data <- c(1826-1825, 1875-1735, 1323-1323, 1987-1938)
+        seroreversion_start <- which(curr_array == 1 & exposure_array == FALSE & any_worms == FALSE & rowSums(temp.mf[[2]]) == 0)
+        time_since_mf_neg[seroreversion_start,mf_neg_index] <- time_since_mf_neg + 1
+        should_serorevert <- rnorm(N, mean(actual_mf_ov16_data), sd(actual_mf_ov16_data))
+        curr_array[which(time_since_mf_neg[,1] >0 & should_serorevert <= time_since_mf_neg[,1])] <- 0
         return(curr_array)
       }
 
-      Ov16_Seropositive <- findPositives(any_juvy_worms, Ov16_Seropositive, indv_antibody_response)
-      Ov16_Seropositive_L3 <- findPositives(any_l3_exposure, Ov16_Seropositive_L3, indv_antibody_response)
-      Ov16_Seropositive_L4 <- findPositives(l4_development, Ov16_Seropositive_L4, indv_antibody_response)
-      Ov16_Seropositive_mating_no_mf <- findPositives(mating_worm_no_mf, Ov16_Seropositive_mating_no_mf, indv_antibody_response)
-      Ov16_Seropositive_mating_detectable_mf <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf, indv_antibody_response)
-      Ov16_Seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf, indv_antibody_response)
+      Ov16_Seropositive <- findPositives(any_juvy_worms, Ov16_Seropositive, indv_antibody_response, 1)
+      Ov16_Seropositive_L3 <- findPositives(any_l3_exposure, Ov16_Seropositive_L3, indv_antibody_response, 2)
+      Ov16_Seropositive_L4 <- findPositives(l4_development, Ov16_Seropositive_L4, indv_antibody_response, 3)
+      Ov16_Seropositive_mating_no_mf <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf, indv_antibody_response, 4)
+      Ov16_Seropositive_mating_detectable_mf <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf, indv_antibody_response, 5)
+      Ov16_Seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf, indv_antibody_response, 6)
 
       mf_indv_prev <- as.integer(temp.mf[[2]] > 0)
       prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive)/N)
@@ -1731,7 +1742,7 @@ ep.equi.sim <- function(time.its,
       }
 
     }
-    if(calc_ov16 & give.treat==1 & !is.na(match(i, ov16_store_times))) {
+    if(calc_ov16 & !is.na(match(i, ov16_store_times))) {
       Ov16_Seropositive_matrix[,9*matrix_index-8] <- all.mats.temp[,2]
       Ov16_Seropositive_matrix[,9*matrix_index-7] <- all.mats.temp[,3]
       Ov16_Seropositive_matrix[,9*matrix_index-6] <- as.integer(temp.mf[[2]] > 0)
@@ -1839,37 +1850,36 @@ iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 set.seed(iter + (iter*3758))
 
 DT.in <- 1/366
-#timesteps = 50
-#give.treat.in = 0
-#treat.strt = 1; treat.stp = 16
-#trt.int = 1
 
-mda.time.vals <- c(16, 18, 20, 22)
-ABR.vals <- seq(50, 100, 5)
+# kE = 0.2
+# delta.hz.in =  0.385,
+# delta.hinf.in = 0.003,
+# c.h.in = 0.008,
+# gam.dis.in = 0.2,
 
-ABR.in <- sample(ABR.vals, 1)
-mda.val <- 0#round(rnorm(1, 18, 3))#sample(mda.time.vals, 1)
+# kE = 0.3
+# delta.hz.in = 0.186,
+# delta.hinf.in = 0.003,
+# c.h.in = 0.005,
+# gam.dis.in = 0.2,
 
-# output_equilibrium <-  ep.equi.sim(time.its = timesteps,
-#                                    ABR = ABR.in,
-#                                    treat.int = trt.int,
-#                                    treat.prob = 0.80,
-#                                    give.treat = give.treat.in,
-#                                    treat.start = treat.strt,
-#                                    treat.stop = treat.stp,
-#                                    treat.timing = NA,
-#                                    pnc = 0.01,
-#                                    min.mont.age = 5,
-#                                    vector.control.strt = NA,
-#                                    delta.hz.in =  0.1864987,
-#                                    delta.hinf.in = 0.002772749,
-#                                    c.h.in = 0.005,
-#                                    gam.dis.in = 0.3,
-#                                    run_equilibrium=TRUE,
-#                                    print_progress=TRUE,
-#                                    calc_ov16=TRUE)
 
-#print(output_equilibrium$mf_prev)
+# Gabon Elisa Dataset
+
+# kE = 0.2
+ABR.in <- 73
+mda.val <- 0
+# kE = 0.3
+# ABR.in <- 176
+# mda.val <- 0
+#
+# # Gabon RDT Dataset
+# # kE = 0.2
+# ABR.in <- 76
+# mda.val <- 0
+# # kE = 0.3
+# ABR.in <- 180
+# mda.val <- 0
 
 # try 13/14 as well
 treat.len = mda.val; treat.strt.yrs = 100; yrs.post.treat = 5

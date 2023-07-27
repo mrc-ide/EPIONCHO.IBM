@@ -1,0 +1,409 @@
+---
+title: "analyzeTogoData"
+author: "Aditya Ramani"
+date: "2023-07-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(7281998)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(fastR2)
+library(stringr)
+library(MASS)
+library(fitdistrplus)
+knitr::knit_hooks$set(timeit = local({
+  now = NULL
+  function(before, options) {
+    if (before) {
+      now <<- Sys.time()
+    } else {
+      res = difftime(Sys.time(), now)
+      now <<- NULL
+      # use options$label if you want the chunk label as well
+      paste('Time for this code chunk:', as.character(res))
+    }
+  }})
+)
+```
+
+## Simulation Data
+
+```{r simulation_processing_functions}
+processRCSFiles <- function (files='ov16_gabon_4/', verbose=TRUE, onlyCalcMFP=FALSE) {
+  allOutputs <- data.frame()
+  fileToUse <- paste("data/", files, sep="")
+
+  i <- 1
+  mda_vals <- c()
+  abr_vals <- c()
+  mf_prev_vals <- c()
+  total_files <- length(list.files(fileToUse))
+  for (file in list.files(fileToUse)) {
+    if(verbose) {
+      print(i)
+    }
+    tryCatch(
+    {
+      tmpRDSData <- readRDS(paste(fileToUse, file,sep=""))
+    },
+    error = function(e) {
+      message(paste("Error occurred while reading:", fileToUse))
+    }
+    )
+    
+    mf_prev_vals <- c(mf_prev_vals, tail(tmpRDSData$mf_prev)[1])
+    mda_vals <- c(mda_vals, tmpRDSData$MDA)
+    abr_vals <- c(abr_vals, tmpRDSData$ABR)
+    if(onlyCalcMFP) {
+      next
+    }
+    
+    age <- tmpRDSData$ov16_seropositive_matrix[,1]
+    sex <- ifelse(tmpRDSData$ov16_seropositive_matrix[,2] == 1, "Male", "Female")
+    mf_prev <- tmpRDSData$ov16_seropositive_matrix[,3]
+    ov16_seropos <- tmpRDSData$ov16_seropositive_matrix[,4]
+    ov_l3 <- tmpRDSData$ov16_seropositive_matrix[,5]
+    ov_l4 <- tmpRDSData$ov16_seropositive_matrix[,6]
+    ov_mating_no_mf <- tmpRDSData$ov16_seropositive_matrix[,7]
+    ov_mating_detectable_mf <- tmpRDSData$ov16_seropositive_matrix[,8]
+    ov_mating_any_mf <- tmpRDSData$ov16_seropositive_matrix[,9]
+
+    tmpNumRows <- length(age)
+    if(i == 1) {
+      allOutputs <- data.frame(matrix(ncol=11, nrow=tmpNumRows*total_files))
+      colnames(allOutputs) <- c("age", "sex", "ov16_pos", "ov16_pos_l3", "ov16_pos_l4", "ov16_pos_mating_no_mf", "ov16_pos_mating_detectable_mf", "ov16_pos_mating_any_mf", "mf_prev", "ABR", "run_num")
+    }
+
+    startIndex <- 1+tmpNumRows*(i-1)
+    endIndex <- tmpNumRows*i
+    allOutputs[startIndex:endIndex,-11] <- list(age, sex, ov16_seropos, ov_l3, ov_l4, ov_mating_no_mf, ov_mating_detectable_mf, ov_mating_any_mf, mf_prev, tmpRDSData$ABR)
+    allOutputs[startIndex:endIndex,11] <- i
+
+    i <- i + 1
+  }
+
+  print(paste("Overall Pre Treatment MF Prevalence:", mean(mf_prev_vals)))
+  print(paste("Avg MDA Years:", mean(mda_vals)))
+  # par(mfrow=c(2,1))
+  # freqpoly(mda_vals)
+  # print(paste("Avg ABR Value:", mean(abr_vals)))
+  # freqpoly(abr_vals)
+  # par(mfrow=c(1,1))
+  if(onlyCalcMFP) {
+    mfpReturn <- list(mf_prev_vals, mda_vals, abr_vals)
+    names(mfpReturn) <- c('mf_prev', 'mda_vals', 'abr_vals')
+    return(mfpReturn)
+  }
+
+  abr_vs_mf_prev <- ggplot() + geom_boxplot(aes(x=factor(abr_vals), y=mf_prev_vals)) +
+    scale_y_continuous(breaks=seq(0, 0.3, 0.05), limits = c(0, 0.3))
+
+  allOutputs <- allOutputs %>% mutate(age_groups = case_when(
+                                                age <= 30 ~ ceiling(age/1)*1,
+                                                age <= 75 ~ ceiling(age/5)*5,
+                                                TRUE ~ 80
+                                              ))
+  returnVal <- list(allOutputs, mf_prev_vals, abr_vals, mda_vals, abr_vs_mf_prev)
+  names(returnVal) <- c("allOutputs", "mf_prev", "abr_vals", "mda_vals", "abr_vs_mf_prev")
+  return(returnVal)
+}
+
+calcSensSpecSeroPrev <- function(run_seropos_data, sens=1, spec=1, prob=c()) {
+  indv <- length(run_seropos_data)
+  if(length(prob) < indv) {
+    prob <- runif(indv)
+  }
+  
+  if(length(sens) ==0 | is.na(sens)) {
+    sens <- 1
+  }
+  if(length(sens) == 0 | is.na(spec)) {
+    spec <- 1
+  }
+  
+  new_seropos_data<-rep(0, indv)
+  pos <- which(run_seropos_data==1)
+  neg <- which(run_seropos_data==0)
+
+  if(length(pos) > 0) {
+    new_seropos_data[pos] <- as.numeric(prob[pos] <= sens)
+  }
+  if(length(neg) > 0) {
+    new_seropos_data[neg] <- as.numeric(prob[neg] > spec)
+  }
+  return(new_seropos_data)
+}
+
+summarizeSimulationDataHelper <- function(data, sensSpec, sensAgeGroup=5) {
+  data$probs <- runif(dim(data)[1])
+  if(is.data.frame(sensSpec)) {
+    data <- data %>% dplyr::group_by(run_num, age_groups) %>%
+      #dplyr::summarise(
+      mutate(
+        ov16_pos=calcSensSpecSeroPrev(ov16_pos, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_l3=calcSensSpecSeroPrev(ov16_pos_l3, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_l4=calcSensSpecSeroPrev(ov16_pos_l4, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_mating_no_mf=calcSensSpecSeroPrev(ov16_pos_mating_no_mf, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_mating_detectable_mf=calcSensSpecSeroPrev(ov16_pos_mating_detectable_mf, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_mating_any_mf=calcSensSpecSeroPrev(ov16_pos_mating_any_mf, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs)
+      ) %>% ungroup() %>% as.data.frame()
+  } else {
+    sens=sensSpec[1]; spec=sensSpec[2]
+    if(sens != 1 | spec != 1) {
+      data <- data %>% group_by(run_num) %>%
+        #summarise(
+        mutate(
+          ov16_pos=calcSensSpecSeroPrev(ov16_pos, sens, spec, probs),
+          ov16_pos_l3=calcSensSpecSeroPrev(ov16_pos_l3, sens, spec, probs),
+          ov16_pos_l4=calcSensSpecSeroPrev(ov16_pos_l4, sens, spec, probs),
+          ov16_pos_mating_no_mf=calcSensSpecSeroPrev(ov16_pos_mating_no_mf, sens, spec, probs),
+          ov16_pos_mating_detectable_mf=calcSensSpecSeroPrev(ov16_pos_mating_detectable_mf, sens, spec, probs),
+          ov16_pos_mating_any_mf=calcSensSpecSeroPrev(ov16_pos_mating_any_mf, sens, spec, probs)
+        ) %>% ungroup() %>% as.data.frame()
+    }
+  }
+  return(data)
+}
+
+summarizeSimulationData <- function(data, sensSpec=c(1,1), groupBySex=TRUE, sensAgeGroup=5) {
+  df <- data
+  hypothesisNames <- list("Any Worm", "L3 Exposure", "L4-L5 moult", "Mating Worm with any MF", "Mating Worm with detectable MF", "Mating worm")
+  groupByCols1 <- c("run_num", "age_groups")
+  groupByCols2 <- c("age_groups", "Hypothesis")
+  hypNamesLoc <- 3:8
+  if(groupBySex) {
+    groupByCols1 <- c("run_num", "age_groups", "sex")
+    groupByCols2 <- c("age_groups", "sex", "Hypothesis")
+    hypNamesLoc <- 4:9
+  }
+  
+  df <- summarizeSimulationDataHelper(df, sensSpec, sensAgeGroup)
+  
+  df <- df %>%
+    dplyr::group_by(!!!syms(groupByCols1)) %>%
+    dplyr::summarise(ov16_any_worm_prev=mean(ov16_pos),
+                     ov16_l3_prev=mean(ov16_pos_l3),
+                     ov16_l4_prev=mean(ov16_pos_l4),
+                     ov16_mating_no_mf_prev=mean(ov16_pos_mating_no_mf),
+                     ov16_mating_detectable_mf_prev=mean(ov16_pos_mating_detectable_mf),
+                     ov16_mating_any_mf_prev=mean(ov16_pos_mating_any_mf),
+                     mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+  colnames(df)[all_of(hypNamesLoc)] <- hypothesisNames
+  df <- df %>%
+    as.data.frame() %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev")
+
+  df <- df %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(ov16_prev=mean(ov16_prev), mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame() %>%
+    mutate(
+      mf_prev = case_when(
+        age_groups == 0 & mf_prev > 0 ~ 0,
+        TRUE ~ mf_prev
+      )
+    )
+
+  return(df)
+}
+```
+
+### ABR DIST
+
+#### loading data
+
+```{r}
+tmpmfpvals <- data.frame(abr_vals=c(), mf_prev=c())
+i <- 0
+for(mfp in c(70, 75, 85, 85, 85)) {
+  i <- i + 1
+  fileNameMFP <- paste("togo_mfp_tuning_k3_", mfp,"_final", sep="")
+  if(i > 2) {
+    fileNameMFP <- paste("togo_mfp_tuning_k3_", mfp,"_final_start_", i, sep="")
+  }
+  target_mfp_str <- strsplit(fileNameMFP, "_")[[1]][5]
+  target_mfp <- as.numeric(target_mfp_str)/100
+  kval <- strsplit(fileNameMFP, "_")[[1]][4]
+  tmp <- processRCSFiles(paste(fileNameMFP,"/",sep=""), verbose=FALSE, onlyCalcMFP=TRUE)
+  tmpDf <- data.frame(abr_vals=tmp$abr_vals, mf_prev=tmp$mf_prev)
+  tmpmfpvals <- rbind(tmpmfpvals, tmpDf)
+}
+```
+#### Helping functions
+
+```{r calc_mfp, timeit=TRUE}
+
+getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), kval="", dist_name="normal", dist_func=dnorm, onlyPlotCullFur=FALSE, dist_manual=c()) {
+  bin_size <- 500
+  if(target_mfp > 0.8) {
+    bin_size <- 500
+  }
+  
+  print(ggplot() + geom_histogram(aes(x=raw_data$abr_vals), binwidth=bin_size))
+  raw_data <- raw_data %>% filter(mf_prev >= target_mfp & mf_prev < target_mfp + 0.01)
+
+  
+  plot <- NA
+  if(length(raw_data) > 0) {
+    min_val <- floor(min(raw_data$abr_vals)/(bin_size))*(bin_size)
+    max_val <- ceiling(max(raw_data$abr_vals)/(bin_size))*(bin_size)
+    print(paste("Min, max:", min_val, max_val))
+    data_dist <- raw_data %>% mutate(
+      abr_vals = abr_vals
+    ) %>% .$abr_vals
+    if(onlyPlotCullFur) {
+      desc_summary <- descdist(data_dist, discrete = FALSE)
+      print(desc_summary)
+    } else {
+      firstParam <- dist_manual[1]
+      secondParam <- dist_manual[2]
+      if(length(dist_manual) == 0) {
+        if(grepl("norm", dist_name)) {
+          dist <- MASS::fitdistr(data_dist, dist_name)
+          scale_by <- 1
+          if(dist_name == "log-normal") {
+            dist_name = "lnorm"
+          }
+          if(dist_name == "normal") {
+            dist_name = "norm"
+          }
+          dist2 <- fitdist(data_dist, dist_name)
+        } else {
+          lower = 0.001
+          if(target_mfp >= 0.85) {
+            lower = 0.001
+          }
+          scale_by = 1000
+          dist <- MASS::fitdistr(data_dist/scale_by, dist_name, lower=lower)
+          dist2 <- fitdist(data_dist/scale_by, dist_name, lower=lower)
+        }
+        print(paste("AIC: ", dist2$aic))
+        print(plot(dist2))
+        firstParam = dist$estimate[1]
+        secondParam = dist$estimate[2]/scale_by
+      }
+  
+      xrange <- seq(min_val, max_val, 20)
+      scaling_factor <- length(data_dist) * bin_size
+      fitted_data <- data.frame(x=xrange, y=dist_func(xrange, firstParam, secondParam)*scaling_factor)
+      print(paste(dist_name, "Dist Parameters:", firstParam, secondParam))
+      
+      plot <- ggplot() +
+        geom_histogram(aes(x=abr_vals), color='darkblue', fill="lightblue", binwidth=bin_size, boundary = 0, closed="left", data=raw_data) +
+        geom_line(aes(x=x, y=y), color="red", data=fitted_data) +
+        scale_x_continuous(breaks=seq(min_val, max_val, bin_size*2), limits=c(min_val, max_val)) + ylab('Count') + ggtitle(paste('Distribution for', kval, 'of ABR for an MFP of ', target_mfp*100,"%"))
+    }
+  }
+  return_val <- list(plot)
+  return(return_val)
+}
+
+custom_sample <- function(data) {
+  sample_size <- min(nrow(data), 90)
+  #print(paste(unique(data$abr_vals_2), ": ", nrow(data), sample_size))
+  return(data %>% sample_n(size = sample_size, replace = FALSE))
+}
+
+for(mfp in c(70, 75, 85)) {
+  tmp_raw_data_vals <- tmpmfpvals %>% dplyr::mutate(abr_vals_2 = case_when(
+    abr_vals <= 10000 ~ round(abr_vals/100)*100,
+    TRUE ~ round(abr_vals/100)*100,
+    )) %>% dplyr::group_by(abr_vals_2) %>% group_map(~ custom_sample(.), .keep=TRUE) %>% bind_rows()
+  getRangeOfABR(NULL, mfp/100, raw_data=tmp_raw_data_vals, onlyPlotCullFur = TRUE)
+}
+
+raw_data_vals <- tmpmfpvals %>% dplyr::mutate(abr_vals_2 = case_when(
+      abr_vals <= 10000 ~ round(abr_vals/100)*100,
+      TRUE ~ round(abr_vals/100)*100,
+      )) %>% dplyr::group_by(abr_vals_2) %>% group_map(~ custom_sample(.), .keep=TRUE) %>% bind_rows() %>% as.data.frame()
+
+
+
+
+
+# ggplot() + geom_histogram(aes(x=tmpmfpvals_2$abr_vals), binwidth = 500) +
+#   scale_y_continuous(breaks = seq(0, 500, 100))
+```
+
+#### Normal
+```{r}
+for(mfp in c(70, 75, 85)) {
+  print(paste("mfp: ", mfp/100))
+  target_mfp_str = paste(mfp, "", sep="")
+  target_mfp = mfp / 100
+  
+  summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
+  print(summarized_abr_mfp)
+
+  ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
+  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
+
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'normal', dist_func = dnorm)
+  print(range_return[[1]])
+  ggsave(paste("images/", "normal_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+}
+```
+
+#### Lognormal
+```{r}
+for(mfp in c(70, 75, 85)) {
+  target_mfp_str = paste(mfp, "", sep="")
+  target_mfp = mfp / 100
+  
+  summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
+  print(summarized_abr_mfp)
+
+  ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
+  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
+
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'log-normal', dist_func = dlnorm)
+  print(range_return[[1]])
+  ggsave(paste("images/", "lognormal_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+}
+```
+
+#### Gamma
+```{r}
+for(mfp in c(70, 75, 85)) {
+  target_mfp_str = paste(mfp, "", sep="")
+  target_mfp = mfp / 100
+  
+  summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
+  print(summarized_abr_mfp)
+
+  ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
+  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
+
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'gamma', dist_func = dgamma)
+  print(range_return[[1]])
+  ggsave(paste("images/", "gamma_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+}
+```
+
+#### Final Sims
+```{r}
+gamma_vals <- list(c(18.9, 7.2/1000), c(15.4, 3.3/1000), c(6.8, .29/1000))
+
+i <- 0
+for(mfp in c(70, 75, 85)) {
+  i <- i + 1
+  target_mfp_str = paste(mfp, "", sep="")
+  target_mfp = mfp / 100
+  
+  summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
+  print(summarized_abr_mfp)
+
+  ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
+  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
+
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'gamma', dist_func = dgamma, dist_manual=gamma_vals[[i]])
+  print(range_return[[1]])
+  ggsave(paste("images/", "final_gamma_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+}
+```

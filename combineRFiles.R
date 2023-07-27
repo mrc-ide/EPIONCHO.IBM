@@ -19,4 +19,4 @@ combineRFiles <- function(folderName="R/", fileName="all_funcs_combined") {
   sink()
 
 }
-
+combineRFiles()

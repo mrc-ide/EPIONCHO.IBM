@@ -71,7 +71,9 @@ ep.equi.sim <- function(time.its,
                         calc_ov16=FALSE,
                         ov16_equilibrium=NA,
                         ov16_store_times = c(),
-                        no_prev_run=FALSE)
+                        no_prev_run=FALSE,
+                        custom_treat_params = list(),
+                        seroreversion = FALSE)
 
 
 {
@@ -93,7 +95,7 @@ ep.equi.sim <- function(time.its,
     if(treat.start == 0) {treat.start <-  1}
     ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(1/DT)+1)
   } else {
-    ov16_store_times <- c(round(time.its/2), time.its-1)
+    ov16_store_times <- c(time.its-1)
   }
   print("Sero Store Times")
   print(ov16_store_times)
@@ -128,7 +130,7 @@ ep.equi.sim <- function(time.its,
   g = 0.0096
   a.v = 0.39
   real.max.age = 80 #no humans live longer than 80 years
-  N = 500 #human population size
+  N = 2700 #human population size
   mean.age = 50 #mean human age (before truncation)
   int.L3 = 0.03; int.L2 = 0.03; int.L1 = 0.03
   lambda.zero = 0.33 # (matt:) per-capita rate that female worms lose their fertility (W_FF) & return to non-fertile state (W_FN)
@@ -168,10 +170,21 @@ ep.equi.sim <- function(time.its,
     if(treat.stop > time.its) stop('not enough time for requested MDA duration')
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
-    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)}
-    if(all(is.na(treat.timing)))
-    {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
-    else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
+    if(length(custom_treat_params) > 0) {
+      times.of.treat.in <- c(seq(treat.start, round(custom_treat_params$start_biannual / DT) - treat.int, treat.int / DT),
+                             seq(round(custom_treat_params$start_biannual / DT), treat.stop, 0.5 / DT))
+
+      treat.prob.variable <- ifelse(times.of.treat.in < round(custom_treat_params$coverage_changes[1] / DT),
+                                    custom_treat_params$coverage_change_values[1],
+                                    ifelse(times.of.treat.in < round(custom_treat_params$coverage_changes[2] / DT),
+                                           custom_treat_params$coverage_change_values[2],
+                                           custom_treat_params$coverage_change_values[3]))
+    } else {
+      if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)}
+      if(all(is.na(treat.timing)))
+      {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
+      else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
+    }
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
@@ -337,6 +350,7 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_mating_no_mf <- rep(0, N)
       Ov16_Seropositive_mating_detectable_mf <- rep(0, N)
       Ov16_Seropositive_mating_any_mf <- rep(0, N)
+      time_since_mf_neg <- matrix(-1, nrow=N, ncol=6)
 
 
       mf_indv_prev <- rep(0, N)
@@ -753,23 +767,35 @@ ep.equi.sim <- function(time.its,
       any_juvy_worms <- (rowSums(all.mats.temp[, worms.start:num.cols]) > 0)
       any_l3_exposure <- (l.extras[,1] > 0)
       l4_development <- (l.extras[,floor(length(l.extras[1,])/2)] > 0)
-      mating_worm_no_mf <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
-      mating_worm_detectable_mf <- (mating_worm_no_mf & temp.mf[[2]] > 0)
-      mating_worm_any_mf <- (mating_worm_no_mf == TRUE & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
+      any_worms <- rowSums(all.mats.temp[,worms.start:fw.end])
+      mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
+      mating_worm_detectable_mf <- (mating_worm & temp.mf[[2]] > 0)
+      mating_worm_any_mf <- (mating_worm == TRUE & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
 
       indv_antibody_response <- all.mats.temp[,91]
 
-      findPositives <- function(exposure_array, curr_array, antibody_resp) {
+      findPositives <- function(exposure_array, curr_array, antibody_resp, mf_neg_index) {
         curr_array[which(exposure_array == TRUE & curr_array == 0 & antibody_resp == 1)] <- 1
+        # hard seroreversion
+        if(seroreversion) {
+          curr_array[which(curr_array == 1 & exposure_array == FALSE & any_worms == FALSE & rowSums(all.mats.temp[,mf.start:mf.end]) == 0)] <- 0
+        }
+
+        # From kamlan et al.
+        # actual_mf_ov16_data <- c(1826-1825, 1875-1735, 1323-1323, 1987-1938)
+        # seroreversion_start <- which(curr_array == 1 & exposure_array == FALSE & any_worms == FALSE & rowSums(temp.mf[[2]]) == 0)
+        # time_since_mf_neg[seroreversion_start,mf_neg_index] <- time_since_mf_neg + 1
+        # should_serorevert <- rnorm(N, mean(actual_mf_ov16_data), sd(actual_mf_ov16_data))
+        # curr_array[which(time_since_mf_neg[,1] >0 & should_serorevert <= time_since_mf_neg[,1])] <- 0
         return(curr_array)
       }
 
-      Ov16_Seropositive <- findPositives(any_juvy_worms, Ov16_Seropositive, indv_antibody_response)
-      Ov16_Seropositive_L3 <- findPositives(any_l3_exposure, Ov16_Seropositive_L3, indv_antibody_response)
-      Ov16_Seropositive_L4 <- findPositives(l4_development, Ov16_Seropositive_L4, indv_antibody_response)
-      Ov16_Seropositive_mating_no_mf <- findPositives(mating_worm_no_mf, Ov16_Seropositive_mating_no_mf, indv_antibody_response)
-      Ov16_Seropositive_mating_detectable_mf <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf, indv_antibody_response)
-      Ov16_Seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf, indv_antibody_response)
+      Ov16_Seropositive <- findPositives(any_juvy_worms, Ov16_Seropositive, indv_antibody_response, 1)
+      Ov16_Seropositive_L3 <- findPositives(any_l3_exposure, Ov16_Seropositive_L3, indv_antibody_response, 2)
+      Ov16_Seropositive_L4 <- findPositives(l4_development, Ov16_Seropositive_L4, indv_antibody_response, 3)
+      Ov16_Seropositive_mating_no_mf <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf, indv_antibody_response, 4)
+      Ov16_Seropositive_mating_detectable_mf <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf, indv_antibody_response, 5)
+      Ov16_Seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf, indv_antibody_response, 6)
 
       mf_indv_prev <- as.integer(temp.mf[[2]] > 0)
       prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive)/N)
@@ -822,7 +848,7 @@ ep.equi.sim <- function(time.its,
       }
 
     }
-    if(calc_ov16 & give.treat==1 & !is.na(match(i, ov16_store_times))) {
+    if(calc_ov16 & !is.na(match(i, ov16_store_times))) {
       Ov16_Seropositive_matrix[,9*matrix_index-8] <- all.mats.temp[,2]
       Ov16_Seropositive_matrix[,9*matrix_index-7] <- all.mats.temp[,3]
       Ov16_Seropositive_matrix[,9*matrix_index-6] <- as.integer(temp.mf[[2]] > 0)
