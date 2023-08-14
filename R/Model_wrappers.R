@@ -728,13 +728,6 @@ ep.equi.sim <- function(time.its,
     visual_imp_prev30_49 <- 0
     visual_imp_prev50_80 <- 0
 
-    # # set up lagged matrix for blindness
-    # lag.iters <- (366 * 2) - 1 # number of cols required pre-lag: 2 yrs - timestep
-    # n.iter <- time.its # n.iters for model run
-    # ncol.lag.mat <- 2 + lag.iters + n.iter # col 1 = curr.age, col 2 = sex
-    # blind.lag.mat <- matrix(nrow = N, ncol = ncol.lag.mat) # large size?
-    # blind.lag.mat[,c(3:733)] <- 0 # these should all be 0 up to 2 years (iter = 732)
-
     # =============================================================================== #
     #   lagged vector for blindness / visual impairment (start filling from 2 years)  #
 
@@ -1459,7 +1452,6 @@ ep.equi.sim <- function(time.its,
         # eye disease  #
 
         all.blind.updated <- all.blind.temp
-        # lagged.mat.updated <- blind.lag.mat
 
         eye.dis.prev.out <- eye.disease.prev.func(N = N,morb.mat.tmp = all.blind.updated,
                                                   blind_prev = blind_prev, visual_imp_prev = visual_imp_prev,
@@ -1540,15 +1532,8 @@ ep.equi.sim <- function(time.its,
                                                      morb.mat.tmp = all.blind.updated,
                                                      age_to_samp_vec_nonreversible = age_to_samp_vec_nonreversible)
 
-        # morb.lagged.updated <- new_cases_morbidity_func3(morb.mat.tmp = all.blind.updated, temp.mf = temp.mf,
-        #                                                  blind.probs = eye.dis.probs)
-
         all.blind.updated <- new_cases_morbidity_func3(morb.mat.tmp = all.blind.updated, temp.mf = temp.mf,
                                                          blind.probs = eye.dis.probs)
-
-
-        # all.blind.updated <- morb.lagged.updated[[1]] # updated blindness matrix
-        # lagged.mat.updated <- morb.lagged.updated[[2]] # updated lagged blindness matrix
 
 
         eye.dis.prev.out <- eye.disease.prev.func(N = N, morb.mat.tmp = all.blind.updated,
