@@ -121,7 +121,8 @@ plot(tme2, output_equilibrium_morbidity$depigmentation_prev, type = 'l', xlab = 
 
 # with lagged matrix #
 
-tme3 <- seq(1, 130*366)/366
+#tme3 <- seq(1, 130*366)/366
+tme3 <- seq(1, 132*366 - 1/366)/366
 
 plot(tme3, output_equilibrium_morbidity$blindness_prev, type = 'l', xlab = 'time (years)', ylab = 'blindness prev (lagged mat)', ylim = c(0, 1))
 tail(output_equilibrium_morbidity$blindness_prev)
@@ -137,19 +138,19 @@ mean(tail(output_equilibrium_morbidity$visual_impairment_prev))
 plot(tme3, output_equilibrium_morbidity$visual_impairment_prev, type = 'l', xlab = 'time (years)', ylab = 'visual impairement prev',
      ylim = c(0, 0.05), xlim = c(0, 5)) # check 2 yr lag at start
 
-# with lagged vector #
-
-length(output_equilibrium_morbidity$blindness_prev)/366 # with lagged matrix
-length(output_equilibrium_morbidity$blindness_prev1)/366 # with lagged vector
-
-tme4 <- seq(1, 131.9973*366)/366
-
-plot(tme4, output_equilibrium_morbidity$blindness_prev1, type = 'l', xlab = 'time (years)', ylab = 'blindness prev (lagged vec)', ylim = c(0, 1))
-tail(output_equilibrium_morbidity$blindness_prev1)
-mean(tail(output_equilibrium_morbidity$blindness_prev1))
-
-plot(tme4, output_equilibrium_morbidity$blindness_prev1, type = 'l', xlab = 'time (years)', ylab = 'blindness prev (lagged vec)',
-     ylim = c(0, 0.05), xlim = c(0, 5)) # check 2 yr lag at start
+# # with lagged vector #
+#
+# length(output_equilibrium_morbidity$blindness_prev)/366 # with lagged matrix
+# length(output_equilibrium_morbidity$blindness_prev1)/366 # with lagged vector
+#
+# tme4 <- seq(1, 131.9973*366)/366
+#
+# plot(tme4, output_equilibrium_morbidity$blindness_prev1, type = 'l', xlab = 'time (years)', ylab = 'blindness prev (lagged vec)', ylim = c(0, 1))
+# tail(output_equilibrium_morbidity$blindness_prev1)
+# mean(tail(output_equilibrium_morbidity$blindness_prev1))
+#
+# plot(tme4, output_equilibrium_morbidity$blindness_prev1, type = 'l', xlab = 'time (years)', ylab = 'blindness prev (lagged vec)',
+#      ylim = c(0, 0.05), xlim = c(0, 5)) # check 2 yr lag at start
 
 
 # chop off final 2 years of lagged vec as two years longer than lagged mat
@@ -164,7 +165,65 @@ mean(tail(blind_lagged_vec))
 plot(tme3, blind_lagged_vec, type = 'l', xlab = 'time (years)', ylab = 'blindness prev (lagged vec)',
      ylim = c(0, 0.05), xlim = c(0, 5)) # check 2 yr lag at start
 
+# ============================== #
+#   check blindness age-prev     #
 
+names(output_equilibrium_morbidity)
+
+ageprev_out <- output_equilibrium_morbidity$eye_morbidity_ageprev_out
+
+# blind modelled age-prev #
+blind_prev_0_1 <- mean(tail(ageprev_out$blind_prev0_1))
+blind_prev_2_4 <- mean(tail(ageprev_out$blind_prev2_4))
+blind_prev_5_9 <- mean(tail(ageprev_out$blind_prev5_9))
+blind_prev_10_19 <- mean(tail(ageprev_out$blind_prev10_19))
+blind_prev_20_29 <- mean(tail(ageprev_out$blind_prev20_29))
+blind_prev_30_49 <- mean(tail(ageprev_out$blind_prev30_49))
+blind_prev_50_80 <- mean(tail(ageprev_out$blind_prev50_80))
+
+blind_prev_ageprev_vec <- c(blind_prev_0_1, blind_prev_2_4, blind_prev_5_9, blind_prev_10_19, blind_prev_20_29, blind_prev_30_49, blind_prev_50_80)
+age_vec <- c(1, 3, 7.5, 15, 25, 40, 65)
+blind_prev_ageprev_df <- data.frame(age = age_vec, prop = blind_prev_ageprev_vec)
+blind_prev_ageprev_df$prev <- blind_prev_ageprev_df$prop * 100
+blind_prev_ageprev_df$sequela <- as.factor("blindness")
+blind_prev_ageprev_df$agecat <- c("0 - 1", "2 - 4", "5 - 9", "10 - 19", "20 - 29", "30 - 49", "50 - 80")
+blind_prev_ageprev_df$agecat2 <- ordered(blind_prev_ageprev_df$agecat, levels = c("0 - 1", "2 - 4", "5 - 9", "10 - 19", "20 - 29", "30 - 49", "50 - 80"))
+
+require(ggplot2)
+ggplot(data = blind_prev_ageprev_df, aes(x = agecat2, y =prev, group = sequela))+
+  geom_point()+
+  geom_line()
+
+# visual impairement modelled age-prev #
+visual_imp_prev_0_1 <- mean(tail(ageprev_out$visual_imp_prev0_1))
+visual_imp_prev_2_4 <- mean(tail(ageprev_out$visual_imp_prev2_4))
+visual_imp_prev_5_9 <- mean(tail(ageprev_out$visual_imp_prev5_9))
+visual_imp_prev_10_19 <- mean(tail(ageprev_out$visual_imp_prev10_19))
+visual_imp_prev_20_29 <- mean(tail(ageprev_out$visual_imp_prev20_29))
+visual_imp_prev_30_49 <- mean(tail(ageprev_out$visual_imp_prev30_49))
+visual_imp_prev_50_80 <- mean(tail(ageprev_out$visual_imp_prev50_80))
+
+visual_imp_prev_ageprev_vec <- c(visual_imp_prev_0_1, visual_imp_prev_2_4, visual_imp_prev_5_9,
+                                 visual_imp_prev_10_19, visual_imp_prev_20_29, visual_imp_prev_30_49, visual_imp_prev_50_80)
+age_vec <- c(1, 3, 7.5, 15, 25, 40, 65)
+visual_imp_prev_ageprev_df <- data.frame(age = age_vec, prop = visual_imp_prev_ageprev_vec)
+visual_imp_prev_ageprev_df$prev <- visual_imp_prev_ageprev_df$prop * 100
+visual_imp_prev_ageprev_df$sequela <- as.factor("visual impairment")
+visual_imp_prev_ageprev_df$agecat <- c("0 - 1", "2 - 4", "5 - 9", "10 - 19", "20 - 29", "30 - 49", "50 - 80")
+visual_imp_prev_ageprev_df$agecat2 <- ordered(visual_imp_prev_ageprev_df$agecat, levels = c("0 - 1", "2 - 4", "5 - 9", "10 - 19", "20 - 29", "30 - 49", "50 - 80"))
+
+require(ggplot2)
+ggplot(data = visual_imp_prev_ageprev_df, aes(x = agecat2, y =prev, group = sequela))+
+  geom_point()+
+  geom_line()
+
+
+eye_dis_df <- rbind(blind_prev_ageprev_df, visual_imp_prev_ageprev_df)
+
+ggplot(data = eye_dis_df, aes(x = agecat2, y =prev, group = sequela))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~sequela)
 
 # ==========================================================================================================#
 #                                Running with equilibria inputs                                             #

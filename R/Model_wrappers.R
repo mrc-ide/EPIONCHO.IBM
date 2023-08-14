@@ -728,40 +728,40 @@ ep.equi.sim <- function(time.its,
     visual_imp_prev30_49 <- 0
     visual_imp_prev50_80 <- 0
 
-    # set up lagged matrix for blindness
-    lag.iters <- (366 * 2) - 1 # number of cols required pre-lag: 2 yrs - timestep
-    n.iter <- time.its # n.iters for model run
-    ncol.lag.mat <- 2 + lag.iters + n.iter # col 1 = curr.age, col 2 = sex
-    blind.lag.mat <- matrix(nrow = N, ncol = ncol.lag.mat) # large size?
-    blind.lag.mat[,c(3:733)] <- 0 # these should all be 0 up to 2 years (iter = 732)
+    # # set up lagged matrix for blindness
+    # lag.iters <- (366 * 2) - 1 # number of cols required pre-lag: 2 yrs - timestep
+    # n.iter <- time.its # n.iters for model run
+    # ncol.lag.mat <- 2 + lag.iters + n.iter # col 1 = curr.age, col 2 = sex
+    # blind.lag.mat <- matrix(nrow = N, ncol = ncol.lag.mat) # large size?
+    # blind.lag.mat[,c(3:733)] <- 0 # these should all be 0 up to 2 years (iter = 732)
 
-    # ================== #
-    #   test             #
+    # =============================================================================== #
+    #   lagged vector for blindness / visual impairment (start filling from 2 years)  #
 
     length_req_2yrs <- length(seq(0, 2 - 1/366, by = 1/366)) # length of 0's required for lag (2 years)
     lag_seq <- rep(0, times = length_req_2yrs)
 
     # assign prevalence vectors (set to 1 or 0) #
-    blind_prev1 <- lag_seq
-    visual_imp_prev1 <- lag_seq
+    blind_prev <- lag_seq
+    visual_imp_prev <- lag_seq
 
     # assign age-prev vectors 0
-    blind_prev0_1a <- lag_seq
-    blind_prev2_4a <- lag_seq
-    blind_prev5_9a <- lag_seq
-    blind_prev10_19a <- lag_seq
-    blind_prev20_29a <- lag_seq
-    blind_prev30_49a <- lag_seq
-    blind_prev50_80a <- lag_seq
+    blind_prev0_1 <- lag_seq
+    blind_prev2_4 <- lag_seq
+    blind_prev5_9 <- lag_seq
+    blind_prev10_19 <- lag_seq
+    blind_prev20_29 <- lag_seq
+    blind_prev30_49 <- lag_seq
+    blind_prev50_80 <- lag_seq
 
     # assign age-prev vectors 0
-    visual_imp_prev0_1a <- lag_seq
-    visual_imp_prev2_4a <- lag_seq
-    visual_imp_prev5_9a <- lag_seq
-    visual_imp_prev10_19a <- lag_seq
-    visual_imp_prev20_29a <- lag_seq
-    visual_imp_prev30_49a <- lag_seq
-    visual_imp_prev50_80a <- lag_seq
+    visual_imp_prev0_1 <- lag_seq
+    visual_imp_prev2_4 <- lag_seq
+    visual_imp_prev5_9 <- lag_seq
+    visual_imp_prev10_19 <- lag_seq
+    visual_imp_prev20_29 <- lag_seq
+    visual_imp_prev30_49 <- lag_seq
+    visual_imp_prev50_80 <- lag_seq
 
 
   }
@@ -1459,9 +1459,9 @@ ep.equi.sim <- function(time.its,
         # eye disease  #
 
         all.blind.updated <- all.blind.temp
-        lagged.mat.updated <- blind.lag.mat
+        # lagged.mat.updated <- blind.lag.mat
 
-        eye.dis.prev.out <- eye.disease.prev.func(i = i, lagged.mat.tmp = lagged.mat.updated, N = N,
+        eye.dis.prev.out <- eye.disease.prev.func(N = N,morb.mat.tmp = all.blind.updated,
                                                   blind_prev = blind_prev, visual_imp_prev = visual_imp_prev,
                                                   blind_prev0_1 = blind_prev0_1, blind_prev2_4 = blind_prev2_4,
                                                   blind_prev5_9 = blind_prev5_9, blind_prev10_19 = blind_prev10_19,
@@ -1470,16 +1470,7 @@ ep.equi.sim <- function(time.its,
                                                   visual_imp_prev0_1 = visual_imp_prev0_1, visual_imp_prev2_4 = visual_imp_prev2_4,
                                                   visual_imp_prev5_9 = visual_imp_prev5_9, visual_imp_prev10_19 = visual_imp_prev10_19,
                                                   visual_imp_prev20_29 = visual_imp_prev20_29, visual_imp_prev30_49 = visual_imp_prev30_49,
-                                                  visual_imp_prev50_80 = visual_imp_prev50_80,
-                                                  morb.mat.tmp = all.blind.updated,
-                                                  blind_prev1 = blind_prev1, visual_imp_prev1 = visual_imp_prev1,
-                                                  blind_prev0_1a = blind_prev0_1a, blind_prev2_4a = blind_prev2_4a,
-                                                  blind_prev5_9a = blind_prev5_9a, blind_prev10_19a = blind_prev10_19a,
-                                                  blind_prev20_29a = blind_prev20_29a, blind_prev30_49a = blind_prev30_49a, blind_prev50_80a,
-                                                  visual_imp_prev0_1a = visual_imp_prev0_1a, visual_imp_prev2_4a = visual_imp_prev2_4a,
-                                                  visual_imp_prev5_9a = visual_imp_prev5_9a, visual_imp_prev10_19a = visual_imp_prev10_19a,
-                                                  visual_imp_prev20_29a = visual_imp_prev20_29a, visual_imp_prev30_49a = visual_imp_prev30_49a,
-                                                  visual_imp_prev50_80a = visual_imp_prev50_80a)
+                                                  visual_imp_prev50_80 = visual_imp_prev50_80)
 
       }
 
@@ -1503,6 +1494,7 @@ ep.equi.sim <- function(time.its,
         #                                              Atrp_probs = 0.002375305,
         #                                              Hg_probs = 0.0007263018, Depigm_probs = 0.001598305)
         #
+
         all.morb.updated <- new_cases_morbidity_func2(morb.mat.tmp = all.morb.updated, temp_mf = temp.mf,
                                                       SI_probs = 0.1636701, RSD_probs = 0.04163095,
                                                       Atrp_probs = 0.002375305,
@@ -1548,15 +1540,18 @@ ep.equi.sim <- function(time.its,
                                                      morb.mat.tmp = all.blind.updated,
                                                      age_to_samp_vec_nonreversible = age_to_samp_vec_nonreversible)
 
-        morb.lagged.updated <- new_cases_morbidity_func3(morb.mat.tmp = all.blind.updated, temp.mf = temp.mf,
-                                                         blind.probs = eye.dis.probs, dat = all.mats.temp,
-                                                         i = i, lagged.mat.tmp = lagged.mat.updated)
+        # morb.lagged.updated <- new_cases_morbidity_func3(morb.mat.tmp = all.blind.updated, temp.mf = temp.mf,
+        #                                                  blind.probs = eye.dis.probs)
 
-        all.blind.updated <- morb.lagged.updated[[1]] # updated blindess matrix
-        lagged.mat.updated <- morb.lagged.updated[[2]] # updated lagged blindness matrix
+        all.blind.updated <- new_cases_morbidity_func3(morb.mat.tmp = all.blind.updated, temp.mf = temp.mf,
+                                                         blind.probs = eye.dis.probs)
 
 
-        eye.dis.prev.out <- eye.disease.prev.func(i = i, lagged.mat.tmp = lagged.mat.updated, N = N,
+        # all.blind.updated <- morb.lagged.updated[[1]] # updated blindness matrix
+        # lagged.mat.updated <- morb.lagged.updated[[2]] # updated lagged blindness matrix
+
+
+        eye.dis.prev.out <- eye.disease.prev.func(N = N, morb.mat.tmp = all.blind.updated,
                                                   blind_prev = eye.dis.prev.out[[1]], visual_imp_prev = eye.dis.prev.out[[2]],
                                                   blind_prev0_1 = eye.dis.prev.out[[3]], blind_prev2_4 = eye.dis.prev.out[[4]],
                                                   blind_prev5_9 = eye.dis.prev.out[[5]], blind_prev10_19 = eye.dis.prev.out[[6]],
@@ -1565,17 +1560,7 @@ ep.equi.sim <- function(time.its,
                                                   visual_imp_prev0_1 = eye.dis.prev.out[[10]], visual_imp_prev2_4 = eye.dis.prev.out[[11]],
                                                   visual_imp_prev5_9 = eye.dis.prev.out[[12]], visual_imp_prev10_19 = eye.dis.prev.out[[13]],
                                                   visual_imp_prev20_29 = eye.dis.prev.out[[14]], visual_imp_prev30_49 = eye.dis.prev.out[[15]],
-                                                  visual_imp_prev50_80 = eye.dis.prev.out[[16]],
-                                                  morb.mat.tmp = all.blind.updated,
-                                                  blind_prev1 = eye.dis.prev.out[[17]], visual_imp_prev1 = eye.dis.prev.out[[18]],
-                                                  blind_prev0_1a = eye.dis.prev.out[[19]], blind_prev2_4a = eye.dis.prev.out[[20]],
-                                                  blind_prev5_9a = eye.dis.prev.out[[21]], blind_prev10_19a = eye.dis.prev.out[[22]],
-                                                  blind_prev20_29a = eye.dis.prev.out[[23]], blind_prev30_49a = eye.dis.prev.out[[24]],
-                                                  blind_prev50_80a = eye.dis.prev.out[[25]],
-                                                  visual_imp_prev0_1a = eye.dis.prev.out[[26]], visual_imp_prev2_4a = eye.dis.prev.out[[27]],
-                                                  visual_imp_prev5_9a = eye.dis.prev.out[[28]], visual_imp_prev10_19a = eye.dis.prev.out[[29]],
-                                                  visual_imp_prev20_29a = eye.dis.prev.out[[30]], visual_imp_prev30_49a = eye.dis.prev.out[[31]],
-                                                  visual_imp_prev50_80a = eye.dis.prev.out[[32]])
+                                                  visual_imp_prev50_80 = eye.dis.prev.out[[16]])
 
       }
 
@@ -1837,7 +1822,6 @@ ep.equi.sim <- function(time.its,
                     SI_prev = morbidity_prev_out[[1]], RSD_prev = morbidity_prev_out[[2]], Atrp_prev = morbidity_prev_out[[3]],
                     HG_prev = morbidity_prev_out[[4]], depigm_prev = morbidity_prev_out[[5]],
                     blind_prev = eye.dis.prev.out[[1]], visual_imp_prev = eye.dis.prev.out[[2]],
-                    blind_prev1 = eye.dis.prev.out[[17]], visual_imp_prev1 = eye.dis.prev.out[[18]],
                     list(SI_prev0_1 = morbidity_prev_out[[6]], SI_prev2_4 = morbidity_prev_out[[7]], SI_prev5_9 = morbidity_prev_out[[8]],
                           SI_prev10_19 = morbidity_prev_out[[9]], SI_prev20_29 = morbidity_prev_out[[10]], SI_prev30_49 = morbidity_prev_out[[11]],
                           SI_prev50_80 =  morbidity_prev_out[[12]],
@@ -1860,15 +1844,7 @@ ep.equi.sim <- function(time.its,
                           visual_imp_prev0_1 = eye.dis.prev.out[[10]], visual_imp_prev2_4 = eye.dis.prev.out[[11]],
                           visual_imp_prev5_9 = eye.dis.prev.out[[12]], visual_imp_prev10_19 = eye.dis.prev.out[[13]],
                           visual_imp_prev20_29 = eye.dis.prev.out[[14]], visual_imp_prev30_49 = eye.dis.prev.out[[15]],
-                          visual_imp_prev50_80 = eye.dis.prev.out[[16]],
-                          blind_prev0_1a = eye.dis.prev.out[[19]], blind_prev2_4a = eye.dis.prev.out[[20]],
-                          blind_prev5_9a = eye.dis.prev.out[[21]], blind_prev10_19a = eye.dis.prev.out[[22]],
-                          blind_prev20_29a = eye.dis.prev.out[[23]], blind_prev30_49a = eye.dis.prev.out[[24]],
-                          blind_prev50_80a = eye.dis.prev.out[[25]],
-                          visual_imp_prev0_1a = eye.dis.prev.out[[26]], visual_imp_prev2_4a = eye.dis.prev.out[[27]],
-                          visual_imp_prev5_9a = eye.dis.prev.out[[28]], visual_imp_prev10_19a = eye.dis.prev.out[[29]],
-                          visual_imp_prev20_29a = eye.dis.prev.out[[30]], visual_imp_prev30_49a = eye.dis.prev.out[[31]],
-                          visual_imp_prev50_80a = eye.dis.prev.out[[32]]),
+                          visual_imp_prev50_80 = eye.dis.prev.out[[16]]),
                     ABR_recorded, coverage.recorded, list(all.morb.updated, sequela.postive.mat1, sequela.postive.mat2),
                     list(mfprev0_1 = prev0_1, mfprev2_4 = prev2_4, mfprev5_9 = prev5_9, mfprev10_19 = prev10_19,
                          mfprev20_29 = prev20_29, mfprev30_49 = prev30_49, mfprev50_80 = prev50_80),
@@ -1878,7 +1854,7 @@ ep.equi.sim <- function(time.its,
 
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs',
                        'severe_itch_prev', 'RSD_prev', 'atrophy_prev','hanging_groin_prev', 'depigmentation_prev',
-                       'blindness_prev', 'visual_impairment_prev','blindness_prev1', 'visual_impairment_prev1',
+                       'blindness_prev', 'visual_impairment_prev',
                        'morbidity_ageprev_out','eye_morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs',
                        'mf_ageprev_out', 'mf_agintens_out')
       return(outp)

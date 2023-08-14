@@ -533,14 +533,10 @@ find_indiv_totest_func3 <- function(dat, mf.start, mf.end, morb.mat.tmp, age_to_
 #'
 #' @param morb.mat.tmp updated matrix highlighting individuals to test
 #' @param temp_mf vector of all mf per skin snip for each individual
-#' @param SI_probs probabilities of severe itch for a given mf count
-#' @param RSD_probs probabilities of RSD for a given mf count
-#' @param Atrp_probs probabilities of Atrophy for a given mf count
-#' @param Hg_probs probabilities of hanging groin for a given mf count
-#' @param Depigm_probs probabilities of depigmentation for a given mf count
+#' @param blind_probs probabilities of blindness for a given mf count (based on equation from Little et al. 2004)
 #'
 #' @returns updated matrix with disease status updated
-new_cases_morbidity_func3 <- function(morb.mat.tmp, temp.mf, blind.probs, dat, i, lagged.mat.tmp){
+new_cases_morbidity_func3 <- function(morb.mat.tmp, temp.mf, blind.probs){
 
   # extract number of mf per skin snip per individual
   morb.mat.tmp[,5] <- round(temp.mf[[2]]) + 1 # mf per skin snip for all individuals (+1 because of indexing so that when indexing probabilities goes from 1)
@@ -560,17 +556,19 @@ new_cases_morbidity_func3 <- function(morb.mat.tmp, temp.mf, blind.probs, dat, i
   # ========================================================================================== #
   #  update lagged matrix (current blindness outcome related to blindness onset 2 years on )   #
 
-  lagged.mat.tmp[,1] <- dat[,2] # update age
-  lagged.mat.tmp[,2] <- dat[,3] # update sex
+  # lagged.mat.tmp[,1] <- dat[,2] # update age
+  # lagged.mat.tmp[,2] <- dat[,3] # update sex
+  #
+  # col.to.select <- 2 + i + 731 # column to update with lagged blindness outcomes :
+  #                              # 2 + because first two columsn are current age and sex, so iter one from thrid col
+  #                              # 731 as want update 2 years - dt on from current iter (e.g., 2 year lag)
+  #
+  # lagged.mat.tmp[,col.to.select] <- morb.mat.tmp[,9] # update lagged iter (column) with current disease state
 
-  col.to.select <- 2 + i + 731 # column to update with lagged blindness outcomes :
-                               # 2 + because first two columsn are current age and sex, so iter one from thrid col
-                               # 731 as want update 2 years - dt on from current iter (e.g., 2 year lag)
 
-  lagged.mat.tmp[,col.to.select] <- morb.mat.tmp[,9] # update lagged iter (column) with current disease state
+  #return(list(morb.mat.tmp, lagged.mat.tmp))
+  return(morb.mat.tmp)
 
-
-  return(list(morb.mat.tmp, lagged.mat.tmp))
 
 
 }
@@ -584,9 +582,8 @@ new_cases_morbidity_func3 <- function(morb.mat.tmp, temp.mf, blind.probs, dat, i
 #' @description
 #' calculates disease prevalence for each disease state (including age-stratified disease prevalence's)
 #'
-#' @param i iteration
-#' @param lagged.mat.tmp updated matrix highlighting individuals to test
 #' @param N human pop size
+#' @param morb.mat.tmp updated matrix highlighting individuals to test
 #' @param blind_prev prevalence vector for blindness to update
 #' @param visual_imp_prev prevalence vector for visual impairment to update
 #' @param blind_prev0_1 prevalence vector for blindness (0 - 1 age group) to update
@@ -605,82 +602,18 @@ new_cases_morbidity_func3 <- function(morb.mat.tmp, temp.mf, blind.probs, dat, i
 #' @param visual_imp_prev50_80 prevalence vector for visual impairment (50 - 80 age group) to update
 #'
 #' @returns updated matrix with disease status updated
-eye.disease.prev.func <- function(i, lagged.mat.tmp, N, blind_prev, visual_imp_prev,
+eye.disease.prev.func <- function(N, morb.mat.tmp,
+                                  blind_prev, visual_imp_prev,
                                   blind_prev0_1, blind_prev2_4, blind_prev5_9, blind_prev10_19,
                                   blind_prev20_29, blind_prev30_49, blind_prev50_80,
                                   visual_imp_prev0_1, visual_imp_prev2_4, visual_imp_prev5_9,
                                   visual_imp_prev10_19, visual_imp_prev20_29, visual_imp_prev30_49,
-                                  visual_imp_prev50_80,
-                                  morb.mat.tmp,
-                                  blind_prev1, visual_imp_prev1,
-                                  blind_prev0_1a, blind_prev2_4a, blind_prev5_9a, blind_prev10_19a, blind_prev20_29a,
-                                  blind_prev30_49a, blind_prev50_80a,
-                                  visual_imp_prev0_1a, visual_imp_prev2_4a, visual_imp_prev5_9a, visual_imp_prev10_19a,
-                                  visual_imp_prev20_29a, visual_imp_prev30_49a, visual_imp_prev50_80a)
+                                  visual_imp_prev50_80)
 {
 
 
-  # calculate for current time-step, eye disease state prevalence using lagged matrix #
-  # overall prevalence calculated in > 5 yr olds
-
-  col_slct <- i + 2 # iter 1 begins from col 3 in lagged matrix
-
-  blind_prev_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 5)) /  length(which(lagged.mat.tmp[,1] >= 5)) # prev in > 5yrs
-  visual_imp_prev_temp <- blind_prev_temp * 4/3
-
-  # update prevalence vectors
-  blind_prev <- c(blind_prev, blind_prev_temp)
-  visual_imp_prev <- c(visual_imp_prev, visual_imp_prev_temp)
-
-  # update age-prevalence vectors
-
-  # blind age age-prev #
-  blind_prev0_1_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 0 & lagged.mat.tmp[,1] < 2)) /  length(which(lagged.mat.tmp[,1] >= 0 & lagged.mat.tmp[,1] < 2))# 0 - 1 age
-  blind_prev0_1 <- c(blind_prev0_1, blind_prev0_1_temp)
-
-  blind_prev2_4_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 2 & lagged.mat.tmp[,1] < 5)) /  length(which(lagged.mat.tmp[,1] >= 2 & lagged.mat.tmp[,1] < 5))# 2 - 4 age
-  blind_prev2_4 <- c(blind_prev2_4, blind_prev2_4_temp)
-
-  blind_prev5_9_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 5 & lagged.mat.tmp[,1] < 10)) /  length(which(lagged.mat.tmp[,1] >= 5 & lagged.mat.tmp[,1] < 10))
-  blind_prev5_9 <- c(blind_prev5_9, blind_prev5_9_temp)
-
-  blind_prev10_19_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 10 & lagged.mat.tmp[,1] < 20)) /  length(which(lagged.mat.tmp[,1] >= 10 & lagged.mat.tmp[,1] < 20))
-  blind_prev10_19 <- c(blind_prev10_19, blind_prev10_19_temp)
-
-  blind_prev20_29_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 20 & lagged.mat.tmp[,1] < 30)) /  length(which(lagged.mat.tmp[,1] >= 20 & lagged.mat.tmp[,1] < 30))
-  blind_prev20_29 <- c(blind_prev20_29, blind_prev20_29_temp)
-
-  blind_prev30_49_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 30 & lagged.mat.tmp[,1] < 50)) /  length(which(lagged.mat.tmp[,1] >= 30 & lagged.mat.tmp[,1] < 50))
-  blind_prev30_49 <- c(blind_prev30_49, blind_prev30_49_temp)
-
-  blind_prev50_80_temp <- length(which(lagged.mat.tmp[,col_slct] == 1 & lagged.mat.tmp[,1] >= 50 & lagged.mat.tmp[,1] <= 80)) /  length(which(lagged.mat.tmp[,1] >= 50 & lagged.mat.tmp[,1] < 80))
-  blind_prev50_80 <- c(blind_prev50_80, blind_prev50_80_temp)
-
-  # visual impairement age age-prev #
-  visual_imp_prev0_1_temp <- blind_prev0_1_temp * 4/3 # 0 - 1 age
-  visual_imp_prev0_1 <- c(visual_imp_prev0_1, visual_imp_prev0_1_temp)
-
-  visual_imp_prev2_4_temp <- blind_prev2_4_temp * 4/3 # 2 - 4 age
-  visual_imp_prev2_4 <- c(visual_imp_prev2_4, visual_imp_prev2_4_temp)
-
-  visual_imp_prev5_9_temp <- blind_prev5_9_temp * 4/3
-  visual_imp_prev5_9 <- c(visual_imp_prev5_9, visual_imp_prev5_9_temp)
-
-  visual_imp_prev10_19_temp <- blind_prev10_19_temp * 4/3
-  visual_imp_prev10_19 <- c(visual_imp_prev10_19, visual_imp_prev10_19_temp)
-
-  visual_imp_prev20_29_temp <- blind_prev20_29_temp * 4/3
-  visual_imp_prev20_29 <- c(visual_imp_prev20_29, visual_imp_prev20_29_temp)
-
-  visual_imp_prev30_49_temp <- blind_prev30_49_temp * 4/3
-  visual_imp_prev30_49 <- c(visual_imp_prev30_49, visual_imp_prev30_49_temp)
-
-  visual_imp_prev50_80_temp <- blind_prev50_80_temp * 4/3
-  visual_imp_prev50_80 <- c(visual_imp_prev50_80, visual_imp_prev50_80_temp)
-
-
-  # ============================================= #
-  #    Test by updating a lagged vector approach  #
+   # =============================================================== #
+  #    Updating a lagged vector (e.g. disease state in 2 years time) #
 
   # blind_prev_temp1 <- length(which(morb.mat.tmp[,9] == 1 & morb.mat.tmp[,1] >= 5)) /  length(which(morb.mat.tmp[,1] >= 5)) # prev in > 5yrs
   # visual_imp_prev_temp1 <- blind_prev_temp1 * 4/3
@@ -739,71 +672,66 @@ eye.disease.prev.func <- function(i, lagged.mat.tmp, N, blind_prev, visual_imp_p
   # =============================================================================== #
   # based on age in 2 years (col 11) and updated blindness status in 2 yrs (col 12)
 
-  blind_prev_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 5)) /  length(which(morb.mat.tmp[,11] >= 5)) # prev in > 5yrs
-  visual_imp_prev_temp1 <- blind_prev_temp1 * 4/3
+  blind_prev_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 5)) /  length(which(morb.mat.tmp[,11] >= 5)) # prev in > 5yrs
+  visual_imp_prev_temp <- blind_prev_temp * 4/3
 
   # update prevalence vectors
-  blind_prev1 <- c(blind_prev1, blind_prev_temp1)
-  visual_imp_prev1 <- c(visual_imp_prev1, visual_imp_prev_temp1)
+  blind_prev <- c(blind_prev, blind_prev_temp)
+  visual_imp_prev <- c(visual_imp_prev, visual_imp_prev_temp)
 
   # update age-prevalence vectors
   # based on age in 2 years (col 11) and updated blindness status in 2 yrs (col 12)
 
   # blind age age-prev #
-  blind_prev0_1_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 0 & morb.mat.tmp[,11] < 2)) /  length(which(morb.mat.tmp[,11] >= 0 & morb.mat.tmp[,11] < 2))# 0 - 1 age
-  blind_prev0_1a <- c(blind_prev0_1a, blind_prev0_1_temp1)
+  blind_prev0_1_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 0 & morb.mat.tmp[,11] < 2)) /  length(which(morb.mat.tmp[,11] >= 0 & morb.mat.tmp[,11] < 2))# 0 - 1 age
+  blind_prev0_1 <- c(blind_prev0_1, blind_prev0_1_temp)
 
-  blind_prev2_4_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 2 & morb.mat.tmp[,11] < 5)) /  length(which(morb.mat.tmp[,11] >= 2 & morb.mat.tmp[,11] < 5))# 2 - 4 age
-  blind_prev2_4a <- c(blind_prev2_4a, blind_prev2_4_temp1)
+  blind_prev2_4_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 2 & morb.mat.tmp[,11] < 5)) /  length(which(morb.mat.tmp[,11] >= 2 & morb.mat.tmp[,11] < 5))# 2 - 4 age
+  blind_prev2_4 <- c(blind_prev2_4, blind_prev2_4_temp)
 
-  blind_prev5_9_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 5 & morb.mat.tmp[,11] < 10)) /  length(which(morb.mat.tmp[,11] >= 5 & morb.mat.tmp[,11] < 10))
-  blind_prev5_9a <- c(blind_prev5_9a, blind_prev5_9_temp1)
+  blind_prev5_9_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 5 & morb.mat.tmp[,11] < 10)) /  length(which(morb.mat.tmp[,11] >= 5 & morb.mat.tmp[,11] < 10))
+  blind_prev5_9 <- c(blind_prev5_9, blind_prev5_9_temp)
 
-  blind_prev10_19_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 10 & morb.mat.tmp[,11] < 20)) /  length(which(morb.mat.tmp[,11] >= 10 & morb.mat.tmp[,11] < 20))
-  blind_prev10_19a <- c(blind_prev10_19a, blind_prev10_19_temp1)
+  blind_prev10_19_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 10 & morb.mat.tmp[,11] < 20)) /  length(which(morb.mat.tmp[,11] >= 10 & morb.mat.tmp[,11] < 20))
+  blind_prev10_19 <- c(blind_prev10_19, blind_prev10_19_temp)
 
-  blind_prev20_29_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 20 & morb.mat.tmp[,11] < 30)) /  length(which(morb.mat.tmp[,11] >= 20 & morb.mat.tmp[,11] < 30))
-  blind_prev20_29a <- c(blind_prev20_29a, blind_prev20_29_temp1)
+  blind_prev20_29_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 20 & morb.mat.tmp[,11] < 30)) /  length(which(morb.mat.tmp[,11] >= 20 & morb.mat.tmp[,11] < 30))
+  blind_prev20_29 <- c(blind_prev20_29, blind_prev20_29_temp)
 
-  blind_prev30_49_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 30 & morb.mat.tmp[,11] < 50)) /  length(which(morb.mat.tmp[,11] >= 30 & morb.mat.tmp[,11] < 50))
-  blind_prev30_49a <- c(blind_prev30_49a, blind_prev30_49_temp1)
+  blind_prev30_49_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 30 & morb.mat.tmp[,11] < 50)) /  length(which(morb.mat.tmp[,11] >= 30 & morb.mat.tmp[,11] < 50))
+  blind_prev30_49 <- c(blind_prev30_49, blind_prev30_49_temp)
 
-  blind_prev50_80_temp1 <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 50 & morb.mat.tmp[,11] <= 80)) /  length(which(morb.mat.tmp[,11] >= 50 & morb.mat.tmp[,11] < 80))
-  blind_prev50_80a <- c(blind_prev50_80a, blind_prev50_80_temp1)
+  blind_prev50_80_temp <- length(which(morb.mat.tmp[,12] == 1 & morb.mat.tmp[,11] >= 50 & morb.mat.tmp[,11] <= 80)) /  length(which(morb.mat.tmp[,11] >= 50 & morb.mat.tmp[,11] < 80))
+  blind_prev50_80 <- c(blind_prev50_80, blind_prev50_80_temp)
 
   # visual impairement age age-prev #
-  visual_imp_prev0_1_temp1 <- blind_prev0_1_temp1 * 4/3 # 0 - 1 age
-  visual_imp_prev0_1a <- c(visual_imp_prev0_1a, visual_imp_prev0_1_temp1)
+  visual_imp_prev0_1_temp <- blind_prev0_1_temp * 4/3 # 0 - 1 age
+  visual_imp_prev0_1 <- c(visual_imp_prev0_1, visual_imp_prev0_1_temp)
 
-  visual_imp_prev2_4_temp1 <- blind_prev2_4_temp1 * 4/3 # 2 - 4 age
-  visual_imp_prev2_4a <- c(visual_imp_prev2_4a, visual_imp_prev2_4_temp1)
+  visual_imp_prev2_4_temp <- blind_prev2_4_temp * 4/3 # 2 - 4 age
+  visual_imp_prev2_4 <- c(visual_imp_prev2_4, visual_imp_prev2_4_temp)
 
-  visual_imp_prev5_9_temp1 <- blind_prev5_9_temp1 * 4/3
-  visual_imp_prev5_9a <- c(visual_imp_prev5_9a, visual_imp_prev5_9_temp1)
+  visual_imp_prev5_9_temp <- blind_prev5_9_temp * 4/3
+  visual_imp_prev5_9 <- c(visual_imp_prev5_9, visual_imp_prev5_9_temp)
 
-  visual_imp_prev10_19_temp1 <- blind_prev10_19_temp1 * 4/3
-  visual_imp_prev10_19a <- c(visual_imp_prev10_19a, visual_imp_prev10_19_temp1)
+  visual_imp_prev10_19_temp <- blind_prev10_19_temp * 4/3
+  visual_imp_prev10_19 <- c(visual_imp_prev10_19, visual_imp_prev10_19_temp)
 
-  visual_imp_prev20_29_temp1 <- blind_prev20_29_temp1 * 4/3
-  visual_imp_prev20_29a <- c(visual_imp_prev20_29a, visual_imp_prev20_29_temp1)
+  visual_imp_prev20_29_temp <- blind_prev20_29_temp * 4/3
+  visual_imp_prev20_29 <- c(visual_imp_prev20_29, visual_imp_prev20_29_temp)
 
-  visual_imp_prev30_49_temp1 <- blind_prev30_49_temp1 * 4/3
-  visual_imp_prev30_49a <- c(visual_imp_prev30_49a, visual_imp_prev30_49_temp1)
+  visual_imp_prev30_49_temp <- blind_prev30_49_temp * 4/3
+  visual_imp_prev30_49 <- c(visual_imp_prev30_49, visual_imp_prev30_49_temp)
 
-  visual_imp_prev50_80_temp1 <- blind_prev50_80_temp1 * 4/3
-  visual_imp_prev50_80a <- c(visual_imp_prev50_80a, visual_imp_prev50_80_temp1)
+  visual_imp_prev50_80_temp <- blind_prev50_80_temp * 4/3
+  visual_imp_prev50_80 <- c(visual_imp_prev50_80, visual_imp_prev50_80_temp)
 
 
   return(list(blind_prev, visual_imp_prev,
               blind_prev0_1, blind_prev2_4, blind_prev5_9, blind_prev10_19, blind_prev20_29,
               blind_prev30_49, blind_prev50_80,
               visual_imp_prev0_1, visual_imp_prev2_4, visual_imp_prev5_9, visual_imp_prev10_19,
-              visual_imp_prev20_29, visual_imp_prev30_49, visual_imp_prev50_80,
-              blind_prev1, visual_imp_prev1,
-              blind_prev0_1a, blind_prev2_4a, blind_prev5_9a, blind_prev10_19a, blind_prev20_29a,
-              blind_prev30_49a, blind_prev50_80a,
-              visual_imp_prev0_1a, visual_imp_prev2_4a, visual_imp_prev5_9a, visual_imp_prev10_19a,
-              visual_imp_prev20_29a, visual_imp_prev30_49a, visual_imp_prev50_80a))
+              visual_imp_prev20_29, visual_imp_prev30_49, visual_imp_prev50_80))
 
 }
 
