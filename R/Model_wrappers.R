@@ -378,7 +378,7 @@ ep.equi.sim <- function(time.its,
     all.morb.temp[,c(14:21)] <- 0 #
 
     # cols for determining whether individual previously tested for condition (where only want to test once)
-    all.morb.temp[,c(22:29)] <- 0 # 22 and 23 used now for whether day 7 of SI or RSD state reached
+    all.morb.temp[,c(22:29)] <- 0 # 22 and 23 used now for whether day 3 of SI or RSD state reached
 
     # set whether undergo trial outcome cols to 0
     all.morb.temp[,c(30:37)] <- 0

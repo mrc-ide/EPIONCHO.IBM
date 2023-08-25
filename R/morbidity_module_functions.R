@@ -113,18 +113,35 @@ new_cases_morbidity_func <- function(morb.mat.tmp, temp_mf, SI_probs, RSD_probs,
 update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive.mat2, inds.sequela.mat,
                                            morb.mat.tmp){
 
-  # =============== #
-  # for severe itch #
+  # # =============== #
+  # # for severe itch #
+
+  # note: morb.mat.tmp[,22] = status of whether this is the 3rd day of SI positivity
+  # note: morb.mat.tmp[,46] = realized SI state on current day (current iter) - updated to 0 if 3rd day of SI positivity
+
   #  Extract current sequela state for reversible conditions
   sequela.postive.mat1[,inds.sequela.mat] <- sequela.postive.mat1[,(inds.sequela.mat-1)] # move sequela state along one col
   sequela.postive.mat1[,1] <- morb.mat.tmp[,46] # update first col with current sequela state on that day
 
-  # new steps : update current sequela state in morb.mat if 3th day of morbidity to 0 #
+  # new steps : update current sequela state in morb.mat if 3rd day of morbidity to 0 #
   morb.mat.tmp[,22] <- sequela.postive.mat1[,3] # assign day 3 from sequela delay matrix
   morb.mat.tmp[,46] <- ifelse(morb.mat.tmp[,22] == 1, 0, morb.mat.tmp[,46]) # update current disease status
 
-  # =============== #
-  #     for RSD     #
+  # #  Extract current sequela state for reversible conditions
+  # morb.mat.tmp[,22] <- sequela.postive.mat1[,3] # assign day 3 from sequelae delay matrix
+  #
+  # sequela.postive.mat1[,inds.sequela.mat] <- sequela.postive.mat1[,(inds.sequela.mat-1)] # move sequela state along one col
+  #
+  # sequela.postive.mat1[,1] <- morb.mat.tmp[,46] # update first col with current sequela state on that day
+  #
+  # morb.mat.tmp[,46] <- ifelse(morb.mat.tmp[,22] == 1, 0, morb.mat.tmp[,46]) # update current disease status
+
+
+  # # =============== #
+  # #     for RSD     #
+
+  # note: morb.mat.tmp[,23] = status of whether this is the 3rd day of RSD positivity
+  # note: morb.mat.tmp[,50] = realized RSD state on current day (current iter) - updated to 0 if 3rd day of RSD positivity
 
   #  Extract current sequela state for reversible conditions
   sequela.postive.mat2[,inds.sequela.mat] <- sequela.postive.mat2[,(inds.sequela.mat-1)] # move sequela state along one col
@@ -133,6 +150,16 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
   # new steps : update current sequela state in morb.mat if 3th day of morbidity to 0 #
   morb.mat.tmp[,23] <- sequela.postive.mat2[,3] # assign day 7 from sequela delay matrix
   morb.mat.tmp[,50] <- ifelse(morb.mat.tmp[,23] == 1, 0, morb.mat.tmp[,50]) # update current disease status
+
+  # #  Extract current sequela state for reversible conditions
+  #
+  # morb.mat.tmp[,23] <- sequela.postive.mat2[,3] # assign day 7 from sequela delay matrix
+  #
+  # sequela.postive.mat2[,inds.sequela.mat] <- sequela.postive.mat2[,(inds.sequela.mat-1)] # move sequela state along one col
+  #
+  # sequela.postive.mat2[,1] <- morb.mat.tmp[,50] # update first col with current sequela state on that day
+  #
+  # morb.mat.tmp[,50] <- ifelse(morb.mat.tmp[,23] == 1, 0, morb.mat.tmp[,50]) # update current disease status
 
   return(list(sequela.postive.mat1, sequela.postive.mat2, morb.mat.tmp))
 

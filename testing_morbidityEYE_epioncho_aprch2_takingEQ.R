@@ -59,7 +59,7 @@ output_equilibrium_morbidity <- ep.equi.sim(time.its = timesteps,
                                             run_equilibrium = TRUE,
                                             equilibrium,
                                             print_progress = TRUE,
-                                            morbidity_module2 = "YES")
+                                            morbidity_module = "YES")
 names(output_equilibrium_morbidity)
 
 #output_equilibrium_morbidity_mf50prev <- output_equilibrium_morbidity
@@ -85,6 +85,8 @@ plot(tme, output_equilibrium_morbidity$L3, type = 'l', xlab = 'time (years)', yl
 tme2 <- seq(1, 200*366)/366
 tme2 <- seq(1, 130*366)/366
 tme2 <- seq(1, 100*366)/366
+
+output_equilibrium_morbidity_test1 <- output_equilibrium_morbidity
 
 plot(tme2, output_equilibrium_morbidity$severe_itch_prev, type = 'l', xlab = 'time (years)', ylab = 'Severe itch prevalence', ylim = c(0, 1))
 tail(output_equilibrium_morbidity$severe_itch_prev)
