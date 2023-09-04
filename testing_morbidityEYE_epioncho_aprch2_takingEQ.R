@@ -9,6 +9,8 @@ timesteps = 200
 timesteps = 130
 timesteps = 80
 
+timesteps = 100
+
 #should treatment be given, when and how often
 give.treat.in = 0
 treat.strt = 1; treat.stp = 16

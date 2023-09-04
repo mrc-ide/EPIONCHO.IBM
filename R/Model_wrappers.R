@@ -412,7 +412,7 @@ ep.equi.sim <- function(time.its,
 
 
     # set up reversible sequela (SI and RSD) 3-day delay matrix #
-    num.days.cols <- 3
+    num.days.cols <- 3 + 1 # day 0 to day 3 (so 4)
     sequela.postive.mat <- matrix(0, ncol = num.days.cols, nrow = N)
     inds.sequela.mat <- seq(2,(length(sequela.postive.mat[1,]))) # for moving columns along with time
 
@@ -486,6 +486,8 @@ ep.equi.sim <- function(time.its,
 
     # extract probabilities for each condition
     eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    #eye.disease.probs <- readRDS("/rds/general/user/mad206/home/morbidity/eye_disease_probabilties_updated.rds")
+
 
     eye.dis.probs <- eye.disease.probs$fit
 
@@ -1045,15 +1047,17 @@ ep.equi.sim <- function(time.its,
         # =================== #
         #     Skin disease    #
 
-        all.morb.updated <- find_indiv_totest_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, morb.mat.tmp = all.morb.updated,
-                                                   age_to_samp_vec_reversible = age_to_samp_vec_reversible,
-                                                   age_to_samp_vec_nonreversible = age_to_samp_vec_nonreversible)
-
         temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                     mf.start, mf.end, pop.size = N, kM.const.toggle)
 
-        all.morb.updated <- new_cases_morbidity_func(morb.mat.tmp = all.morb.updated, temp_mf = temp.mf,
-                                                      SI_probs = 0.1636701, RSD_probs = 0.04163095,
+        all.morb.updated <- find_indiv_totest_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end,
+                                                   morb.mat.tmp = all.morb.updated, temp_mf = temp.mf,
+                                                   age_to_samp_vec_reversible = age_to_samp_vec_reversible,
+                                                   age_to_samp_vec_nonreversible = age_to_samp_vec_nonreversible)
+
+        all.morb.updated <- new_cases_morbidity_func(morb.mat.tmp = all.morb.updated,
+                                                      #SI_probs = 0.1636701, RSD_probs = 0.04163095,
+                                                      SI_probs = 0.1293591, RSD_probs = 0.01857076,
                                                       Atrp_probs = 0.002375305,
                                                       Hg_probs = 0.0007263018, Depigm_probs = 0.001598305)
 
@@ -1206,13 +1210,13 @@ ep.equi.sim <- function(time.its,
 
     }
 
-    # ============================================================================================= #
-    # update sequela matrix if any individual has reached 3rd day with SI/RSD - reversible OSD only #
+    # ========================================================================================================== #
+    # update sequela matrix if any individual has reached 3rd day with SI/RSD (4th column) - reversible OSD only #
 
     if(morbidity_module == "YES"){
 
     # SI 3-day matrix #
-    current_day3_SI <- which(sequela.postive.mat1[,3] == 1)
+    current_day3_SI <- which(sequela.postive.mat1[,4] == 1)
 
     if(length(current_day3_SI) > 0) {
 
@@ -1221,7 +1225,7 @@ ep.equi.sim <- function(time.its,
       }
 
     # RSD 3-day matrix #
-    current_day3_RSD <- which(sequela.postive.mat2[,3] == 1)
+    current_day3_RSD <- which(sequela.postive.mat2[,4] == 1)
 
     if(length(current_day3_RSD) > 0) {
 
