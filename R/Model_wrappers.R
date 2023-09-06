@@ -1065,7 +1065,6 @@ ep.equi.sim <- function(time.its,
         # ============ #
         # eye disease  #
 
-
         all.blind.updated <- all.blind.temp
 
         eye.dis.prev.out <- eye.disease.prev.func(N = N,morb.mat.tmp = all.blind.updated,
@@ -1138,6 +1137,7 @@ ep.equi.sim <- function(time.its,
 
         # ============ #
         # eye disease  #
+
         all.blind.updated <- find_indiv_totest_func2(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end,
                                                      morb.mat.tmp = all.blind.updated,
                                                      age_to_samp_vec_nonreversible = age_to_samp_vec_nonreversible)
