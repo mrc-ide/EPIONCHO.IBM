@@ -2,6 +2,7 @@
 #30/04/2020
 #Jonathan Hamley
 
+
 #' @title
 #' Run EPIONCHO-IBM epidemiological model with or without interventions
 #' @description
@@ -1063,6 +1064,7 @@ ep.equi.sim <- function(time.its,
 
         # ============ #
         # eye disease  #
+
 
         all.blind.updated <- all.blind.temp
 
