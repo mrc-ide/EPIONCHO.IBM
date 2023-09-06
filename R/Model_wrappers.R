@@ -496,7 +496,7 @@ ep.equi.sim <- function(time.its,
     )
 
     # extract probabilities for each condition
-    eye.disease.probs <- readRDS("~/EPIONCHO.IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
     #eye.disease.probs <- readRDS("/rds/general/user/mad206/home/morbidity/eye_disease_probabilties_updated.rds")
 
 
