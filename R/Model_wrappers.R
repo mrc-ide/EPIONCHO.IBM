@@ -348,14 +348,36 @@ ep.equi.sim <- function(time.its,
 
     num.cols.morb2 <- 53 # 4 cols for age, sex, compliance, mf count; 8 cols for whether undergo trial for each condition; 8 cols disease state 1/0
 
-    # define Morbidity matrix #
-    all.morb.temp <- matrix(nrow = N, ncol = num.cols.morb2)
+    # define Morbidity dataframe #
+    all.morb.temp <- data.frame(
+      Age = cur.age,
+      Sex = sex,
+      TrueMFCount = 0,
+      ObservedMFCount = 0,
+      AgeToSampleEyeDist = 0,
+      ToTestBlindness = 0,
+      BlindnessProb = 0,
+      BlindnessStatus = 0,
+      LaggedAges = 0,
+      LaggedAgeOver80 = 0,
+      BlindnessStatus2Yrs = 0,
+      AtrophySampleAges = 0,
+      HangingGroinSampleAges = 0,
+      DepigSampleAges = 0,
+      Day3SevereItchStatus = 0,
+      Day3RSDStatus = 0,
+      ToTestSevereItch = 0,
+      ToTestRSD = 0,
+      ToTestAtrophy = 0,
+      ToTestHG = 0,
+      ToTestDepig = 0,
+      SevereItchStatus = 0,
+      RSDStatus = 0,
+      AtrophyStatus = 0,
+      HGStatus = 0,
+      DepigStatus = 0
+    )
 
-    all.morb.temp[,1] <- cur.age
-    all.morb.temp[,2] <- sex
-    all.morb.temp[,3] <- all.mats.temp[,1] # compliance
-    all.morb.temp[,4] <- 0 # current TRUE mf count
-    all.morb.temp[,5] <- 0 # current mf skin snip count
 
     # # set age_to_samp cols (for conditions where only sample once in age range) #
     # all.morb.temp[,6] <- sample(seq(5, 80, DT), size = N, replace = TRUE) # severe itch (any age between 0 - 80 yrs)
@@ -373,21 +395,6 @@ ep.equi.sim <- function(time.its,
 
     age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
     age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
-
-    # cols for determining whether a correct age at sampling (e.g. between x - y) matches (rounded) age of individual (where only test once)
-    all.morb.temp[,c(14:21)] <- 0 #
-
-    # cols for determining whether individual previously tested for condition (where only want to test once)
-    all.morb.temp[,c(22:29)] <- 0 # 22 and 23 used now for whether day 3 of SI or RSD state reached
-
-    # set whether undergo trial outcome cols to 0
-    all.morb.temp[,c(30:37)] <- 0
-
-    # set prob (for Bernoulli trial) to 0
-    all.morb.temp[,c(38:45)] <- 0
-
-    # set disease cols to 0
-    all.morb.temp[,c(46:53)] <- 0
 
     # ============================================================================== #
     # extract probabilities for each condition (if required can unhash this section) #
@@ -473,16 +480,20 @@ ep.equi.sim <- function(time.its,
     num.cols.blindness <- 12 # 9 + 2 for lagged age + 1 for updated blindness status
 
     # define Morbidity matrix #
-    all.blind.temp <- matrix(nrow = N, ncol = num.cols.blindness)
-
-    all.blind.temp[,1] <- cur.age
-    all.blind.temp[,2] <- sex
-    all.blind.temp[,3] <- all.mats.temp[,1] # compliance
-    all.blind.temp[,4] <- 0 # current TRUE mf count
-    all.blind.temp[,5] <- 0 # current mf skin snip count
-
     # set other cols to 0 at i = 1
-    all.blind.temp[,c(6:12)] <- 0
+    all.blind.temp <- data.frame(
+      Age = cur.age,
+      Sex = sex,
+      TrueMFCount = 0,
+      ObservedMFCount = 0,
+      AgeToSampleEyeDist = 0,
+      ToTestBlindness = 0,
+      BlindnessProb = 0,
+      BlindnessStatus = 0,
+      LaggedAges = 0,
+      LaggedAgeOver80 = 0,
+      BlindnessStatus2Yrs = 0
+    )
 
     # extract probabilities for each condition
     eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
@@ -670,7 +681,34 @@ ep.equi.sim <- function(time.its,
 
       #==================#
 
-      all.morb.temp <-  morbidity_eq[[1]]
+      all.morb.temp <- data.frame(
+        Age = morbidity_eq[[1]][,1],
+        Sex = morbidity_eq[[1]][,2],
+        TrueMFCount = morbidity_eq[[1]][,4],
+        ObservedMFCount = morbidity_eq[[1]][,5],
+        AgeToSampleEyeDist = morbidity_eq[[1]][,6],
+        ToTestBlindness = morbidity_eq[[1]][,7],
+        BlindnessProb = morbidity_eq[[1]][,8],
+        BlindnessStatus = morbidity_eq[[1]][,9],
+        LaggedAges = morbidity_eq[[1]][,10],
+        LaggedAgeOver80 = morbidity_eq[[1]][,11],
+        BlindnessStatus2Yrs = morbidity_eq[[1]][,12],
+        AtrophySampleAges = morbidity_eq[[1]][,19],
+        HangingGroinSampleAges = morbidity_eq[[1]][,20],
+        DepigSampleAges = morbidity_eq[[1]][,21],
+        Day3SevereItchStatus = morbidity_eq[[1]][,22],
+        Day3RSDStatus = morbidity_eq[[1]][,23],
+        ToTestSevereItch = morbidity_eq[[1]][,30],
+        ToTestRSD = morbidity_eq[[1]][,34],
+        ToTestAtrophy = morbidity_eq[[1]][,35],
+        ToTestHG = morbidity_eq[[1]][,36],
+        ToTestDepig = morbidity_eq[[1]][,37],
+        SevereItchStatus = morbidity_eq[[1]][,46],
+        RSDStatus = morbidity_eq[[1]][,50],
+        AtrophyStatus = morbidity_eq[[1]][,51],
+        HGStatus = morbidity_eq[[1]][,52],
+        DepigStatus = morbidity_eq[[1]][,53]
+      )
 
       age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
       age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
@@ -1191,8 +1229,7 @@ ep.equi.sim <- function(time.its,
         #    Skin disease      #
 
         # set cols to zero for those individuals that die and replaced by newborn
-        cols.to.zero.morb <- c(1,2,4:53)
-        all.morb.updated[to.die, cols.to.zero.morb] <- 0 #set all to 0
+        all.morb.updated[to.die, ] <- 0 #set all to 0
 
         # update sequela 3-day delay matrices if any individual dies
         sequela.postive.mat1[to.die, ] <- 0
@@ -1203,8 +1240,7 @@ ep.equi.sim <- function(time.its,
         #    Eye disease       #
 
         cols.to.zero.morb2 <- c(1,2,4:9)
-        all.blind.updated[to.die, cols.to.zero.morb2] <- 0 #set all to 0
-
+        all.blind.temp[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus")] <- 0 # Reset dataframe to 0
 
       }
 
