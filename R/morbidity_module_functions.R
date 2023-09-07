@@ -379,12 +379,10 @@ find_indiv_totest_func2 <- function(dat, mf.start, mf.end, morb.mat.tmp, age_to_
   morb.mat.tmp$Age <- dat[,2]
   morb.mat.tmp$Sex <- dat[,3]
 
-  # lagged morb.mat.tmp$Age (age 2 year in future) #
-
-  morb.mat.tmp$LaggedAges <- morb.mat.tmp$Age + 2 # current age + 2 years (in 2 yrs time)
-  morb.mat.tmp$LaggedAgeOver80 <- ifelse(morb.mat.tmp$LaggedAges > 79.99999999, morb.mat.tmp$LaggedAges - 80, morb.mat.tmp$LaggedAges) # if between 78 - 80, will be > 80 yrs in 2 yrs time
-                                                                                                          # therefore not alive, so newborn will be future age - 80 yrs (e.g., 81 - 80 = 1 yr old)
-                                                                                                          # need to ensure individuals between 0 - 2 yrs with 0 blindness due to lag (below)
+  # Decrement the blindness countdown for those who have blindness pending, and update the blindness status for those who are now blind
+  morb.mat.tmp$BlindnessCountdown <- ifelse(morb.mat.tmp$BlindnessPending == 1 & morb.mat.tmp$BlindnessCountdown > 0, morb.mat.tmp$BlindnessCountdown - 1, morb.mat.tmp$BlindnessCountdown)
+  morb.mat.tmp$BlindnessStatus <- ifelse(morb.mat.tmp$BlindnessPending == 1 & morb.mat.tmp$BlindnessCountdown == 0, 1, morb.mat.tmp$BlindnessStatus)
+  
   # true number of mf per individual #
   mf_all <- rowSums(dat[, mf.start : mf.end]) # sum mf per individual across all 21 age classes
   morb.mat.tmp$TrueMFCount <- mf_all # true mf count
@@ -403,10 +401,10 @@ find_indiv_totest_func2 <- function(dat, mf.start, mf.end, morb.mat.tmp, age_to_
   # 2) WHOM TO UNDERGO BERNOULI TRAIL #
 
   # selection based on true mf count
-  morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$AgeToSampleEyeDist == 1 & morb.mat.tmp$BlindnessStatus == 0, 1, 0) # blindness (irreversible; only test once in age range)
+  morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$AgeToSampleEyeDist == 1 & morb.mat.tmp$BlindnessPending == 0, 1, 0) # blindness (irreversible; only test once in age range)
 
   # # selection based on observed mf count
-  # morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$AgeToSampleEyeDist == 1 & morb.mat.tmp$BlindnessStatus == 0, 1, 0) # blindness (irreversible; only test once in age range)
+  # morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$AgeToSampleEyeDist == 1 & morb.mat.tmp$BlindnessPending == 0, 1, 0) # blindness (irreversible; only test once in age range)
 
 
  return(morb.mat.tmp)
@@ -435,12 +433,8 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp.mf, blind.probs){
   morb.mat.tmp$BlindnessProb <- ifelse(morb.mat.tmp$ObservedMFCount > 0, blind.probs[morb.mat.tmp$ObservedMFCount], 0) # blindness rate/ prob ~ mf count
   # ======================= #
   # Undergo Bernouli trial  #
-
-  morb.mat.tmp$BlindnessStatus <- ifelse(morb.mat.tmp$ToTestBlindness == 1, rbinom(sum(morb.mat.tmp$ToTestBlindness), 1, morb.mat.tmp$BlindnessProb), morb.mat.tmp$BlindnessStatus) # blindness (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
-
-  # update blindness status based on age in 2 years (i.e., those 0-2 yrs in 2 yrs time will be 0 blindness) #
-
-  morb.mat.tmp$BlindnessStatus2Yrs <- ifelse(morb.mat.tmp$LaggedAgeOver80 < 2, 0, morb.mat.tmp$BlindnessStatus) # set to 0 for 0-2 yrs in 2 yrs time, or as in col 9
+  # blindness (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  morb.mat.tmp$BlindnessPending <- ifelse(morb.mat.tmp$ToTestBlindness == 1, rbinom(sum(morb.mat.tmp$ToTestBlindness), 1, morb.mat.tmp$BlindnessProb), morb.mat.tmp$BlindnessPending)
 
 
   return(morb.mat.tmp)
@@ -485,9 +479,9 @@ eye.disease.prev.func <- function(N, morb.mat.tmp,
 {
 
   # ========================================================================================================= #
-  # Approach: based on age in 2 years (col 11 of morb.mat.tmp) and updated blindness status in 2 yrs (col 12) #
+  # Approach: based on age and updated blindness status #
 
-  blind_prev_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 5)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 5)) # prev in > 5yrs
+  blind_prev_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
   visual_imp_prev_temp <- blind_prev_temp * 1.78
 
   # update prevalence vectors
@@ -495,25 +489,25 @@ eye.disease.prev.func <- function(N, morb.mat.tmp,
   visual_imp_prev <- c(visual_imp_prev, visual_imp_prev_temp)
 
   # blind age age-prev #
-  blind_prev0_1_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 0 & morb.mat.tmp$LaggedAgeOver80 < 2)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 0 & morb.mat.tmp$LaggedAgeOver80 < 2))# 0 - 1 age
+  blind_prev0_1_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
   blind_prev0_1 <- c(blind_prev0_1, blind_prev0_1_temp)
 
-  blind_prev2_4_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 2 & morb.mat.tmp$LaggedAgeOver80 < 5)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 2 & morb.mat.tmp$LaggedAgeOver80 < 5))# 2 - 4 age
+  blind_prev2_4_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
   blind_prev2_4 <- c(blind_prev2_4, blind_prev2_4_temp)
 
-  blind_prev5_9_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 5 & morb.mat.tmp$LaggedAgeOver80 < 10)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 5 & morb.mat.tmp$LaggedAgeOver80 < 10))
+  blind_prev5_9_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
   blind_prev5_9 <- c(blind_prev5_9, blind_prev5_9_temp)
 
-  blind_prev10_19_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 10 & morb.mat.tmp$LaggedAgeOver80 < 20)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 10 & morb.mat.tmp$LaggedAgeOver80 < 20))
+  blind_prev10_19_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
   blind_prev10_19 <- c(blind_prev10_19, blind_prev10_19_temp)
 
-  blind_prev20_29_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 20 & morb.mat.tmp$LaggedAgeOver80 < 30)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 20 & morb.mat.tmp$LaggedAgeOver80 < 30))
+  blind_prev20_29_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
   blind_prev20_29 <- c(blind_prev20_29, blind_prev20_29_temp)
 
-  blind_prev30_49_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 30 & morb.mat.tmp$LaggedAgeOver80 < 50)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 30 & morb.mat.tmp$LaggedAgeOver80 < 50))
+  blind_prev30_49_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
   blind_prev30_49 <- c(blind_prev30_49, blind_prev30_49_temp)
 
-  blind_prev50_80_temp <- length(which(morb.mat.tmp$BlindnessStatus2Yrs == 1 & morb.mat.tmp$LaggedAgeOver80 >= 50 & morb.mat.tmp$LaggedAgeOver80 <= 80)) /  length(which(morb.mat.tmp$LaggedAgeOver80 >= 50 & morb.mat.tmp$LaggedAgeOver80 < 80))
+  blind_prev50_80_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
   blind_prev50_80 <- c(blind_prev50_80, blind_prev50_80_temp)
 
   # visual impairement age age-prev #
