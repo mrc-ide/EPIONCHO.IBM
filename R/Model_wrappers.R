@@ -1238,7 +1238,7 @@ ep.equi.sim <- function(time.its,
         #    Eye disease       #
 
         cols.to.zero.morb2 <- c(1,2,4:9)
-        all.blind.temp[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus")] <- 0 # Reset dataframe to 0
+        all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus")] <- 0 # Reset dataframe to 0
 
       }
 
