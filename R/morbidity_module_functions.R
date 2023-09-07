@@ -139,7 +139,7 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
 
   # new steps : update current sequela state in morb.mat if day of morbidity to 0 #
   morb.mat.tmp$Day3SevereItchStatus <- sequela.postive.mat1[,4] # assign day 3 from sequela delay matrix (4th col of delay mat)
-  morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$DepigSampleAge == 1, 0, morb.mat.tmp$SevereItchStatus) # update current disease status
+  morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$Day3SevereItchStatus == 1, 0, morb.mat.tmp$SevereItchStatus) # update current disease status
 
   # #  Extract current sequela state for reversible conditions
   # morb.mat.tmp[,22] <- sequela.postive.mat1[,3] # assign day 3 from sequelae delay matrix
