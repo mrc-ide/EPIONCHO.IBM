@@ -3,7 +3,7 @@
 #' find individuals which develop morbidity
 #'
 #' @description
-#' find individuals sampled between specific ages with current mf and can then develop morbidity in the next function
+#' find individuals sampled between specific morb.mat.tmp$Age with current mf and can then develop morbidity in the next function
 #' (determined by probability associated with individual mf load)
 #'
 #' @param dat this is the master matrix (all.mats.temp) tracking mf (by age) for each individual
@@ -20,54 +20,40 @@ find_indiv_totest_func <- function(dat, mf.start, mf.end, morb.mat.tmp, temp_mf,
   # update age (and sex for newborns)
   morb.mat.tmp$Age <- dat[,2]
   morb.mat.tmp$Sex <- dat[,3]
-  ages <- morb.mat.tmp$Age
-  sexes <- morb.mat.tmp$Sex
 
   # true number of mf per individual #
   mf_all <- rowSums(dat[, mf.start : mf.end]) # sum mf per individual across all 21 age classes
   morb.mat.tmp$TrueMFCount <- mf_all # true mf count
-  trueMFCount <- morb.mat.tmp$TrueMFCount
 
   # extract number of mf per skin snip per individual
   morb.mat.tmp$ObservedMFCount <- round(temp_mf[[2]])
-  observedMFCounts <- morb.mat.tmp$ObservedMFCount
 
   # ======================== #
   #  1 ) age sampling        #
 
   # ================================================================================================================== #
   # determine if age to samp matches for all conditions (only want to sample once per year of age, not every time-step) #
-  # morb.mat.tmp[,14] <- ifelse((round(ages,6) %in% round(age_to_samp_vec_reversible,6)),1,0) # severe itch (age vec to 6 decimla places more most specific matching - only once per year)
-  # morb.mat.tmp[,18] <- ifelse((round(ages,6) %in% round(age_to_samp_vec_reversible,6)),1,0) # RSD (test again single RSD age_to_sample e.g., col 10)
-  morb.mat.tmp$AtrophySampleAges <- ifelse((round(ages,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # atrophy
-  atrophySampleAges <- morb.mat.tmp$AtrophySampleAges
-  morb.mat.tmp$HangingGroinSampleAges <- ifelse((round(ages,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # hanging groin
-  hangingGroinSampleAges <- morb.mat.tmp$HangingGroinSampleAges
-  morb.mat.tmp$DepigSampleAge <- ifelse((round(ages,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # depigmentation
-  depigSampleAges <- morb.mat.tmp$DepigSampleAges
-
+  # morb.mat.tmp[,14] <- ifelse((round(morb.mat.tmp$Age,6) %in% round(age_to_samp_vec_reversible,6)),1,0) # severe itch (age vec to 6 decimla places more most specific matching - only once per year)
+  # morb.mat.tmp[,18] <- ifelse((round(morb.mat.tmp$Age,6) %in% round(age_to_samp_vec_reversible,6)),1,0) # RSD (test again single RSD age_to_sample e.g., col 10)
+  morb.mat.tmp$AtrophySampleAges <- ifelse((round(morb.mat.tmp$Age,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # atrophy
+  morb.mat.tmp$HangingGroinSampleAges <- ifelse((round(morb.mat.tmp$Age,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # hanging groin
+  morb.mat.tmp$DepigSampleAge <- ifelse((round(morb.mat.tmp$Age,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # depigmentation
 
   # ==================================#
   # WHOM TO UNDERGO BERNOULI TRAIL #
-
-  severeItchStatuses <- morb.mat.tmp$SevereItchStatus
-  rsdStatuses <- morb.mat.tmp$RSDStatus
-  atrophyStatuses <- morb.mat.tmp$AtrophyStatus
-  hgStatuses <- morb.mat.tmp$HGStatus
-  depigStatuses <- morb.mat.tmp$DepigStatus
   # # based on > 0 true mf
-  # morb.mat.tmp[,30] <- ifelse(trueMFCount > 0 & severeItchStatuses == 0 & ages >= 2, 1, 0) # for SI (if 0 disease state)
-  # morb.mat.tmp[,34] <- ifelse(trueMFCount > 0 & rsdStatuses == 0 & ages >= 2, 1, 0) # for RSD (if 0 disease state)
-  # morb.mat.tmp[,35] <- ifelse(trueMFCount > 0 & atrophySampleAges == 1 & atrophyStatuses == 0, 1, 0) # atrophy (irreversible; only test once in age range)
-  # morb.mat.tmp[,36] <- ifelse(trueMFCount > 0 & hangingGroinSampleAges == 1 & hgStatuses == 0, 1, 0) # HG (irreversible; only test once in age range)
-  # morb.mat.tmp[,37] <- ifelse(trueMFCount > 0 & depigSampleAges == 1 & depigStatuses == 0, 1, 0) # depigm (irreversible; only test once in age range)
+  # morb.mat.tmp[,30] <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$SevereItchStatus == 0 & morb.mat.tmp$Age >= 2, 1, 0) # for SI (if 0 disease state)
+  # morb.mat.tmp[,34] <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$RSDStatus == 0 & morb.mat.tmp$Age >= 2, 1, 0) # for RSD (if 0 disease state)
+  # morb.mat.tmp[,35] <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$AtrophySampleAges == 1 & morb.mat.tmp$AtrophyStatus == 0, 1, 0) # atrophy (irreversible; only test once in age range)
+  # morb.mat.tmp[,36] <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$HangingGroinSampleAges == 1 & morb.mat.tmp$HGStatus == 0, 1, 0) # HG (irreversible; only test once in age range)
+  # morb.mat.tmp[,37] <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$DepigSampleAge == 1 & morb.mat.tmp$DepigStatus == 0, 1, 0) # depigm (irreversible; only test once in age range)
 
   # based on > 0 observed mf
-  morb.mat.tmp$ToTestSevereItch <- ifelse(observedMFCounts > 0 & severeItchStatuses == 0 & ages >= 2, 1, 0) # for SI (if 0 disease state)
-  morb.mat.tmp$ToTestRSD <- ifelse(observedMFCounts > 0 & rsdStatuses == 0 & ages >= 2, 1, 0) # for RSD (if 0 disease state)
-  morb.mat.tmp$ToTestAtrophy <- ifelse(observedMFCounts > 0 & atrophySampleAges == 1 & atrophyStatuses == 0, 1, 0) # atrophy (irreversible; only test once in age range)
-  morb.mat.tmp$ToTestHG <- ifelse(observedMFCounts > 0 & hangingGroinSampleAges == 1 & hgStatuses == 0, 1, 0) # HG (irreversible; only test once in age range)
-  morb.mat.tmp$ToTestDepig <- ifelse(observedMFCounts > 0 & depigSampleAges == 1 & depigStatuses == 0, 1, 0) # depigm (irreversible; only test once in age range)
+  morb.mat.tmp$ToTestSevereItch <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$SevereItchStatus == 0 & morb.mat.tmp$Age >= 2, 1, 0) # for SI (if 0 disease state)
+  morb.mat.tmp$ToTestRSD <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$RSDStatus == 0 & morb.mat.tmp$Age >= 2, 1, 0) # for RSD (if 0 disease state)
+  morb.mat.tmp$ToTestAtrophy <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$AtrophySampleAges == 1 & morb.mat.tmp$AtrophyStatus == 0, 1, 0) # atrophy (irreversible; only test once in age range)
+  morb.mat.tmp$ToTestHG <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$HangingGroinSampleAges == 1 & morb.mat.tmp$HGStatus == 0, 1, 0) # HG (irreversible; only test once in age range)
+  morb.mat.tmp$ToTestDepig <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$DepigSampleAge == 1 & morb.mat.tmp$DepigStatus == 0, 1, 0) # depigm (irreversible; only test once in age range)
 
   return(morb.mat.tmp)
 
@@ -91,45 +77,34 @@ find_indiv_totest_func <- function(dat, mf.start, mf.end, morb.mat.tmp, temp_mf,
 new_cases_morbidity_func <- function(morb.mat.tmp, SI_probs, RSD_probs, Atrp_probs, Hg_probs, Depigm_probs){
 
   ## extract number of mf per skin snip per individual
-  observedMFCounts <- morb.mat.tmp$ObservedMFCount
 
   # # extract probabilities (rates) to run Bernoulli trial for each condition
-  # morb.mat.tmp[,38] <- ifelse(observedMFCounts > 0, SI_probs[observedMFCounts], 0) # severe itch rates
-  # #morb.mat.tmp[,39] <- ifelse(observedMFCounts > 0, APOD_probs[observedMFCounts], 0) # APOD rates
-  # #morb.mat.tmp[,40] <- ifelse(observedMFCounts > 0, CPOD_probs[observedMFCounts], 0) # CPOD rates
-  # #morb.mat.tmp[,41] <- ifelse(observedMFCounts > 0, LOD_probs[observedMFCounts], 0) # LOD rates
-  # morb.mat.tmp[,42] <- ifelse(observedMFCounts > 0, RSD_probs[observedMFCounts], 0) # RSD rates
-  # morb.mat.tmp[,43] <- ifelse(observedMFCounts > 0, Atrp_probs[observedMFCounts], 0) # atrophy rates
-  # morb.mat.tmp[,44] <- ifelse(observedMFCounts > 0, Hg_probs[observedMFCounts], 0) # hanging groin rates
-  # morb.mat.tmp[,45] <- ifelse(observedMFCounts > 0, Depigm_probs[observedMFCounts], 0) # depigmentation groin rates
+  # morb.mat.tmp[,38] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, SI_probs[morb.mat.tmp$ObservedMFCount], 0) # severe itch rates
+  # #morb.mat.tmp[,39] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, APOD_probs[morb.mat.tmp$ObservedMFCount], 0) # APOD rates
+  # #morb.mat.tmp[,40] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, CPOD_probs[morb.mat.tmp$ObservedMFCount], 0) # CPOD rates
+  # #morb.mat.tmp[,41] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, LOD_probs[morb.mat.tmp$ObservedMFCount], 0) # LOD rates
+  # morb.mat.tmp[,42] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, RSD_probs[morb.mat.tmp$ObservedMFCount], 0) # RSD rates
+  # morb.mat.tmp[,43] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, Atrp_probs[morb.mat.tmp$ObservedMFCount], 0) # atrophy rates
+  # morb.mat.tmp[,44] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, Hg_probs[morb.mat.tmp$ObservedMFCount], 0) # hanging groin rates
+  # morb.mat.tmp[,45] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, Depigm_probs[morb.mat.tmp$ObservedMFCount], 0) # depigmentation groin rates
 
 
   # ======================= #
   # Undergo Bernouli trial  #
 
   # based on whether true mf present
-  toTestSevereItch <- morb.mat.tmp$ToTestSevereItch
-  severeItchStatuses <- morb.mat.tmp$SevereItchStatus
-  toTestRSD <- morb.mat.tmp$ToTestRSD
-  rsdStatuses <- morb.mat.tmp$RSDStatus
-  toTestAtrophy <- morb.mat.tmp$ToTestAtrophy
-  atrophyStatuses <- morb.mat.tmp$AtrophyStatus
-  toTestHG <- morb.mat.tmp$ToTestHG
-  hgStatuses <- morb.mat.tmp$HGStatus
-  toTestDepig <- morb.mat.tmp$ToTestDepig
-  depigStatuses <- morb.mat.tmp$DepigStatus
-  morb.mat.tmp$SevereItchStatus <- ifelse(toTestSevereItch == 1, rbinom(sum(toTestSevereItch), 1, SI_probs), severeItchStatuses) # severe itch (stay as prior disease condition status if test does not take place)
-  morb.mat.tmp$RSDStatus <- ifelse(toTestRSD == 1, rbinom(sum(toTestRSD), 1, RSD_probs), rsdStatuses) # RSD (stay as prior disease condition status if test does not take place)
-  morb.mat.tmp$AtrophyStatus <- ifelse(toTestAtrophy == 1, rbinom(sum(toTestAtrophy), 1, Atrp_probs), atrophyStatuses) # atrophy (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
-  morb.mat.tmp$HGStatus <- ifelse(toTestHG == 1, rbinom(sum(toTestHG), 1, Hg_probs), hgStatuses) # HG (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
-  morb.mat.tmp$DepigStatus <- ifelse(toTestDepig == 1, rbinom(sum(toTestDepig), 1, Depigm_probs), depigStatuses) # depigmentation (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$ToTestSevereItch == 1, rbinom(sum(morb.mat.tmp$ToTestSevereItch), 1, SI_probs), morb.mat.tmp$SevereItchStatus) # severe itch (stay as prior disease condition status if test does not take place)
+  morb.mat.tmp$RSDStatus <- ifelse(morb.mat.tmp$ToTestRSD == 1, rbinom(sum(morb.mat.tmp$ToTestRSD), 1, RSD_probs), morb.mat.tmp$RSDStatus) # RSD (stay as prior disease condition status if test does not take place)
+  morb.mat.tmp$AtrophyStatus <- ifelse(morb.mat.tmp$ToTestAtrophy == 1, rbinom(sum(morb.mat.tmp$ToTestAtrophy), 1, Atrp_probs), morb.mat.tmp$AtrophyStatus) # atrophy (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  morb.mat.tmp$HGStatus <- ifelse(morb.mat.tmp$ToTestHG == 1, rbinom(sum(morb.mat.tmp$ToTestHG), 1, Hg_probs), morb.mat.tmp$HGStatus) # HG (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  morb.mat.tmp$DepigStatus <- ifelse(morb.mat.tmp$ToTestDepig == 1, rbinom(sum(morb.mat.tmp$ToTestDepig), 1, Depigm_probs), morb.mat.tmp$DepigStatus) # depigmentation (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
 
   # # based on whether observed mf present
-  # morb.mat.tmp$SevereItchStatus <- ifelse(toTestSevereItch == 1, rbinom(sum(toTestSevereItch), 1, morb.mat.tmp[,38]), severeItchStatuses) # severe itch (stay as prior disease condition status if test does not take place)
-  # morb.mat.tmp$RSDStatus <- ifelse(toTestRSD == 1, rbinom(sum(toTestRSD), 1, morb.mat.tmp[,42]), rsdStatuses) # RSD (stay as prior disease condition status if test does not take place)
-  # morb.mat.tmp$AtrophyStatus <- ifelse(toTestAtrophy == 1, rbinom(sum(toTestAtrophy), 1, morb.mat.tmp[,43]), atrophyStatuses) # atrophy (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
-  # morb.mat.tmp$HGStatus <- ifelse(toTestHG == 1, rbinom(sum(toTestHG), 1, morb.mat.tmp[,44]), hgStatuses) # HG (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
-  # morb.mat.tmp$DepigStatus <- ifelse(toTestDepig == 1, rbinom(sum(toTestDepig), 1, morb.mat.tmp[,45]), depigStatuses) # depigmentation (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  # morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$ToTestSevereItch == 1, rbinom(sum(morb.mat.tmp$ToTestSevereItch), 1, morb.mat.tmp[,38]), morb.mat.tmp$SevereItchStatus) # severe itch (stay as prior disease condition status if test does not take place)
+  # morb.mat.tmp$RSDStatus <- ifelse(morb.mat.tmp$ToTestRSD == 1, rbinom(sum(morb.mat.tmp$ToTestRSD), 1, morb.mat.tmp[,42]), morb.mat.tmp$RSDStatus) # RSD (stay as prior disease condition status if test does not take place)
+  # morb.mat.tmp$AtrophyStatus <- ifelse(morb.mat.tmp$ToTestAtrophy == 1, rbinom(sum(morb.mat.tmp$ToTestAtrophy), 1, morb.mat.tmp[,43]), morb.mat.tmp$AtrophyStatus) # atrophy (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  # morb.mat.tmp$HGStatus <- ifelse(morb.mat.tmp$ToTestHG == 1, rbinom(sum(morb.mat.tmp$ToTestHG), 1, morb.mat.tmp[,44]), morb.mat.tmp$HGStatus) # HG (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  # morb.mat.tmp$DepigStatus <- ifelse(morb.mat.tmp$ToTestDepig == 1, rbinom(sum(morb.mat.tmp$ToTestDepig), 1, morb.mat.tmp[,45]), morb.mat.tmp$DepigStatus) # depigmentation (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
 
 
   return(morb.mat.tmp)
@@ -158,25 +133,22 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
 
   # note: morb.mat.tmp[,22] = status of whether this is the 3rd day of SI positivity
   # note: morb.mat.tmp[,46] = realized SI state on current day (current iter) - updated to 0 if 4th day of SI positivity
-  severeItchStatuses <- morb.mat.tmp$SevereItchStatus
   #  Extract current sequela state for reversible conditions
   sequela.postive.mat1[,inds.sequela.mat] <- sequela.postive.mat1[,(inds.sequela.mat-1)] # move sequela state along one col
-  sequela.postive.mat1[,1] <- severeItchStatuses # update first col with current sequela state on that day
+  sequela.postive.mat1[,1] <- morb.mat.tmp$SevereItchStatus # update first col with current sequela state on that day
 
   # new steps : update current sequela state in morb.mat if day of morbidity to 0 #
   morb.mat.tmp$Day3SevereItchStatus <- sequela.postive.mat1[,4] # assign day 3 from sequela delay matrix (4th col of delay mat)
-  depigSampleAges <- morb.mat.tmp$DepigSampleAge
-  day3SevereItchStatus <- morb.mat.tmp$Day3SevereItchStatus
-  morb.mat.tmp$SevereItchStatus <- ifelse(depigSampleAges == 1, 0, severeItchStatuses) # update current disease status
+  morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$DepigSampleAge == 1, 0, morb.mat.tmp$SevereItchStatus) # update current disease status
 
   # #  Extract current sequela state for reversible conditions
   # morb.mat.tmp[,22] <- sequela.postive.mat1[,3] # assign day 3 from sequelae delay matrix
   #
   # sequela.postive.mat1[,inds.sequela.mat] <- sequela.postive.mat1[,(inds.sequela.mat-1)] # move sequela state along one col
   #
-  # sequela.postive.mat1[,1] <- severeItchStatuses # update first col with current sequela state on that day
+  # sequela.postive.mat1[,1] <- morb.mat.tmp$SevereItchStatus # update first col with current sequela state on that day
   #
-  # morb.mat.tmp[,46] <- ifelse(depigSampleAges == 1, 0, severeItchStatuses) # update current disease status
+  # morb.mat.tmp[,46] <- ifelse(morb.mat.tmp$DepigSampleAge == 1, 0, morb.mat.tmp$SevereItchStatus) # update current disease status
 
 
   # # =============== #
@@ -199,10 +171,9 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
   #
   # sequela.postive.mat2[,inds.sequela.mat] <- sequela.postive.mat2[,(inds.sequela.mat-1)] # move sequela state along one col
   #
-  # sequela.postive.mat2[,1] <- rsdStatuses # update first col with current sequela state on that day
+  # sequela.postive.mat2[,1] <- morb.mat.tmp$RSDStatus # update first col with current sequela state on that day
   #
-  # morb.mat.tmp$RSDStatus <- ifelse(day3RSDStatus == 1, 0, rsdStatuses) # update current disease status
-
+  # morb.mat.tmp$RSDStatus <- ifelse(day3RSDStatus == 1, 0, morb.mat.tmp$RSDStatus) # update current disease status
   return(list(sequela.postive.mat1, sequela.postive.mat2, morb.mat.tmp))
 
 }
@@ -239,25 +210,20 @@ morbidity_prev_func <- function(morb.mat.tmp, N, SI_prev, RSD_prev, Atrp_prev, H
                                 HG_prev0_1, HG_prev2_4, HG_prev5_9, HG_prev10_19, HG_prev20_29, HG_prev30_49, HG_prev50_80,
                                 depigm_prev0_1, depigm_prev2_4, depigm_prev5_9, depigm_prev10_19, depigm_prev20_29, depigm_prev30_49, depigm_prev50_80)
 {
-  ages <- morb.mat.tmp$Ages
-  severeItchStatuses <- morb.mat.tmp$SevereItchStatus
-  rsdStatuses <- morb.mat.tmp$RSDStatus
-  atrophyStatuses <- morb.mat.tmp$AtrophyStatus
-  hgStatuses <- morb.mat.tmp$HGStatus
-  depigStatuses <- morb.mat.tmp$DepigStatus
   # calculate current time-step skin disease state prevalence #
   # 2nd attempt : > 5 yr olds (to match Murdoch et al. 2017 prevs only sampling > 5 yr olds)
 
-  #SI_prev_temp <- sum(severeItchStatuses)/N  # severe itch
-  SI_prev_temp <- length(which(severeItchStatuses == 1 & ages >= 5)) /  length(which(ages >= 5)) # prev in > 5yrs
-  #RSD_prev_temp <- sum(rsdStatuses)/N # reactive skin disease
-  RSD_prev_temp <- length(which(rsdStatuses == 1 & ages >= 5)) /  length(which(ages >= 5)) # prev in > 5yrs
-  #Atrp_prev_temp <- sum(atrophyStatuses)/N # skin atrophy
-  Atrp_prev_temp <- length(which(atrophyStatuses == 1 & ages >= 5)) /  length(which(ages >= 5)) # prev in > 5yrs
-  #HG_prev_temp <- sum(hgStatuses)/N # hanging groin
-  HG_prev_temp <- length(which(hgStatuses == 1 & ages >= 5)) /  length(which(ages >= 5)) # prev in > 5yrs
-  #depigm_prev_temp <- sum(depigStatuses)/N # depigmentation
-  depigm_prev_temp <- length(which(depigStatuses == 1 & ages >= 5)) /  length(which(ages >= 5)) # prev in > 5yrs
+  #SI_prev_temp <- sum(morb.mat.tmp$SevereItchStatus)/N  # severe itch
+  SI_prev_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
+  #RSD_prev_temp <- sum(morb.mat.tmp$RSDStatus)/N # reactive skin disease
+  RSD_prev_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
+  #Atrp_prev_temp <- sum(morb.mat.tmp$AtrophyStatus)/N # skin atrophy
+  Atrp_prev_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
+  #HG_prev_temp <- sum(morb.mat.tmp$HGStatus)/N # hanging groin
+  HG_prev_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
+  #depigm_prev_temp <- sum(morb.mat.tmp$DepigStatus)/N # depigmentation
+  depigm_prev_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
+
 
   # update prevalence vectors
   SI_prev <- c(SI_prev, SI_prev_temp)
@@ -269,113 +235,113 @@ morbidity_prev_func <- function(morb.mat.tmp, N, SI_prev, RSD_prev, Atrp_prev, H
   # update age-prevalence vectors
 
   # severe itch age age-prev #
-  SI_prev0_1_temp <- length(which(severeItchStatuses == 1 & ages >= 0 & ages < 2)) /  length(which(ages >= 0 & ages < 2))# 0 - 1 age
+  SI_prev0_1_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
   SI_prev0_1 <- c(SI_prev0_1, SI_prev0_1_temp)
 
-  SI_prev2_4_temp <- length(which(severeItchStatuses == 1 & ages >= 2 & ages < 5)) /  length(which(ages >= 2 & ages < 5))# 2 - 4 age
+  SI_prev2_4_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
   SI_prev2_4 <- c(SI_prev2_4, SI_prev2_4_temp)
 
-  SI_prev5_9_temp <- length(which(severeItchStatuses == 1 & ages >= 5 & ages < 10)) /  length(which(ages >= 5 & ages < 10))
+  SI_prev5_9_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
   SI_prev5_9 <- c(SI_prev5_9, SI_prev5_9_temp)
 
-  SI_prev10_19_temp <- length(which(severeItchStatuses == 1 & ages >= 10 & ages < 20)) /  length(which(ages >= 10 & ages < 20))
+  SI_prev10_19_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
   SI_prev10_19 <- c(SI_prev10_19, SI_prev10_19_temp)
 
-  SI_prev20_29_temp <- length(which(severeItchStatuses == 1 & ages >= 20 & ages < 30)) /  length(which(ages >= 20 & ages < 30))
+  SI_prev20_29_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
   SI_prev20_29 <- c(SI_prev20_29, SI_prev20_29_temp)
 
-  SI_prev30_49_temp <- length(which(severeItchStatuses == 1 & ages >= 30 & ages < 50)) /  length(which(ages >= 30 & ages < 50))
+  SI_prev30_49_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
   SI_prev30_49 <- c(SI_prev30_49, SI_prev30_49_temp)
 
-  SI_prev50_80_temp <- length(which(severeItchStatuses == 1 & ages >= 50 & ages <= 80)) /  length(which(ages >= 50 & ages < 80))
+  SI_prev50_80_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
   SI_prev50_80 <- c(SI_prev50_80, SI_prev50_80_temp)
 
   # RSD age age-prev #
-  RSD_prev0_1_temp <- length(which(rsdStatuses == 1 & ages >= 0 & ages < 2)) /  length(which(ages >= 0 & ages < 2))# 0 - 1 age
+  RSD_prev0_1_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
   RSD_prev0_1 <- c(RSD_prev0_1, RSD_prev0_1_temp)
 
-  RSD_prev2_4_temp <- length(which(rsdStatuses == 1 & ages >= 2 & ages < 5)) /  length(which(ages >= 2 & ages < 5))# 2 - 4 age
+  RSD_prev2_4_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
   RSD_prev2_4 <- c(RSD_prev2_4, RSD_prev2_4_temp)
 
-  RSD_prev5_9_temp <- length(which(rsdStatuses == 1 & ages >= 5 & ages < 10)) /  length(which(ages >= 5 & ages < 10))
+  RSD_prev5_9_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
   RSD_prev5_9 <- c(RSD_prev5_9, RSD_prev5_9_temp)
 
-  RSD_prev10_19_temp <- length(which(rsdStatuses == 1 & ages >= 10 & ages < 20)) /  length(which(ages >= 10 & ages < 20))
+  RSD_prev10_19_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
   RSD_prev10_19 <- c(RSD_prev10_19, RSD_prev10_19_temp)
 
-  RSD_prev20_29_temp <- length(which(rsdStatuses == 1 & ages >= 20 & ages < 30)) /  length(which(ages >= 20 & ages < 30))
+  RSD_prev20_29_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
   RSD_prev20_29 <- c(RSD_prev20_29, RSD_prev20_29_temp)
 
-  RSD_prev30_49_temp <- length(which(rsdStatuses == 1 & ages >= 30 & ages < 50)) /  length(which(ages >= 30 & ages < 50))
+  RSD_prev30_49_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
   RSD_prev30_49 <- c(RSD_prev30_49, RSD_prev30_49_temp)
 
-  RSD_prev50_80_temp <- length(which(rsdStatuses == 1 & ages >= 50 & ages <= 80)) /  length(which(ages >= 50 & ages < 80))
+  RSD_prev50_80_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
   RSD_prev50_80 <- c(RSD_prev50_80, RSD_prev50_80_temp)
 
   # Atrophy age age-prev #
-  Atrp_prev0_1_temp <- length(which(atrophyStatuses == 1 & ages >= 0 & ages < 2)) /  length(which(ages >= 0 & ages < 2))# 0 - 1 age
+  Atrp_prev0_1_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
   Atrp_prev0_1 <- c(Atrp_prev0_1, Atrp_prev0_1_temp)
 
-  Atrp_prev2_4_temp <- length(which(atrophyStatuses == 1 & ages >= 2 & ages < 5)) /  length(which(ages >= 2 & ages < 5))# 2 - 4 age
+  Atrp_prev2_4_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
   Atrp_prev2_4 <- c(Atrp_prev2_4, Atrp_prev2_4_temp)
 
-  Atrp_prev5_9_temp <- length(which(atrophyStatuses == 1 & ages >= 5 & ages < 10)) /  length(which(ages >= 5 & ages < 10))
+  Atrp_prev5_9_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
   Atrp_prev5_9 <- c(Atrp_prev5_9, Atrp_prev5_9_temp)
 
-  Atrp_prev10_19_temp <- length(which(atrophyStatuses == 1 & ages >= 10 & ages < 20)) /  length(which(ages >= 10 & ages < 20))
+  Atrp_prev10_19_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
   Atrp_prev10_19 <- c(Atrp_prev10_19, Atrp_prev10_19_temp)
 
-  Atrp_prev20_29_temp <- length(which(atrophyStatuses == 1 & ages >= 20 & ages < 30)) /  length(which(ages >= 20 & ages < 30))
+  Atrp_prev20_29_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
   Atrp_prev20_29 <- c(Atrp_prev20_29, Atrp_prev20_29_temp)
 
-  Atrp_prev30_49_temp <- length(which(atrophyStatuses == 1 & ages >= 30 & ages < 50)) /  length(which(ages >= 30 & ages < 50))
+  Atrp_prev30_49_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
   Atrp_prev30_49 <- c(Atrp_prev30_49, Atrp_prev30_49_temp)
 
-  Atrp_prev50_80_temp <- length(which(atrophyStatuses == 1 & ages >= 50 & ages <= 80)) /  length(which(ages >= 50 & ages < 80))
+  Atrp_prev50_80_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
   Atrp_prev50_80 <- c(Atrp_prev50_80, Atrp_prev50_80_temp)
 
   # Hanging groin age age-prev #
-  HG_prev0_1_temp <- length(which(hgStatuses == 1 & ages >= 0 & ages < 2)) /  length(which(ages >= 0 & ages < 2))# 0 - 1 age
+  HG_prev0_1_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
   HG_prev0_1 <- c(HG_prev0_1, HG_prev0_1_temp)
 
-  HG_prev2_4_temp <- length(which(hgStatuses == 1 & ages >= 2 & ages < 5)) /  length(which(ages >= 2 & ages < 5))# 2 - 4 age
+  HG_prev2_4_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
   HG_prev2_4 <- c(HG_prev2_4, HG_prev2_4_temp)
 
-  HG_prev5_9_temp <- length(which(hgStatuses == 1 & ages >= 5 & ages < 10)) /  length(which(ages >= 5 & ages < 10))
+  HG_prev5_9_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
   HG_prev5_9 <- c(HG_prev5_9, HG_prev5_9_temp)
 
-  HG_prev10_19_temp <- length(which(hgStatuses == 1 & ages >= 10 & ages < 20)) /  length(which(ages >= 10 & ages < 20))
+  HG_prev10_19_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
   HG_prev10_19 <- c(HG_prev10_19, HG_prev10_19_temp)
 
-  HG_prev20_29_temp <- length(which(hgStatuses == 1 & ages >= 20 & ages < 30)) /  length(which(ages >= 20 & ages < 30))
+  HG_prev20_29_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
   HG_prev20_29 <- c(HG_prev20_29, HG_prev20_29_temp)
 
-  HG_prev30_49_temp <- length(which(hgStatuses == 1 & ages >= 30 & ages < 50)) /  length(which(ages >= 30 & ages < 50))
+  HG_prev30_49_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
   HG_prev30_49 <- c(HG_prev30_49, HG_prev30_49_temp)
 
-  HG_prev50_80_temp <- length(which(hgStatuses == 1 & ages >= 50 & ages <= 80)) /  length(which(ages >= 50 & ages < 80))
+  HG_prev50_80_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
   HG_prev50_80 <- c(HG_prev50_80, HG_prev50_80_temp)
 
   # depigmentation age age-prev #
-  depigm_prev0_1_temp <- length(which(depigStatuses == 1 & ages >= 0 & ages < 2)) /  length(which(ages >= 0 & ages < 2))# 0 - 1 age
+  depigm_prev0_1_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
   depigm_prev0_1 <- c(depigm_prev0_1, depigm_prev0_1_temp)
 
-  depigm_prev2_4_temp <- length(which(depigStatuses == 1 & ages >= 2 & ages < 5)) /  length(which(ages >= 2 & ages < 5))# 2 - 4 age
+  depigm_prev2_4_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
   depigm_prev2_4 <- c(depigm_prev2_4, depigm_prev2_4_temp)
 
-  depigm_prev5_9_temp <- length(which(depigStatuses == 1 & ages >= 5 & ages < 10)) /  length(which(ages >= 5 & ages < 10))
+  depigm_prev5_9_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
   depigm_prev5_9 <- c(depigm_prev5_9, depigm_prev5_9_temp)
 
-  depigm_prev10_19_temp <- length(which(depigStatuses == 1 & ages >= 10 & ages < 20)) /  length(which(ages >= 10 & ages < 20))
+  depigm_prev10_19_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
   depigm_prev10_19 <- c(depigm_prev10_19, depigm_prev10_19_temp)
 
-  depigm_prev20_29_temp <- length(which(depigStatuses == 1 & ages >= 20 & ages < 30)) /  length(which(ages >= 20 & ages < 30))
+  depigm_prev20_29_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
   depigm_prev20_29 <- c(depigm_prev20_29, depigm_prev20_29_temp)
 
-  depigm_prev30_49_temp <- length(which(depigStatuses == 1 & ages >= 30 & ages < 50)) /  length(which(ages >= 30 & ages < 50))
+  depigm_prev30_49_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
   depigm_prev30_49 <- c(depigm_prev30_49, depigm_prev30_49_temp)
 
-  depigm_prev50_80_temp <- length(which(depigStatuses == 1 & ages >= 50 & ages <= 80)) /  length(which(ages >= 50 & ages < 80))
+  depigm_prev50_80_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
   depigm_prev50_80 <- c(depigm_prev50_80, depigm_prev50_80_temp)
 
   return(list(SI_prev, RSD_prev, Atrp_prev, HG_prev, depigm_prev,
@@ -396,7 +362,7 @@ morbidity_prev_func <- function(morb.mat.tmp, N, SI_prev, RSD_prev, Atrp_prev, H
 #' find individuals which develop morbidity
 #'
 #' @description
-#' find individuals sampled between specific ages with current mf and can then develop morbidity in the next function
+#' find individuals sampled between specific morb.mat.tmp$Age with current mf and can then develop morbidity in the next function
 #' (determined by probability associated with individual mf load or fixed probability)
 #'
 #' @param dat this is the master matrix (all.mats.temp) tracking mf (by age) for each individual
@@ -412,14 +378,11 @@ find_indiv_totest_func2 <- function(dat, mf.start, mf.end, morb.mat.tmp, age_to_
   # update age (and sex for newborns)
   morb.mat.tmp$Age <- dat[,2]
   morb.mat.tmp$Sex <- dat[,3]
-  ages <- morb.mat.tmp$Age
-  sexes <- morb.mat.tmp$Sex
 
-  # lagged ages (age 2 year in future) #
+  # lagged morb.mat.tmp$Age (age 2 year in future) #
 
-  morb.mat.tmp$LaggedAges <- ages + 2 # current age + 2 years (in 2 yrs time)
-  laggedAges <- morb.mat.tmp$LaggedAges
-  morb.mat.tmp$LaggedAgeOver80 <- ifelse(laggedAges > 79.99999999, laggedAges - 80, laggedAges) # if between 78 - 80, will be > 80 yrs in 2 yrs time
+  morb.mat.tmp$LaggedAges <- morb.mat.tmp$Age + 2 # current age + 2 years (in 2 yrs time)
+  morb.mat.tmp$LaggedAgeOver80 <- ifelse(morb.mat.tmp$LaggedAges > 79.99999999, morb.mat.tmp$LaggedAges - 80, morb.mat.tmp$LaggedAges) # if between 78 - 80, will be > 80 yrs in 2 yrs time
                                                                                                           # therefore not alive, so newborn will be future age - 80 yrs (e.g., 81 - 80 = 1 yr old)
                                                                                                           # need to ensure individuals between 0 - 2 yrs with 0 blindness due to lag (below)
   # true number of mf per individual #
@@ -434,18 +397,16 @@ find_indiv_totest_func2 <- function(dat, mf.start, mf.end, morb.mat.tmp, age_to_
 
   # ======================================================== #
   # # new approach: determine if age to samp matches for all conditions (only want to sample once per year of age, not every time-step)
-  morb.mat.tmp$AgeToSampleEyeDist <- ifelse((round(ages,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # blindness
-  ageToSampleEyeDist <- morb.mat.tmp$AgeToSampleEyeDist
+  morb.mat.tmp$AgeToSampleEyeDist <- ifelse((round(morb.mat.tmp$Age,6) %in% round(age_to_samp_vec_nonreversible,6)),1,0) # blindness
 
   # ==================================#
   # 2) WHOM TO UNDERGO BERNOULI TRAIL #
 
   # selection based on true mf count
-  blindnessStatuses <- morb.mat.tmp$BlindnessStatus
-  morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$TrueMFCount > 0 & ageToSampleEyeDist == 1 & blindnessStatuses == 0, 1, 0) # blindness (irreversible; only test once in age range)
+  morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$AgeToSampleEyeDist == 1 & morb.mat.tmp$BlindnessStatus == 0, 1, 0) # blindness (irreversible; only test once in age range)
 
   # # selection based on observed mf count
-  # morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & ageToSampleEyeDist == 1 & blindnessStatuses == 0, 1, 0) # blindness (irreversible; only test once in age range)
+  # morb.mat.tmp$ToTestBlindness <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$AgeToSampleEyeDist == 1 & morb.mat.tmp$BlindnessStatus == 0, 1, 0) # blindness (irreversible; only test once in age range)
 
 
  return(morb.mat.tmp)
@@ -469,21 +430,18 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp.mf, blind.probs){
 
   # extract number of mf per skin snip per individual
   morb.mat.tmp$ObservedMFCount <- round(temp.mf[[2]]) + 1 # mf per skin snip for all individuals (+1 because of indexing so that when indexing probabilities goes from 1)
-  observedMFCounts <- morb.mat.tmp$ObservedMFCount
 
   # extract probabilities (rates) to run Bernoulli trial for each condition
-  morb.mat.tmp$BlindnessProb <- ifelse(observedMFCounts > 0, blind.probs[observedMFCounts], 0) # blindness rate/ prob ~ mf count
-  blindnessProbs <- morb.mat.tmp$BlindnessProb
+  morb.mat.tmp$BlindnessProb <- ifelse(morb.mat.tmp$ObservedMFCount > 0, blind.probs[morb.mat.tmp$ObservedMFCount], 0) # blindness rate/ prob ~ mf count
   # ======================= #
   # Undergo Bernouli trial  #
 
-  toTestBlindness <- morb.mat.tmp$ToTestBlindness #Supposed to be morb.mat.tmp[,7]
-  blindnessStatuses <- morb.mat.tmp$BlindnessStatus
-  morb.mat.tmp$BlindnessStatus <- ifelse(toTestBlindness == 1, rbinom(sum(toTestBlindness), 1, blindnessProbs), blindnessStatuses) # blindness (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
+  morb.mat.tmp$BlindnessStatus <- ifelse(morb.mat.tmp$ToTestBlindness == 1, rbinom(sum(morb.mat.tmp$ToTestBlindness), 1, morb.mat.tmp$BlindnessProb), morb.mat.tmp$BlindnessStatus) # blindness (non-reversible: only testing 0's - stay as previous if tested in this time-step i.e, currently diseases (1) stay as 1)
 
   # update blindness status based on age in 2 years (i.e., those 0-2 yrs in 2 yrs time will be 0 blindness) #
 
-  morb.mat.tmp$BlindnessStatus2Yrs <- ifelse(morb.mat.tmp$LaggedAgeOver80 < 2, 0, blindnessStatuses) # set to 0 for 0-2 yrs in 2 yrs time, or as in col 9
+  morb.mat.tmp$BlindnessStatus2Yrs <- ifelse(morb.mat.tmp$LaggedAgeOver80 < 2, 0, morb.mat.tmp$BlindnessStatus) # set to 0 for 0-2 yrs in 2 yrs time, or as in col 9
+
 
   return(morb.mat.tmp)
 

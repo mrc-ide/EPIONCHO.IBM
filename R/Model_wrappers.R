@@ -2,7 +2,6 @@
 #30/04/2020
 #Jonathan Hamley
 
-
 #' @title
 #' Run EPIONCHO-IBM epidemiological model with or without interventions
 #' @description
@@ -496,7 +495,7 @@ ep.equi.sim <- function(time.its,
     )
 
     # extract probabilities for each condition
-    eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye.disease.probs <- readRDS("~/EPIONCHO.IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
     #eye.disease.probs <- readRDS("/rds/general/user/mad206/home/morbidity/eye_disease_probabilties_updated.rds")
 
 
@@ -1137,7 +1136,6 @@ ep.equi.sim <- function(time.its,
 
         # ============ #
         # eye disease  #
-
         all.blind.updated <- find_indiv_totest_func2(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end,
                                                      morb.mat.tmp = all.blind.updated,
                                                      age_to_samp_vec_nonreversible = age_to_samp_vec_nonreversible)
