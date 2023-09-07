@@ -1,5 +1,5 @@
 column, heading
--, Countdown
+-, BlindnessCountdown
 -, BlindnessPending
 1, Age
 2, Sex

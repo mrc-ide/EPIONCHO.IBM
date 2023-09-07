@@ -380,8 +380,8 @@ find_indiv_totest_func2 <- function(dat, mf.start, mf.end, morb.mat.tmp, age_to_
   morb.mat.tmp$Sex <- dat[,3]
 
   # Decrement the blindness countdown for those who have blindness pending, and update the blindness status for those who are now blind
-  morb.mat.tmp$Countdown <- ifelse(morb.mat.tmp$BlindnessPending == 1 && morb.mat.tmp$Countdown > 0, morb.mat.tmp$Countdown - 1, morb.mat.tmp$Countdown)
-  morb.mat.tmp$BlindnessStatus <- ifelse(morb.mat.tmp$BlindnessPending == 1 && morb.mat.tmp$Countdown == 0, 1, morb.mat.tmp$BlindnessStatus)
+  morb.mat.tmp$BlindnessCountdown <- ifelse(morb.mat.tmp$BlindnessPending == 1 & morb.mat.tmp$BlindnessCountdown > 0, morb.mat.tmp$BlindnessCountdown - 1, morb.mat.tmp$BlindnessCountdown)
+  morb.mat.tmp$BlindnessStatus <- ifelse(morb.mat.tmp$BlindnessPending == 1 & morb.mat.tmp$BlindnessCountdown == 0, 1, morb.mat.tmp$BlindnessStatus)
   
   # true number of mf per individual #
   mf_all <- rowSums(dat[, mf.start : mf.end]) # sum mf per individual across all 21 age classes

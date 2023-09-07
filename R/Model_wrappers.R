@@ -482,12 +482,12 @@ ep.equi.sim <- function(time.its,
       ToTestBlindness = 0,
       BlindnessProb = 0,
       BlindnessStatus = 0,
-      Countdown = 2,
+      BlindnessCountdown = 2,
       BlindnessPending = 0
     )
 
     # extract probabilities for each condition
-    eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye.disease.probs <- readRDS("~/EPIONCHO.IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
     #eye.disease.probs <- readRDS("/rds/general/user/mad206/home/morbidity/eye_disease_probabilties_updated.rds")
 
 
@@ -1223,8 +1223,8 @@ ep.equi.sim <- function(time.its,
         #    Eye disease       #
 
         cols.to.zero.morb2 <- c(1,2,4:9)
-        all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus", "BlindnessPending", "Countdown")] <- 0 # Reset dataframe to 0
-
+        all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus", "BlindnessPending")] <- 0 # Reset dataframe to 0
+        all.blind.updated[to.die, c("BlindnessCountdown")] <- 2
       }
 
     }
