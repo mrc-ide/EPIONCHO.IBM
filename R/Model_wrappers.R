@@ -40,6 +40,7 @@
 #' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
 #' @param OAE_equilibrium OAE equilibrium input given to continue model
 #' @param OAE_infection OAE prevalence and incidence inputs at equilibrium
+#' @param correlated_compliance correlated compliance structure specified
 #'
 #' @export
 
@@ -67,7 +68,8 @@ ep.equi.sim <- function(time.its,
                         equilibrium,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
-                        OAE_equilibrium)
+                        OAE_equilibrium,
+                        correlated_compliance = "NO")
 
 
 {
@@ -285,6 +287,24 @@ ep.equi.sim <- function(time.its,
   out.comp[s.comp] <- 1
   all.mats.temp[,1] <- out.comp
 
+  # if(correlated_compliance == "YES"){
+  #
+  # # specify neever treat individuals
+  # compliance.mat <- matrix(nrow=N, ncol=4) # col 1 = age, col 2 = never_treat,
+  #                                          # col 3 = probability of treatment, col 4 = to be treated in this round
+  # compliance.mat[,1] = generateNeverTreat(N, probneverTreat) # never treat col (mat[,1])
+  #
+  # # individual probability of treatment values
+  # cov = coverage # whatever the coverage of this MDA is
+  # rho = correlation # whatever the correlation of this MDA is
+  # compliance.mat[,2] = initializePTreat(N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
+  #
+  # # previous coverage #
+  # prevCov = cov # set prevCov to coverage value used
+  # prevRho = rho # set prevRho to correlation value used
+  #
+  # }
+
   treat.vec.in <- rep(NA, N) #for time since treatment calculations
 
   prev <-  c()
@@ -455,8 +475,65 @@ ep.equi.sim <- function(time.its,
     {coverage.upd <- 0}
 
     #which individuals will be treated if treatment is given
-    if(i >= treat.start & give.treat==1) {cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)}
+    if(i >= treat.start & give.treat==1) {
+      cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)
+      }
 
+
+    # for new compliance structure;
+    # initialize probability of treatment values (pTreat) for each individual if first round
+    # subsequent rounds: check to see if coverage or correlation par values have changed since last treatment,
+    # if so, need to edit pTreat values
+    # always check for zero values in pTreat for subsequent rounds
+
+    if(correlated_compliance == "YES" & any(i == times.of.treat.in)){
+
+        # first MDA round
+        if(i == times.of.treat.in[1]){
+
+          # specify neever treat individuals
+          compliance.mat <- matrix(nrow=N, ncol=4) # col 1 = age, col 2 = never_treat,
+                                                   # col 3 = probability of treatment, col 4 = to be treated in this round
+          compliance.mat[,2] = generateNeverTreat(N, probneverTreat) # never treat col (mat[,1])
+
+          # individual probability of treatment values
+          cov = coverage # whatever the coverage of this MDA is
+          rho = correlation # whatever the correlation of this MDA is
+          compliance.mat[,3] = initializePTreat(N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
+
+          # record this value for previous coverage #
+          prevCov = cov # set prevCov to coverage value used
+          prevRho = rho # set prevRho to correlation value used
+        }
+
+        # subsequent MDA rounds
+
+        if (i %in% times.of.treat.in[-1]) {
+
+          if((prevCov != coverage) | (prevRho != correlation)){
+
+            # 1) check and update/redraw any zero values introduced in pTreat for individuals since last MDA round
+            compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,2], prevCov, prevRho)
+
+            # 2) assign everyone a new/updated pTreat value for the next MDA round if cov and/or rho have changed
+            cov = coverage
+            rho = correlation
+            compliance.mat[,3] = editPTreat(compliance.mat[,3], cov, rho)
+            prevCov = cov
+            prevRho = rho
+
+          }
+
+          # check for zero pTreat values since last MDA regardless of whether new cov/rho values
+          compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,3], prevCov, prevRho)
+        }
+
+      # specify if individuals are to be treated in this round in compliance.mat (column 4)
+
+      compliance.mat[,1] <- all.mats.temp[,2] # set up current age for eligibility criteria check for MDA
+
+
+  }
     #sex and age dependent exposure, mean exposure must be 1, so ABR is meaningful
 
     mls <- which(all.mats.cur[,3] == 1) # matt : ?
@@ -797,3 +874,4 @@ ep.equi.sim <- function(time.its,
 
 
 }
+
