@@ -353,13 +353,6 @@ ep.equi.sim <- function(time.its,
       Sex = sex,
       TrueMFCount = 0,
       ObservedMFCount = 0,
-      AgeToSampleEyeDist = 0,
-      ToTestBlindness = 0,
-      BlindnessProb = 0,
-      BlindnessStatus = 0,
-      LaggedAges = 0,
-      LaggedAgeOver80 = 0,
-      BlindnessStatus2Yrs = 0,
       AtrophySampleAges = 0,
       HangingGroinSampleAges = 0,
       DepigSampleAges = 0,
@@ -489,9 +482,8 @@ ep.equi.sim <- function(time.its,
       ToTestBlindness = 0,
       BlindnessProb = 0,
       BlindnessStatus = 0,
-      LaggedAges = 0,
-      LaggedAgeOver80 = 0,
-      BlindnessStatus2Yrs = 0
+      Countdown = 2,
+      BlindnessPending = 0
     )
 
     # extract probabilities for each condition
@@ -685,13 +677,6 @@ ep.equi.sim <- function(time.its,
         Sex = morbidity_eq[[1]][,2],
         TrueMFCount = morbidity_eq[[1]][,4],
         ObservedMFCount = morbidity_eq[[1]][,5],
-        AgeToSampleEyeDist = morbidity_eq[[1]][,6],
-        ToTestBlindness = morbidity_eq[[1]][,7],
-        BlindnessProb = morbidity_eq[[1]][,8],
-        BlindnessStatus = morbidity_eq[[1]][,9],
-        LaggedAges = morbidity_eq[[1]][,10],
-        LaggedAgeOver80 = morbidity_eq[[1]][,11],
-        BlindnessStatus2Yrs = morbidity_eq[[1]][,12],
         AtrophySampleAges = morbidity_eq[[1]][,19],
         HangingGroinSampleAges = morbidity_eq[[1]][,20],
         DepigSampleAges = morbidity_eq[[1]][,21],
@@ -1238,7 +1223,7 @@ ep.equi.sim <- function(time.its,
         #    Eye disease       #
 
         cols.to.zero.morb2 <- c(1,2,4:9)
-        all.blind.temp[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus")] <- 0 # Reset dataframe to 0
+        all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus", "BlindnessPending", "Countdown")] <- 0 # Reset dataframe to 0
 
       }
 
