@@ -497,7 +497,7 @@ ep.equi.sim <- function(time.its,
         if(i == times.of.treat.in[1]){
 
           # specify neever treat individuals
-          compliance.mat <- matrix(nrow=N, ncol=4) # col 1 = age, col 2 = never_treat,
+          compliance.mat <- matrix(nrow=N, ncol=6) # col 1 = age, col 2 = never_treat,
                                                    # col 3 = probability of treatment, col 4 = to be treated in this round
           compliance.mat[,2] = generateNeverTreat(N = N, probneverTreat = pnc) # never treat col (mat[,1])
 

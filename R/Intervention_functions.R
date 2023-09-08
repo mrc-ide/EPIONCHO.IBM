@@ -174,7 +174,7 @@ check_eligibility <- function(comp.mat, all.dt, minAgeMDA, maxAgeMDA) {
   # set up current age for eligibility criteria check for MDA (current age col)
   comp.mat[,1] <- all.dt[,2]
 
-  # Identify hosts in correct age range (hostsEligibleAge col)
+  # Identify hosts in eligible age range (hostsEligibleAge col)
   comp.mat[,4] <- (comp.mat[,1] >= minAgeMDA) & (comp.mat[,1] < maxAgeMDA)
 
   # Generate all random numbers at once (random number col)
