@@ -134,7 +134,6 @@ checkForZeroPTreat <- function(pTreat, cov, rho) {
 #' @param cov Coverage parameter (0-1)
 #' @param rho rho parameter (0-1) which is the correlation between treatment rounds,
 #'
-#'
 #' @return vector of length of pop size with individuals probability of treatment (0-1)
 editPTreat <- function(pTreat, cov, rho) {
   # Define the parameters for the probability of treatment
@@ -155,3 +154,38 @@ editPTreat <- function(pTreat, cov, rho) {
   return(pTreat)
 }
 
+
+#' @title
+#' check eligibility of individuals for treatment function
+#' @description
+#' Eligible individuals which satisfy conditions of correct age (=> 5 yrs),
+#' are not considered a never_treated individual, and probability of treatment
+#' (pTreat) > than random number drawn from uniform distribution
+#'
+#' @param comp.mat compliance matrix
+#' @param all.dt current main matrix with information on individuals (age)
+#' @param minAgeMDA minimum age for MDA (set to 5 yrs)
+#' @param maxAgeMDA maximum age for MDA (set to 80 yrs)
+#'
+#' @return updated complicance matrix with column for treatment (1) or not (0),
+#' and a vector with positions for individuals to be treated
+check_eligibility <- function(comp.mat, all.dt, minAgeMDA, maxAgeMDA) {
+
+  # set up current age for eligibility criteria check for MDA (current age col)
+  comp.mat[,1] <- all.dt[,2]
+
+  # Identify hosts in correct age range (hostsEligibleAge col)
+  comp.mat[,4] <- (comp.mat[,1] >= minAgeMDA) & (comp.mat[,1] < maxAgeMDA)
+
+  # Generate all random numbers at once (random number col)
+  comp.mat[,5] <- runif(length(comp.mat[,1]))
+
+  # find eligible hosts in matrix (assign as 1) in 6th column (eligible host col)
+  comp.mat[,6] <- ifelse(comp.mat[,4] == 1 & comp.mat[,5] < comp.mat[,3] & comp.mat[,2] == 0, 1, 0)
+
+  # Find indices of hosts meeting conditions (if needed in treatment funcs)
+  eligible_hosts <- which(comp.mat[,6] == 1)
+
+  return(list(comp.mat, eligible_hosts))
+
+}
