@@ -2,6 +2,11 @@
 #30/04/2020
 #Jonathan Hamley
 
+source("R/adult_worm_dynamics_functions.R")
+source("R/morbidity_module_functions.R")
+source("R/larval_dynamics_functions.R")
+source("R/mf_dynamics_functions.R")
+
 #' @title
 #' Run EPIONCHO-IBM epidemiological model with or without interventions
 #' @description
@@ -482,12 +487,12 @@ ep.equi.sim <- function(time.its,
       ToTestBlindness = 0,
       BlindnessProb = 0,
       BlindnessStatus = 0,
-      BlindnessCountdown = 2,
+      BlindnessCountdown = 732,
       BlindnessPending = 0
     )
 
     # extract probabilities for each condition
-    eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye.disease.probs <- readRDS("~/EPIONCHO.IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
     #eye.disease.probs <- readRDS("/rds/general/user/mad206/home/morbidity/eye_disease_probabilties_updated.rds")
 
 
@@ -1222,9 +1227,8 @@ ep.equi.sim <- function(time.its,
         # ==================== #
         #    Eye disease       #
 
-        cols.to.zero.morb2 <- c(1,2,4:9)
         all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus", "BlindnessPending")] <- 0 # Reset dataframe to 0
-        all.blind.updated[to.die, c("BlindnessCountdown")] <- 2
+        all.blind.updated[to.die, c("BlindnessCountdown")] <- 730
       }
 
     }
@@ -1338,6 +1342,7 @@ ep.equi.sim <- function(time.its,
                        'blindness_prev', 'visual_impairment_prev',
                        'morbidity_ageprev_out','eye_morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs',
                        'mf_ageprev_out', 'mf_agintens_out')
+      print(tail(outp, 1) )
       return(outp)
     }
 
