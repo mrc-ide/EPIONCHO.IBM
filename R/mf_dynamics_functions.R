@@ -245,31 +245,6 @@ prevalence.for.age <- function(age, ss.in, main.dat)
   return(out)
 }
 
-#' @title
-#' mf prevalence by strata
-#' @description
-#' calculates mf prevalence in people based on a skin snip for different population strata (age strata, lower & upper ages)
-#' @param ss.in takes mf per skin snip count object for each individual to convert to binary variable for prevalence
-#' @param main.dat main matrix contain age of each individual (to ensure only calculate prevalence based o age from which skin snips are taken)
-#' @param lwr.age lower age to measure prevalence from
-#' @param upr.age lower age to measure prevalence to
-#'
-#' @returns value for prevalence
-prevalence.for.age2 <- function(ss.in, main.dat, lwr.age, upr.age)
-
-{
-
-  if(upr.age == 80){
-    inds <- which(main.dat[,2] >= lwr.age & main.dat[,2] <= upr.age)
-  }else{
-    inds <- which(main.dat[,2] >= lwr.age & main.dat[,2] < upr.age)
-    }
-
-  out <- length(which(ss.in[[2]][inds] > 0)) / length(inds)
-
-  return(out)
-}
-
 
 
 #' @title
@@ -326,5 +301,6 @@ prevalence.for.age_sex_compl.strata <- function(ss.in, main.dat, lwr_age, upr_ag
 
   return(out)
 }
+
 
 
