@@ -2,6 +2,11 @@
 #30/04/2020
 #Jonathan Hamley
 
+source("R/adult_worm_dynamics_functions.R")
+source("R/morbidity_module_functions.R")
+source("R/larval_dynamics_functions.R")
+source("R/mf_dynamics_functions.R")
+
 #' @title
 #' Run EPIONCHO-IBM epidemiological model with or without interventions
 #' @description
@@ -489,9 +494,8 @@ ep.equi.sim <- function(time.its,
       ToTestBlindness = 0,
       BlindnessProb = 0,
       BlindnessStatus = 0,
-      LaggedAges = 0,
-      LaggedAgeOver80 = 0,
-      BlindnessStatus2Yrs = 0
+      BlindnessPending = 0,
+      BlindnessCountdown = 730
     )
 
     # extract probabilities for each condition
@@ -1237,8 +1241,8 @@ ep.equi.sim <- function(time.its,
         # ==================== #
         #    Eye disease       #
 
-        cols.to.zero.morb2 <- c(1,2,4:9)
-        all.blind.temp[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus")] <- 0 # Reset dataframe to 0
+        all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus", "BlindnessPending")] <- 0 # Reset dataframe to 0
+        all.blind.updated[to.die, c("BlindnessCountdown")] <- 730 # Reset dataframe to 0
 
       }
 
