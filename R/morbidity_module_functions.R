@@ -426,6 +426,7 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp.mf, blind.probs){
   morb.mat.tmp$BlindnessProb <- ifelse(morb.mat.tmp$ObservedMFCount > 0, calc_daily_prob(blind.probs[morb.mat.tmp$ObservedMFCount], 365), 0) # blindness rate/ prob ~ mf count
   # ======================= #
   # Undergo Bernouli trial  #
+
   # Test all users who are not blind or don't have blindness pending
   morb.mat.tmp$BlindnessPending <- ifelse(morb.mat.tmp$BlindnessPending == 0, rbinom(length(morb.mat.tmp$BlindnessProb), 1, morb.mat.tmp$BlindnessProb), morb.mat.tmp$BlindnessPending)
 

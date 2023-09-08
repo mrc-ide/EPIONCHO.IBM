@@ -2,11 +2,6 @@
 #30/04/2020
 #Jonathan Hamley
 
-source("R/adult_worm_dynamics_functions.R")
-source("R/morbidity_module_functions.R")
-source("R/larval_dynamics_functions.R")
-source("R/mf_dynamics_functions.R")
-
 #' @title
 #' Run EPIONCHO-IBM epidemiological model with or without interventions
 #' @description
@@ -358,13 +353,6 @@ ep.equi.sim <- function(time.its,
       Sex = sex,
       TrueMFCount = 0,
       ObservedMFCount = 0,
-      AgeToSampleEyeDist = 0,
-      ToTestBlindness = 0,
-      BlindnessProb = 0,
-      BlindnessStatus = 0,
-      LaggedAges = 0,
-      LaggedAgeOver80 = 0,
-      BlindnessStatus2Yrs = 0,
       AtrophySampleAges = 0,
       HangingGroinSampleAges = 0,
       DepigSampleAges = 0,
@@ -499,7 +487,7 @@ ep.equi.sim <- function(time.its,
     )
 
     # extract probabilities for each condition
-    eye.disease.probs <- readRDS("~/EPIONCHO.IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
     #eye.disease.probs <- readRDS("/rds/general/user/mad206/home/morbidity/eye_disease_probabilties_updated.rds")
 
 
@@ -689,13 +677,6 @@ ep.equi.sim <- function(time.its,
         Sex = morbidity_eq[[1]][,2],
         TrueMFCount = morbidity_eq[[1]][,4],
         ObservedMFCount = morbidity_eq[[1]][,5],
-        AgeToSampleEyeDist = morbidity_eq[[1]][,6],
-        ToTestBlindness = morbidity_eq[[1]][,7],
-        BlindnessProb = morbidity_eq[[1]][,8],
-        BlindnessStatus = morbidity_eq[[1]][,9],
-        LaggedAges = morbidity_eq[[1]][,10],
-        LaggedAgeOver80 = morbidity_eq[[1]][,11],
-        BlindnessStatus2Yrs = morbidity_eq[[1]][,12],
         AtrophySampleAges = morbidity_eq[[1]][,19],
         HangingGroinSampleAges = morbidity_eq[[1]][,20],
         DepigSampleAges = morbidity_eq[[1]][,21],
@@ -1242,8 +1223,7 @@ ep.equi.sim <- function(time.its,
         #    Eye disease       #
 
         all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus", "BlindnessPending")] <- 0 # Reset dataframe to 0
-        all.blind.updated[to.die, c("BlindnessCountdown")] <- 730 # Reset dataframe to 0
-
+        all.blind.updated[to.die, c("BlindnessCountdown")] <- 730
       }
 
     }
