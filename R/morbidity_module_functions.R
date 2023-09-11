@@ -431,6 +431,7 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp.mf, blind.probs){
 
   # ======================= #
   # Undergo Bernouli trial  #
+
   # Test all users who are not blind or don't have blindness pending
   blind_probs <- calc_daily_prob(morb.mat.tmp$BlindnessProb, 365)
   distribution <- rbinom(length(blind_probs), 1, blind_probs)
