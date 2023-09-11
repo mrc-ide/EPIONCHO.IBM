@@ -478,12 +478,10 @@ ep.equi.sim <- function(time.its,
       Sex = sex,
       TrueMFCount = 0,
       ObservedMFCount = 0,
-      AgeToSampleEyeDist = 0,
-      ToTestBlindness = 0,
       BlindnessProb = 0,
       BlindnessStatus = 0,
-      BlindnessCountdown = 2,
-      BlindnessPending = 0
+      BlindnessPending = 0,
+      BlindnessCountdown = 730
     )
 
     # extract probabilities for each condition
@@ -1222,9 +1220,8 @@ ep.equi.sim <- function(time.its,
         # ==================== #
         #    Eye disease       #
 
-        cols.to.zero.morb2 <- c(1,2,4:9)
         all.blind.updated[to.die, c("Age", "Sex", "TrueMFCount", "ObservedMFCount", "AgeToSampleEyeDist", "ToTestBlindness", "BlindnessProb", "BlindnessStatus", "BlindnessPending")] <- 0 # Reset dataframe to 0
-        all.blind.updated[to.die, c("BlindnessCountdown")] <- 2
+        all.blind.updated[to.die, c("BlindnessCountdown")] <- 730
       }
 
     }
