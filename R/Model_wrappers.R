@@ -490,8 +490,6 @@ ep.equi.sim <- function(time.its,
       Sex = sex,
       TrueMFCount = 0,
       ObservedMFCount = 0,
-      AgeToSampleEyeDist = 0,
-      ToTestBlindness = 0,
       BlindnessProb = 0,
       BlindnessStatus = 0,
       BlindnessPending = 0,
@@ -1357,6 +1355,8 @@ ep.equi.sim <- function(time.its,
                        'blindness_prev', 'visual_impairment_prev',
                        'morbidity_ageprev_out','eye_morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs',
                        'mf_ageprev_out', 'mf_agintens_out')
+      print(outp$blindness_prev[length(outp$blindness_prev)])
+      print(outp$visual_impairment_prev[length(outp$visual_impairment_prev)])
       return(outp)
     }
 

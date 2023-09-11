@@ -423,13 +423,19 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp.mf, blind.probs){
   morb.mat.tmp$ObservedMFCount <- round(temp.mf[[2]]) + 1 # mf per skin snip for all individuals (+1 because of indexing so that when indexing probabilities goes from 1)
 
   # extract probabilities (rates) to run Bernoulli trial for each condition
-  morb.mat.tmp$BlindnessProb <- ifelse(morb.mat.tmp$ObservedMFCount > 0, calc_daily_prob(blind.probs[morb.mat.tmp$ObservedMFCount], 365), 0) # blindness rate/ prob ~ mf count
+  morb.mat.tmp$BlindnessProb <- ifelse(
+    morb.mat.tmp$ObservedMFCount > 0,
+    ifelse(morb.mat.tmp$ObservedMFCount <= length(blind.probs), blind.probs[morb.mat.tmp$ObservedMFCount], blind.probs[length(blind.probs)]),
+    0
+  )
+
   # ======================= #
   # Undergo Bernouli trial  #
   # Test all users who are not blind or don't have blindness pending
-  morb.mat.tmp$BlindnessPending <- ifelse(morb.mat.tmp$BlindnessPending == 0, rbinom(length(morb.mat.tmp$BlindnessProb), 1, morb.mat.tmp$BlindnessProb), morb.mat.tmp$BlindnessPending)
-
-
+  blind_probs <- calc_daily_prob(morb.mat.tmp$BlindnessProb, 365)
+  distribution <- rbinom(length(blind_probs), 1, blind_probs)
+  morb.mat.tmp$BlindnessPending <- ifelse(morb.mat.tmp$BlindnessPending == 0, distribution, morb.mat.tmp$BlindnessPending)
+  stopifnot(length(which(is.na(distribution))) == 0)
   return(morb.mat.tmp)
 
 
