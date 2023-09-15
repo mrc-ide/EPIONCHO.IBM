@@ -174,7 +174,7 @@ ep.equi.sim <- function(time.its,
 
     print(times.of.treat.in)
 
-    print('Coverage at each round')
+    print('Target coverage at each round')
     if(all(!is.na(treat.prob.variable))) {print(paste(treat.prob.variable*100, "%", sep = ''))}
     else{print(paste(treat.prob*100, "%", sep = ''))}
 
@@ -447,15 +447,9 @@ ep.equi.sim <- function(time.its,
   while(i < time.its) #over time
 
   {
-    #print(paste(round(i * DT, digits = 2), 'yrs', sep = ' '))
 
-    # if(isTRUE(print_progress)) {print(paste(round(i * DT, digits = 2), 'yrs', sep=' '))}
-
-    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs', sep=' '))}
-    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i/time.its * 100, digits = 1), '%', sep=' '))}
-
-    if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
-                                                                   (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
+    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
+    #                                                                (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
 
     #stores mean L3 and adult worms from previous timesteps
 
@@ -476,12 +470,16 @@ ep.equi.sim <- function(time.its,
     } else
     {coverage.upd <- 0}
 
-    # which individuals will be treated if treatment is given (old compliance approach)
-    if(i >= treat.start & give.treat ==1 & correlated_compliance != "YES") {
-      cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)
-    }
+    # ========================= #
+    # old coverage - hashed out #
+
+    # # which individuals will be treated if treatment is given (old compliance approach)
+    # if(i >= treat.start & give.treat ==1 & correlated_compliance != "YES") {
+    #   cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)
+    # }
 
 
+    # ============================= #
     # for new compliance structure;
     # initialize probability of treatment values (pTreat) for each individual if first round
     # subsequent rounds: check to see if coverage or correlation par values have changed since last treatment,
@@ -490,8 +488,8 @@ ep.equi.sim <- function(time.its,
 
     if(correlated_compliance == "YES" & any(i == times.of.treat.in)){
 
-      # probneverTreat <- pnc
-      # cov <- treat.prob
+      probneverTreat <- pnc
+      cov <- treat.prob
 
         # first MDA round
         if(i == times.of.treat.in[1]){
@@ -499,7 +497,7 @@ ep.equi.sim <- function(time.its,
           # specify neever treat individuals
           compliance.mat <- matrix(nrow=N, ncol=6) # col 1 = age, col 2 = never_treat,
                                                    # col 3 = probability of treatment, col 4 = to be treated in this round
-          compliance.mat[,2] = generateNeverTreat(N = N, probneverTreat = pnc) # never treat col (mat[,1])
+          compliance.mat[,2] = generateNeverTreat(N = N, probneverTreat) # never treat col (mat[,1])
 
           # individual probability of treatment values
           cov = treat.prob # whatever the coverage of this MDA is
@@ -536,13 +534,32 @@ ep.equi.sim <- function(time.its,
         }
 
       # specify if individuals are to be treated in this round in compliance.mat (column 6)
-      eligible_out <- check_eligibility(comp.mat = compliance.mat[,3], all.dt = all.mats.cur, minAgeMDA = 5, maxAgeMDA = 80)
+      eligible_out <- check_eligibility(comp.mat = compliance.mat, all.dt = all.mats.cur, minAgeMDA = 5, maxAgeMDA = 80)
 
       compliance.mat <- eligible_out[[1]] # extract updated compliance matrix
 
       cov.in <- compliance.mat[,6] # this is vector of individuals to be treated from compliance mat, to feed into change.worm.per.ind.treat
 
+      # Count the number of treated hosts
+      hostsEligibleAge <- compliance.mat[,4]
+      eligible_hosts <- eligible_out[[2]]
+      hostsTreated <- length(eligible_hosts)
+      CovEligibles = hostsTreated / hostsEligibleAge * 100
+      CovTotal = hostsTreated / N * 100
+
     }
+
+    # ======================================================================================================= #
+    #         Update print output here with new coverage vals from compliance structure                       #
+
+
+    # update when no MDA round
+    if(isTRUE(print_progress) & (any(i == year_its)) & !any(i == times.of.treat.in))
+    {print(paste(round(i * DT, digits = 2), 'yrs;', (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
+
+    # # update when no MDA round
+    # if(isTRUE(print_progress) & (any(i == year_its + 1)) & any(i == times.of.treat.in))
+    # {print(paste(round(CovEligibles, digits = 3), '% coverage eligibles', paste(round(CovTotal, digits = 3), '% coverage total', sep=' ')))}
 
     #sex and age dependent exposure, mean exposure must be 1, so ABR is meaningful
 
