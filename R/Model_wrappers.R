@@ -471,12 +471,12 @@ ep.equi.sim <- function(time.its,
     {coverage.upd <- 0}
 
     # ========================= #
-    # old coverage - hashed out #
+    # old coverage              #
 
-    # # which individuals will be treated if treatment is given (old compliance approach)
-    # if(i >= treat.start & give.treat ==1 & correlated_compliance != "YES") {
-    #   cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)
-    # }
+    # which individuals will be treated if treatment is given (old compliance approach)
+    if(i >= treat.start & give.treat ==1 & correlated_compliance != "YES") {
+      cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)
+    }
 
 
     # ============================= #
