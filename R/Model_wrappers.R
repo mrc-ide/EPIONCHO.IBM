@@ -71,16 +71,22 @@ ep.equi.sim <- function(time.its,
                         epilepsy_module = "NO",
                         OAE_equilibrium,
                         correlated_compliance = "NO",
-                        comp.correlation)
+                        comp.correlation,
+                        treat.switch = NA,
+                        treat.type = NA)
 
 
 {
   # ====================== #
   # Set-up time parameters #
 
-  DT <- 1/366
+  #DT <- 1/366 # default timestep
+  DT <- (1/366)/2 # half-day timestep required for MOX dynamics
+
   time.its <- round(time.its / (DT))
-  year_its <- seq(0, time.its, 366)
+  #year_its <- seq(0, time.its, 366) # 1 day dt
+  year_its <- seq(0, time.its, 732) # 1/2 day dt
+
   # if(give.treat == 1) #calculate timesteps at which treatment is given
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
   # else {times.of.treat.in <- 0}
@@ -143,15 +149,29 @@ ep.equi.sim <- function(time.its,
   mu.w1 = 0.09953; mu.w2 = 6.00569 #parameters controlling age-dependent mortality in adult worms (matt: these are y_l = y_w and d_l = d_w in equation S6/S7 & Table E)
   mu.mf1 = 1.089; mu.mf2 = 1.428 #parameters controlling age-dependent mortality in mf (matt: these are y_l = y_m and d_l = d_m in equation S6/S7 & Table E)
   fec.w.1 = 70; fec.w.2 = 0.72 #parameters controlling age-dependent fecundity in adult worms (matt: fec.w.1 = F and fec.w.2 = G in Supp table E)
-  l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
+  #l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
+  l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366) - 1/2 day dt
+
 
   # Treatment parameters #
 
-  lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
-  #lam.m = 462; phi = 4.83 #effects of moxidectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
-  cum.infer= 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
-  up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
-  #up = 0.04; kap = 1.82 #effects of Moxidectin from Kura et al. 2023(matt: parameters u (up) and k (kap) define the microfilaricidal effect curve
+  if(all(is.na(treat.switch)) & is.na(treat.type)){
+    #print("default pars")
+
+    lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
+    cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
+    up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
+
+  }
+
+  if(all(is.na(treat.switch)) & !is.na(treat.type)){
+    #print("default pars")
+
+    lam.m = 462; phi = 4.83 #effects of moxidectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
+    cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
+    up = 0.04; kap = 1.82 #effects of Moxidectin from Kura et al. 2023(matt: parameters u (up) and k (kap) define the microfilaricidal effect curve
+
+  }
 
   # Exposure parameters #
 
@@ -170,7 +190,9 @@ ep.equi.sim <- function(time.its,
     if(treat.stop > time.its) stop('not enough time for requested MDA duration')
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
-    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)}
+
+    #if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)} # # 1 day dt
+    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 734)/ 732)} # 1/2 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
     else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
@@ -178,13 +200,25 @@ ep.equi.sim <- function(time.its,
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
     print('MDA given at')
-    print(paste(round(times.of.treat.in / 366, digits = 2), 'yrs', sep = ''))
+    #print(paste(round(times.of.treat.in / 366, digits = 2), 'yrs', sep = '')) # 1 day dt
+    print(paste(round(times.of.treat.in / 732, digits = 2), 'yrs', sep = '')) # 1/2 day dt
 
     print(times.of.treat.in)
 
     print('Target coverage at each round')
     if(all(!is.na(treat.prob.variable))) {print(paste(treat.prob.variable*100, "%", sep = ''))}
     else{print(paste(treat.prob*100, "%", sep = ''))}
+
+    print('Treatment to be given at each round')
+    if(all(is.na(treat.switch)) & is.na(treat.type)){
+      print("IVM only")
+    }
+    if(all(is.na(treat.switch)) & !is.na(treat.type)){
+      print("MOX only")
+    }
+    if(all(!is.na(treat.switch))){
+      print(treat.switch)
+    }
 
     print('ABR is')
     print(paste(ABR, 'bites person-1 yr-1 at endemic equilibria'))
@@ -471,6 +505,36 @@ ep.equi.sim <- function(time.its,
         treat.prob <- treat.prob.variable[index.iter.treat]} # index prob value from treat.prob.variable vector
 
     }
+
+    # if IVM/MOX switch included, specify which treatment parameters to use if treatment iteration
+    if(all(!is.na(treat.switch))){
+
+      if(any(i == times.of.treat.in)) {
+        index.iter.treat <- match(i, times.of.treat.in) # find element where iteration number matches a time in times.of.treat vector
+        treat.type <- treat.switch[index.iter.treat] # index IVM or MOX value from treat.switch.in vector
+
+        if(treat.type == "IVM"){
+          lam.m = 32.4; phi = 19.6 # treatment induced embryostatic parameters
+          cum.infer= 0.345 # permanent infertility in worms
+          up = 0.0096; kap = 1.25 # microfilaricidal effect curve parameters
+          print("IVM parameters updated")
+        }
+
+        if(treat.type == "MOX"){
+          lam.m = 462; phi = 4.83 # treatment induced embryostatic parameters
+          cum.infer= 0.345 # permanent infertility in worms
+          up = 0.04; kap = 1.82 # microfilaricidal effect curve parameters
+          print("MOX parameters updated")
+        }
+
+        if(!(treat.type %in% c("MOX", "IVM"))){
+          print("ERROR - either IVM or MOX not specified in treatment switch vector at this iteration")
+        }
+
+      }
+
+    }
+
 
     # to track variable coverage
     if(i >= treat.start & i <= treat.stop & give.treat == 1){
