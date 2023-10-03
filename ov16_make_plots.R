@@ -17,7 +17,7 @@ processRCSFiles <- function () {
   allOutputs <- data.frame()#data.frame(matrix(ncol=19))
   #colnames(allOutputs) <- c("age", "sex", "ov16_pos", "mf_prev", "age_pre", "sex_pre", "ov16_pos_pre", "mf_prev_pre", "ov_l3", "ov_l4", "ov_mating_no_mf", "ov_mating_detectable_mf", "ov_mating_any_mf", "ov_l3_pre", "ov_l4_pre", "ov_mating_no_mf_pre", "ov_mating_detectable_mf_pre", "ov_mating_any_mf_pre", "run_num")
 
-  files <- c('ov16_all_hypotheses_3/', 'ov16_output_any_worm_gamm_7/', 'ov16_output_any_worm_gamm_6/', 'ov16_output_any_worm_44/', 'ov16_output_l3/', 'ov16_output_l3_2/', 'ov16_output_l3_3/')
+  files <- c('ov16_all_hypotheses_3/', 'ov16_output_any_worm_gamm_7/', 'ov16_output_any_worm_gamm_6/')
   fileToUse <- paste("data/", files[1], sep="")
 
   i <- 1

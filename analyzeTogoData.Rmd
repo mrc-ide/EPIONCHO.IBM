@@ -220,12 +220,17 @@ summarizeSimulationData <- function(data, sensSpec=c(1,1), groupBySex=TRUE, sens
 
 ```{r}
 tmpmfpvals <- data.frame(abr_vals=c(), mf_prev=c())
+k_value <- "k3"
+mfp_vals <- c(70, 75, 85)
+if(k_value == "k3") {
+  mfp_vals <- c(70, 75, 85, 85, 85, 85, 85)
+}
 i <- 0
-for(mfp in c(70, 75, 85, 85, 85)) {
+for(mfp in mfp_vals) {
   i <- i + 1
-  fileNameMFP <- paste("togo_mfp_tuning_k3_", mfp,"_final", sep="")
-  if(i > 2) {
-    fileNameMFP <- paste("togo_mfp_tuning_k3_", mfp,"_final_start_", i, sep="")
+  fileNameMFP <- paste("togo_mfp_tuning_", k_value, "_", mfp,"_final", sep="")
+  if(i > 2 & k_value == "k3") {
+    fileNameMFP <- paste("togo_mfp_tuning_", k_value, "_", mfp,"_final_start_", i, sep="")
   }
   target_mfp_str <- strsplit(fileNameMFP, "_")[[1]][5]
   target_mfp <- as.numeric(target_mfp_str)/100
@@ -239,11 +244,7 @@ for(mfp in c(70, 75, 85, 85, 85)) {
 
 ```{r calc_mfp, timeit=TRUE}
 
-getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), kval="", dist_name="normal", dist_func=dnorm, onlyPlotCullFur=FALSE, dist_manual=c()) {
-  bin_size <- 500
-  if(target_mfp > 0.8) {
-    bin_size <- 500
-  }
+getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), kval="", dist_name="normal", dist_func=dnorm, onlyPlotCullFur=FALSE, dist_manual=c(), start_shape=list(), bin_size=500) {
   
   print(ggplot() + geom_histogram(aes(x=raw_data$abr_vals), binwidth=bin_size))
   raw_data <- raw_data %>% filter(mf_prev >= target_mfp & mf_prev < target_mfp + 0.01)
@@ -265,7 +266,7 @@ getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), 
       secondParam <- dist_manual[2]
       if(length(dist_manual) == 0) {
         if(grepl("norm", dist_name)) {
-          dist <- MASS::fitdistr(data_dist, dist_name)
+          #dist <- MASS::fitdistr(data_dist, dist_name)
           scale_by <- 1
           if(dist_name == "log-normal") {
             dist_name = "lnorm"
@@ -275,18 +276,25 @@ getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), 
           }
           dist2 <- fitdist(data_dist, dist_name)
         } else {
-          lower = 0.001
-          if(target_mfp >= 0.85) {
-            lower = 0.001
-          }
+          lower = 0.00001
+          #if(target_mfp >= 0.85) {
+          #  lower = 0.0001
+          #}
           scale_by = 1000
-          dist <- MASS::fitdistr(data_dist/scale_by, dist_name, lower=lower)
-          dist2 <- fitdist(data_dist/scale_by, dist_name, lower=lower)
+          
+          if(length(start_shape) > 0) {
+            #dist <- MASS::fitdistr(data_dist/scale_by, dist_name, shape=start_shape, lower=lower)
+            dist2 <- fitdist(data_dist/scale_by, dist_name, shape=start_shape, lower=lower)
+          } else {
+            #dist <- MASS::fitdistr(data_dist/scale_by, dist_name, lower=lower)
+            dist2 <- fitdist(data_dist/scale_by, dist_name, lower=lower)
+          }
+          
         }
         print(paste("AIC: ", dist2$aic))
         print(plot(dist2))
-        firstParam = dist$estimate[1]
-        secondParam = dist$estimate[2]/scale_by
+        firstParam = dist2$estimate[1]
+        secondParam = dist2$estimate[2]/scale_by
       }
   
       xrange <- seq(min_val, max_val, 20)
@@ -294,10 +302,23 @@ getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), 
       fitted_data <- data.frame(x=xrange, y=dist_func(xrange, firstParam, secondParam)*scaling_factor)
       print(paste(dist_name, "Dist Parameters:", firstParam, secondParam))
       
+      break_val <- bin_size*2
+      print(kval)
+      print(target_mfp)
+      k_value_print <- "kE 0.4"
+      if(kval == "k3") {
+        k_value_print <- "kE = 0.3"
+      }
+      if(kval == "k3" & target_mfp==0.85) {
+        break_val <- break_val*4
+      }
+      print(break_val)
       plot <- ggplot() +
         geom_histogram(aes(x=abr_vals), color='darkblue', fill="lightblue", binwidth=bin_size, boundary = 0, closed="left", data=raw_data) +
         geom_line(aes(x=x, y=y), color="red", data=fitted_data) +
-        scale_x_continuous(breaks=seq(min_val, max_val, bin_size*2), limits=c(min_val, max_val)) + ylab('Count') + ggtitle(paste('Distribution for', kval, 'of ABR for an MFP of ', target_mfp*100,"%"))
+        scale_x_continuous(breaks=seq(min_val, max_val, break_val), limits=c(min_val, max_val)) + ylab('Count') + 
+        #ggtitle(paste('Distribution for', k_value_print, 'of ABR for an MFP of ', target_mfp*100,"%")) + 
+        xlab("ABR Values")
     }
   }
   return_val <- list(plot)
@@ -305,23 +326,23 @@ getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), 
 }
 
 custom_sample <- function(data) {
-  sample_size <- min(nrow(data), 90)
+  sample_size <- min(nrow(data), 100)
   #print(paste(unique(data$abr_vals_2), ": ", nrow(data), sample_size))
   return(data %>% sample_n(size = sample_size, replace = FALSE))
 }
 
-for(mfp in c(70, 75, 85)) {
-  tmp_raw_data_vals <- tmpmfpvals %>% dplyr::mutate(abr_vals_2 = case_when(
-    abr_vals <= 10000 ~ round(abr_vals/100)*100,
-    TRUE ~ round(abr_vals/100)*100,
-    )) %>% dplyr::group_by(abr_vals_2) %>% group_map(~ custom_sample(.), .keep=TRUE) %>% bind_rows()
-  getRangeOfABR(NULL, mfp/100, raw_data=tmp_raw_data_vals, onlyPlotCullFur = TRUE)
-}
-
 raw_data_vals <- tmpmfpvals %>% dplyr::mutate(abr_vals_2 = case_when(
-      abr_vals <= 10000 ~ round(abr_vals/100)*100,
-      TRUE ~ round(abr_vals/100)*100,
+      abr_vals <= 10000 ~ floor(abr_vals/100)*100,
+      TRUE ~ floor(abr_vals/100)*100,
       )) %>% dplyr::group_by(abr_vals_2) %>% group_map(~ custom_sample(.), .keep=TRUE) %>% bind_rows() %>% as.data.frame()
+
+for(mfp in c(70, 75, 85)) {
+  size <- 500
+  if(kval=="k4" & mfp == 70) {
+    size <- 250
+  }
+  getRangeOfABR(NULL, mfp/100, raw_data=raw_data_vals, onlyPlotCullFur = TRUE, bin_size = size)
+}
 
 
 
@@ -334,6 +355,10 @@ raw_data_vals <- tmpmfpvals %>% dplyr::mutate(abr_vals_2 = case_when(
 #### Normal
 ```{r}
 for(mfp in c(70, 75, 85)) {
+  size <- 500
+  if(kval=="k4" & mfp == 70) {
+    size <- 250
+  }
   print(paste("mfp: ", mfp/100))
   target_mfp_str = paste(mfp, "", sep="")
   target_mfp = mfp / 100
@@ -344,7 +369,7 @@ for(mfp in c(70, 75, 85)) {
   ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
   xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
 
-  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'normal', dist_func = dnorm)
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'normal', dist_func = dnorm, bin_size = size)
   print(range_return[[1]])
   ggsave(paste("images/", "normal_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
 }
@@ -353,6 +378,10 @@ for(mfp in c(70, 75, 85)) {
 #### Lognormal
 ```{r}
 for(mfp in c(70, 75, 85)) {
+  size <- 500
+  if(kval=="k4" & mfp == 70) {
+    size <- 250
+  }
   target_mfp_str = paste(mfp, "", sep="")
   target_mfp = mfp / 100
   
@@ -362,7 +391,7 @@ for(mfp in c(70, 75, 85)) {
   ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
   xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
 
-  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'log-normal', dist_func = dlnorm)
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'log-normal', dist_func = dlnorm, bin_size = size)
   print(range_return[[1]])
   ggsave(paste("images/", "lognormal_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
 }
@@ -370,7 +399,14 @@ for(mfp in c(70, 75, 85)) {
 
 #### Gamma
 ```{r}
+
+gamma_shape_start <- list(list(18.9, 7.2/1000), list(15.4, 3.3/1000), list(6.8, .29/1000))
 for(mfp in c(70, 75, 85)) {
+  size <- 500
+  if(kval=="k4" & mfp == 70) {
+    size <- 250
+  }
+  print(paste("MFP:", mfp))
   target_mfp_str = paste(mfp, "", sep="")
   target_mfp = mfp / 100
   
@@ -380,7 +416,7 @@ for(mfp in c(70, 75, 85)) {
   ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
   xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
 
-  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'gamma', dist_func = dgamma)
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'gamma', dist_func = dgamma, bin_size = size)
   print(range_return[[1]])
   ggsave(paste("images/", "gamma_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
 }
@@ -388,10 +424,19 @@ for(mfp in c(70, 75, 85)) {
 
 #### Final Sims
 ```{r}
-gamma_vals <- list(c(18.9, 7.2/1000), c(15.4, 3.3/1000), c(6.8, .29/1000))
+#k3
+#gamma_vals_old <- list(c(18.9, 7.2/1000), c(15.4, 3.3/1000), c(6.8, .29/1000))
+gamma_vals <- list(c(20.12, 0.0077), c(14.69, 0.0032), c(7.09, 0.00029))
+
+#k4
+#gamma_vals <- list(c(38.8, 0.020), c(27.1, 0.0094), c(12.3, 0.0014))
 
 i <- 0
 for(mfp in c(70, 75, 85)) {
+  size <- 500
+  if(kval=="k4" & mfp == 70) {
+    size <- 250
+  }
   i <- i + 1
   target_mfp_str = paste(mfp, "", sep="")
   target_mfp = mfp / 100
@@ -400,9 +445,9 @@ for(mfp in c(70, 75, 85)) {
   print(summarized_abr_mfp)
 
   ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
-  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
+  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 1000))
 
-  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'gamma', dist_func = dgamma, dist_manual=gamma_vals[[i]])
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval=kval, dist_name = 'gamma', dist_func = dgamma, dist_manual=gamma_vals[[i]], bin_size = size)
   print(range_return[[1]])
   ggsave(paste("images/", "final_gamma_abr_dist_", kval, "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
 }

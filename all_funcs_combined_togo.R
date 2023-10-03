@@ -157,8 +157,8 @@ change.worm.per.ind1 <- function(treat.vec, lambda.zero, DT, omeg, ws, compartme
 #'
 #' @returns list containing vector of a) updated lambda values per individual, b) updated (or not) vector of times since treatment for each individual
 change.worm.per.ind.treat <- function(give.treat, iteration, treat.start, times.of.treat, treat.stop,
-                                 onchosim.cov, treat.vec, DT, cum.infer, lam.m, phi, N,
-                                 mort.fems, lambda.zero.in)
+                                      onchosim.cov, treat.vec, DT, cum.infer, lam.m, phi, N,
+                                      mort.fems, lambda.zero.in)
 {
 
   if(give.treat == 1 & iteration >= treat.start)
@@ -305,7 +305,7 @@ OAE_mfcount_prob_func <- function(dat){
 
   fit <- glm(prob ~ log(mf + 1), family = gaussian(link = "log"),
              data = dat) # fitted logarithmic relationship between prob OAE ~ mean mf load;
-                                         # generalized linear model with log-link function
+  # generalized linear model with log-link function
 
   newdat <- data.frame(mf = seq(0, 10000, 1)) # generate new dataframe with mf counts from 0 to 1000 by 1
 
@@ -360,14 +360,14 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, nfw.start, f
   # ind_new_inf <- which(worms_all > 0 & infected_at_all == 0) # find individuals with at least 1 worm & no previous infection (therefore new)
 
   ind_new_inf <- which(male_worms_all > 0 & female_worms_all > 0 & infected_at_all == 0) # find individuals where both male and female worms present
-                                                                                         # (i.e. pair of mating worms present in host)
+  # (i.e. pair of mating worms present in host)
 
   # print(ind_new_inf)
 
   infected_at_all[ind_new_inf] <-  1 # where new worm infection, give value 1 at individual position in vector
 
   ind_age <- which(round(dat[, 2]) == round(age_to_samp)) # find individuals (position in individual vector) where (rounded)
-                                                          # age at sampling (e.g. between 3 - 10) matches (rounded) age of individual
+  # age at sampling (e.g. between 3 - 10) matches (rounded) age of individual
 
   # print(ind_age)
 
@@ -380,9 +380,9 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, nfw.start, f
   # print(age_to_samp)
 
   tot_ind_ep_samp <- Reduce(intersect, list(ind_age, ind_ibf, ind_no_OAE, ind_no_samp)) # goes through each of the individual lists
-                                                                                        # (individual criteria for whether a person)
-                                                                                        # If individual has satisfied all those (intersect finds commonalities in columns)
-                                                                                        # form pool of individuals which are then sampled for new OAE onset
+  # (individual criteria for whether a person)
+  # If individual has satisfied all those (intersect finds commonalities in columns)
+  # form pool of individuals which are then sampled for new OAE onset
   check_ind <- c(check_ind, length(tot_ind_ep_samp)) #
 
   return(list(tot_ind_ep_samp, infected_at_all, check_ind))
@@ -420,15 +420,15 @@ new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, dat,
 
 
   mf_round <- round(temp.mf[[2]][tot_ind_ep_samp]) + 1 # mf count (in those tested)
-                                                       # note: if zero the first probability comes from from ep_probs
-                                                       # note: +1 to account for (log) 0
+  # note: if zero the first probability comes from from ep_probs
+  # note: +1 to account for (log) 0
 
 
   OAE_rates <- OAE_probs[mf_round] # get probabilities (based on individual mf count)
 
   OAE[tot_ind_ep_samp] <- rbinom(length(tot_ind_ep_samp), 1, OAE_rates) # for individuals (those positions of individuals as new cases)
-                                                                        # with an probability of OAE, they undergo a
-                                                                        # Bernoulli trial to ascertain whether OAE onset realized
+  # with an probability of OAE, they undergo a
+  # Bernoulli trial to ascertain whether OAE onset realized
 
   tested_OAE[tot_ind_ep_samp] <- 1 # records that they've been tested (those identified in tot_ind_ep_samp are indexed)
 
@@ -789,7 +789,7 @@ mf.per.skin.snip <- function(ss.wt, num.ss, slope.kmf, int.kMf, data, nfw.start,
   if(isTRUE(kM.const.toggle)){
     kmf <- 0 * (rowSums(data[,nfw.start:fw.end])) + 15}
   else {
-     kmf <- slope.kmf * (rowSums(data[,nfw.start:fw.end])) + int.kMf #rowSums(da... sums up adult worms for all individuals giving a vector of kmfs
+    kmf <- slope.kmf * (rowSums(data[,nfw.start:fw.end])) + int.kMf #rowSums(da... sums up adult worms for all individuals giving a vector of kmfs
   }
 
   mfobs <- rnbinom(pop.size, size = kmf, mu = ss.wt * (rowSums(data[,mf.start:mf.end])))
@@ -1039,7 +1039,7 @@ ep.equi.sim <- function(time.its,
   g = 0.0096
   a.v = 0.39
   real.max.age = 80 #no humans live longer than 80 years
-  N = 2700 #human population size
+  N = 500 #human population size
   mean.age = 50 #mean human age (before truncation)
   int.L3 = 0.03; int.L2 = 0.03; int.L1 = 0.03
   lambda.zero = 0.33 # (matt:) per-capita rate that female worms lose their fertility (W_FF) & return to non-fertile state (W_FN)
@@ -1083,11 +1083,16 @@ ep.equi.sim <- function(time.its,
       times.of.treat.in <- c(seq(treat.start, round(custom_treat_params$start_biannual / DT) - treat.int, treat.int / DT),
                              seq(round(custom_treat_params$start_biannual / DT), treat.stop, 0.5 / DT))
 
-      treat.prob.variable <- ifelse(times.of.treat.in < round(custom_treat_params$coverage_changes[1] / DT),
-                                    custom_treat_params$coverage_change_values[1],
-                                    ifelse(times.of.treat.in < round(custom_treat_params$coverage_changes[2] / DT),
-                                           custom_treat_params$coverage_change_values[2],
-                                           custom_treat_params$coverage_change_values[3]))
+      if(length(custom_treat_params$coverage_changes) == 1) {
+        treat.prob.variable <- ifelse(times.of.treat.in < round(custom_treat_params$coverage_changes[1] / DT),
+                                      custom_treat_params$coverage_change_values[1], custom_treat_params$coverage_change_values[2])
+      } else {
+        treat.prob.variable <- ifelse(times.of.treat.in < round(custom_treat_params$coverage_changes[1] / DT),
+                                      custom_treat_params$coverage_change_values[1],
+                                      ifelse(times.of.treat.in < round(custom_treat_params$coverage_changes[2] / DT),
+                                             custom_treat_params$coverage_change_values[2],
+                                             custom_treat_params$coverage_change_values[3]))
+      }
     } else {
       if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)}
       if(all(is.na(treat.timing)))
@@ -1407,14 +1412,6 @@ ep.equi.sim <- function(time.its,
     if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
                                                                    (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
 
-    # extract ov16 results before treatment
-    if (calc_ov16 & i == treat.start) {
-
-      all.mats.temp_pre_treat <- all.mats.temp
-      Ov16_Seropositive_pre_treat <- Ov16_Seropositive
-      mf_indv_prev_pre_treat <- mf_indv_prev
-
-    }
 
     #stores mean L3 and adult worms from previous timesteps
 
@@ -1676,8 +1673,8 @@ ep.equi.sim <- function(time.its,
     #ov16_sero
     if(calc_ov16) {
       any_juvy_worms <- (rowSums(all.mats.temp[, worms.start:num.cols]) > 0)
-      any_larvae <- (rowSums(l.extras) > 0)
       any_l3_exposure <- (l.extras[,1] > 0)
+      any_larvae <- (rowSums(l.extras) > 0)
       l4_development <- (l.extras[,floor(length(l.extras[1,])/2)] > 0)
       any_worms <- rowSums(all.mats.temp[,worms.start:fw.end])
       mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
@@ -1715,13 +1712,14 @@ ep.equi.sim <- function(time.its,
         old_matrix_index <- -1
       }
 
-      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-5] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-5], Ov16_Seropositive, indv_antibody_response, 1, doSerorevert=TRUE)
-      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-4] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-4], Ov16_Seropositive_L3, indv_antibody_response, 2, doSerorevert=TRUE)
-      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-3] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-3], Ov16_Seropositive_L4, indv_antibody_response, 3, doSerorevert=TRUE)
-      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-2] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-2], Ov16_Seropositive_mating_no_mf, indv_antibody_response, 4, doSerorevert=TRUE)
-      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-1] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-1], Ov16_Seropositive_mating_detectable_mf, indv_antibody_response, 5, doSerorevert=TRUE)
-      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use], Ov16_Seropositive_mating_any_mf, indv_antibody_response, 6, doSerorevert=TRUE)
-
+      if(matrix_index <= length(ov16_store_times)) {
+        Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-5] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-5], Ov16_Seropositive, indv_antibody_response, 1, doSerorevert=TRUE)
+        Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-4] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-4], Ov16_Seropositive_L3, indv_antibody_response, 2, doSerorevert=TRUE)
+        Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-3] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-3], Ov16_Seropositive_L4, indv_antibody_response, 3, doSerorevert=TRUE)
+        Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-2] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-2], Ov16_Seropositive_mating_no_mf, indv_antibody_response, 4, doSerorevert=TRUE)
+        Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-1] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-1], Ov16_Seropositive_mating_detectable_mf, indv_antibody_response, 5, doSerorevert=TRUE)
+        Ov16_Seropositive_Serorevert_matrix[,9*matrix_index] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use], Ov16_Seropositive_mating_any_mf, indv_antibody_response, 6, doSerorevert=TRUE)
+      }
       mf_indv_prev <- as.integer(temp.mf[[2]] > 0)
       prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive)/N)
     }
@@ -1863,11 +1861,11 @@ ep.equi.sim <- function(time.its,
     #assuming output will not be used for further sims
     if(isFALSE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
-      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
+      outp <- list(prev, mean.mf.per.snip)
+      names(outp) <-  c('mf_prev', 'mf_intens')
       if(calc_ov16) {
-        ov16_output <- list(Ov16_Seropositive, mf_indv_prev, Ov16_Seropositive_pre_treat, mf_indv_prev_pre_treat, all.mats.temp_pre_treat, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
-        names(ov16_output) <- c('ov16_seropositive', 'mf_indv_prevalence', 'ov16_seropositive_pre_treatment', 'mf_indv_prevalence_pre_treatment', 'all_infection_burdens_pre_treatment', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
+        ov16_output <- list(Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_output) <- c('ov16_seropositive_matrix', "ov16_seropositive_matrix_serorevert")
         outp <- append(outp, ov16_output)
       }
       return(outp)
@@ -1881,114 +1879,101 @@ ep.equi.sim <- function(time.its,
 #### Current file: runModelRCSTogo.R
 
 #library(devtools)
-library(doParallel)
-library(foreach)
 #devtools::load_all()
 library(dplyr)
 
 iter <- 1#as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
-cores <- detectCores()
-cl <- makeCluster(cores)
-registerDoParallel(cl)
+set.seed(iter + (iter*3758))
 
-# total of 3300 runs per abr
-numIters <- 4 # , 825 per abr, 2475 total
+DT.in <- 1/366
 
+# kE = 0.2
+# delta.hz.in =  0.385,
+# delta.hinf.in = 0.003,
+# c.h.in = 0.008,
+# gam.dis.in = 0.2,
 
-foreach(i=0:(numIters-1), .verbose=TRUE) %dopar% {
-  it <- (iter * numIters) - i
-  set.seed(it + (it*3758)
-
-  DT.in <- 1/366
-
-  # kE = 0.2
-  # delta.hz.in =  0.385,
-  # delta.hinf.in = 0.003,
-  # c.h.in = 0.008,
-  # gam.dis.in = 0.2,
-
-  # kE = 0.3
-  # delta.hz.in = 0.186,
-  # delta.hinf.in = 0.003,
-  # c.h.in = 0.005,
-  # gam.dis.in = 0.2,
+# kE = 0.3
+# delta.hz.in = 0.186,
+# delta.hinf.in = 0.003,
+# c.h.in = 0.005,
+# gam.dis.in = 0.2,
 
 
-  # Gabon Elisa Dataset
+# Gabon Elisa Dataset
 
-  # kE = 0.2
-  #ABR.in <- 73
-  #mda.val <- 0
-  # kE = 0.3
-  # ABR.in <- 176
-  # mda.val <- 0
-  #
-  # # Gabon RDT Dataset
-  # # kE = 0.2
-  # ABR.in <- 76
-  # mda.val <- 0
-  # # kE = 0.3
-  # ABR.in <- 180
-  # mda.val <- 0
-  ABR.in <- round(rgamma(1, 6.8, .00029)) # 85%
+# kE = 0.2
+#ABR.in <- 73
+#mda.val <- 0
+# kE = 0.3
+# ABR.in <- 176
+# mda.val <- 0
+#
+# # Gabon RDT Dataset
+# # kE = 0.2
+# ABR.in <- 76
+# mda.val <- 0
+# # kE = 0.3
+# ABR.in <- 180
+# mda.val <- 0
 
-  # For Keran
-  #mda.val <- 26
-  mda.val <- 0
+ABR.in <- round(rgamma(1, 18.9, .0072)) # k3 70%
+#ABR.in <- round(rgamma(1, 38.81, 0.020)) # k4 70%
 
-  vctr.control.strt <- 80
-  vctr.control.duration <- 31
-  vector.control.efficacies <- rep(c(.60, .75, .95), 3300)
-  vctr.control.efficacy <- vector.control.efficacies[it]
+# For Bassar
+mda.val <- 26
 
-  #treat.strt.yrs = 1989
-  treat.len = mda.val; treat.strt.yrs = 93; yrs.post.treat = 2
+vctr.control.strt <- 80
+vctr.control.duration <- 31
+vector.control.efficacies <- rep(c(.60, .75, .95), 3300)
+vctr.control.efficacy <- vector.control.efficacies[iter]
+
+# treat.strt.yrs = 1989
+treat.len = mda.val; treat.strt.yrs = 93; yrs.post.treat = 2
+
+treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
+timesteps = treat.stp + yrs.post.treat #final duration
+cstm_treat_params <- list(start_biannual=treat.strt.yrs+14, coverage_changes=c(treat.strt.yrs+7, treat.strt.yrs+14), coverage_change_values=c(0.60, 0.75, 0.85))
 
 
-  treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
-  timesteps = treat.stp + yrs.post.treat #final duration
-  cstm_treat_params <- list(start_biannual=treat.strt.yrs+14, coverage_changes=c(treat.strt.yrs+7, treat.strt.yrs+14), coverage_change_values=c(0.55, 0.75, 0.85))
+give.treat.in = 1; trt.int = 1
 
+output <- ep.equi.sim(time.its = timesteps,
+                      ABR = ABR.in,
+                      treat.int = trt.int,
+                      treat.prob = 0.80,
+                      give.treat = give.treat.in,
+                      treat.start = treat.strt,
+                      treat.stop = treat.stp,
+                      treat.timing = NA,
+                      pnc = 0.01,
+                      min.mont.age = 5,
+                      vector.control.strt = vctr.control.strt,
+                      vector.control.duration = vctr.control.duration,
+                      vector.control.efficacy = vctr.control.efficacy,
+                      #delta.hz.in =  0.385,
+                      #delta.hinf.in = 0.003,
+                      #c.h.in = 0.008,
+                      #gam.dis.in = 0.2,
+                      delta.hz.in = 0.186,
+                      delta.hinf.in = 0.003,
+                      c.h.in = 0.005,
+                      gam.dis.in = 0.3,
+                      #delta.hz.in = 0.118,
+                      #delta.hinf.in = 0.002,
+                      #c.h.in = 0.004,
+                      #gam.dis.in = 0.4,
+                      run_equilibrium = FALSE,
+                      #equilibrium = output_equilibrium$all_equilibrium_outputs,
+                      print_progress=TRUE,
+                      calc_ov16 = TRUE,
+                      #ov16_equilibrium = output_equilibrium$ov16_equilibrium,
+                      no_prev_run=TRUE,
+                      custom_treat_params=cstm_treat_params,
+                      seroreversion=TRUE)
 
-  give.treat.in = 1; trt.int = 1
+params <- list(mda.val, ABR.in, vctr.control.efficacy)
+names(params) <- c('MDA', 'ABR', 'VCTR.CTRL.EFF')
+output <- append(output, params)
 
-  output <- ep.equi.sim(time.its = timesteps,
-                        ABR = ABR.in,
-                        treat.int = trt.int,
-                        treat.prob = 0.80,
-                        give.treat = give.treat.in,
-                        treat.start = treat.strt,
-                        treat.stop = treat.stp,
-                        treat.timing = NA,
-                        pnc = 0.01,
-                        min.mont.age = 5,
-                        vector.control.strt = vctr.control.strt,
-                        vector.control.duration = vctr.control.duration,
-                        vector.control.efficacy = vctr.control.efficacy,
-                        #delta.hz.in =  0.385,
-                        #delta.hinf.in = 0.003,
-                        #c.h.in = 0.008,
-                        #gam.dis.in = 0.2,
-                        delta.hz.in = 0.186,
-                        delta.hinf.in = 0.003,
-                        c.h.in = 0.005,
-                        gam.dis.in = 0.3,
-                        #delta.hz.in = 0.118,
-                        #delta.hinf.in = 0.002,
-                        #c.h.in = 0.004,
-                        #gam.dis.in = 0.4,
-                        run_equilibrium = FALSE,
-                        #equilibrium = output_equilibrium$all_equilibrium_outputs,
-                        print_progress=TRUE,
-                        calc_ov16 = TRUE,
-                        #ov16_equilibrium = output_equilibrium$ov16_equilibrium,
-                        no_prev_run=TRUE,
-                        custom_treat_params=cstm_treat_params,
-                        seroreversion=FALSE)
-
-  params <- list(mda.val, ABR.in, vctr.control.efficacy)
-  names(params) <- c('MDA', 'ABR', 'VCTR.CTRL.EFF')
-  output <- append(output, params)
-
-  saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output",it,".rds", sep=""))
-}
+#saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output",iter,".rds", sep=""))

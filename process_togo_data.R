@@ -313,7 +313,9 @@ groupedVillageData <- togoVillageData %>% group_by(river_basin, prefecture) %>% 
   )
 
 togoVillageData <- togoVillageData %>% mutate(
-  mf_prev=mf_pos/mf_pop
+  mf_prev=mf_pos/mf_pop,
+  ov16_prev_all_ages = ov16_pos_all_ages/ov16_pop_all_ages,
+  ov16_prev_children = ov16_pos_children/ov16_pop_children
 )
 
 togo_village_data_mf_plot <- groupedVillageData %>% ggplot() +
@@ -432,22 +434,34 @@ mda_scenarios <- merged_data %>% mutate(
     )
   )
 
+tmpMergedData <- merged_data %>% mutate(
+  Prefecture=factor(ifelse(
+    Prefecture == "OTI", "Ôti", ifelse(
+      Prefecture == "Keran", "Kéran", "Bassar")), levels=c('Ôti', 'Kéran', 'Bassar'), ordered=TRUE)
+)
+
+mda_scenarios$Prefecture <- ifelse(
+  mda_scenarios$Prefecture == "OTI", "Ôti", ifelse(
+  mda_scenarios$Prefecture == "Keran", "Kéran", "Bassar"))
+mda_scenarios$Prefecture <- factor(mda_scenarios$Prefecture, levels=c('Ôti', 'Kéran', 'Bassar'), ordered=TRUE)
 
 mda_scenarios_plot <- mda_scenarios %>% ggplot() +
-  geom_step(aes(x=binned_year, y=coverages, color=Prefecture)) +
-  geom_point(aes(x=Year, y=Epidemilogical.Coverage, color=Prefecture), data=merged_data) +
+  geom_step(aes(x=binned_year, y=coverages, color=Prefecture), linewidth=1.1 ) +
+  geom_point(aes(x=Year, y=Epidemilogical.Coverage, color=Prefecture), data=tmpMergedData) +
   scale_y_continuous(breaks=seq(0, 100, 10), limits=c(0, 100)) +
   scale_x_continuous(breaks=seq(1990, 2020, 5), limits=c(1988, 2020)) +
-  geom_vline(aes(xintercept=2003), linetype="dashed") +
-  geom_vline(aes(xintercept=1996), linetype="dashed") +
-  geom_vline(aes(xintercept=2000), color="darkgreen", linetype="dashed") +
+  geom_vline(aes(xintercept=2003), linetype="dashed", linewidth=1.1) +
+  geom_vline(aes(xintercept=1996), linetype="dashed", linewidth=1.1) +
+  scale_color_manual("Prefecture", values=c("#F8766D", "#00BA38", "#619CFF")) +
+  geom_vline(aes(xintercept=2000), color="darkgreen", linetype="dashed", linewidth=1.1) +
   annotate("text", label="No MDA for all Prefectures in 1996", x=1996, y=10, hjust=-0.01) +
-  annotate("text", label="Start of Twice a Year MDA", x=2003, y=95, hjust=-0.01) +
-  annotate("text", label="Start of Consistent Once a Year MDA for Oti", x=2000, y=50, hjust=-0.01) +
+  annotate("text", label="Start of Biannual MDA", x=2003, y=95, hjust=-0.01) +
+  annotate("text", label="Start of Consistent Annual MDA for Oti", x=2000, y=50, hjust=-0.01) +
   xlab("Year") +
   ylab("MDA Coverage (%)") +
-  ggtitle("MDA Coverages in 3 Prefectures") +
-  labs(clip = "off", hjust=0, caption="MDA Coverages calculated as a mean for each prefecture from 1988 - 1995, 1995-2002, and 2003+. NA values were removed from calculation.")
+  ylim(0, 100)
+  #ggtitle("MDA Coverages in 3 Prefectures")
+  #labs(clip = "off", hjust=0, caption="MDA Coverages calculated as a mean for each prefecture from 1988 - 1995, 1995-2002, and 2003+. NA values were removed from calculation.")
 mda_scenarios_plot
 
-ggsave("images/mda_scenarios_plot.png", mda_scenarios_plot, width=5000, height = 4000, units="px", dpi=500)
+ggsave("images/mda_scenarios_plot.png", mda_scenarios_plot, width=5000, height = 4000, units="px", dpi=600)

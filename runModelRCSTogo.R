@@ -69,10 +69,18 @@ output <- ep.equi.sim(time.its = timesteps,
                       vector.control.strt = vctr.control.strt,
                       vector.control.duration = vctr.control.duration,
                       vector.control.efficacy = vctr.control.efficacy,
-                      delta.hz.in =  0.385,
+                      #delta.hz.in =  0.385,
+                      #delta.hinf.in = 0.003,
+                      #c.h.in = 0.008,
+                      #gam.dis.in = 0.2,
+                      delta.hz.in = 0.186,
                       delta.hinf.in = 0.003,
-                      c.h.in = 0.008,
-                      gam.dis.in = 0.2,
+                      c.h.in = 0.005,
+                      gam.dis.in = 0.3,
+                      #delta.hz.in = 0.118,
+                      #delta.hinf.in = 0.002,
+                      #c.h.in = 0.004,
+                      #gam.dis.in = 0.4,
                       run_equilibrium = FALSE,
                       #equilibrium = output_equilibrium$all_equilibrium_outputs,
                       print_progress=TRUE,
@@ -87,4 +95,3 @@ names(params) <- c('MDA', 'ABR')
 output <- append(output, params)
 
 saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output",iter,".rds", sep=""))
-
