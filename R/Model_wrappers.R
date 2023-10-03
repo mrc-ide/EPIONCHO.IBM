@@ -357,6 +357,8 @@ ep.equi.sim <- function(time.its,
 
 
       Ov16_Seropositive_matrix <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
+      Ov16_Seropositive_Serorevert_matrix <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
+      old_matrix_index <- -1
       matrix_index <- 1
 
       prev_Ov16 <- 0
@@ -766,6 +768,7 @@ ep.equi.sim <- function(time.its,
     if(calc_ov16) {
       any_juvy_worms <- (rowSums(all.mats.temp[, worms.start:num.cols]) > 0)
       any_l3_exposure <- (l.extras[,1] > 0)
+      any_larvae <- (rowSums(l.extras) > 0)
       l4_development <- (l.extras[,floor(length(l.extras[1,])/2)] > 0)
       any_worms <- rowSums(all.mats.temp[,worms.start:fw.end])
       mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
@@ -774,11 +777,11 @@ ep.equi.sim <- function(time.its,
 
       indv_antibody_response <- all.mats.temp[,91]
 
-      findPositives <- function(exposure_array, curr_array, antibody_resp, mf_neg_index) {
+      findPositives <- function(exposure_array, curr_array, antibody_resp, mf_neg_index, doSerorevert=FALSE) {
         curr_array[which(exposure_array == TRUE & curr_array == 0 & antibody_resp == 1)] <- 1
         # hard seroreversion
-        if(seroreversion) {
-          curr_array[which(curr_array == 1 & exposure_array == FALSE & any_worms == FALSE & rowSums(all.mats.temp[,mf.start:mf.end]) == 0)] <- 0
+        if(doSerorevert & seroreversion) {
+          curr_array[which(curr_array == 1 & any_larvae == FALSE & exposure_array == FALSE & any_worms == FALSE & rowSums(all.mats.temp[,mf.start:mf.end]) == 0)] <- 0
         }
 
         # From kamlan et al.
@@ -796,6 +799,19 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_mating_no_mf <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf, indv_antibody_response, 4)
       Ov16_Seropositive_mating_detectable_mf <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf, indv_antibody_response, 5)
       Ov16_Seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf, indv_antibody_response, 6)
+
+      index_to_use <- matrix_index
+      if(old_matrix_index != -1) {
+        index_to_use <- index_to_use - 1
+        old_matrix_index <- -1
+      }
+
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-5] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-5], Ov16_Seropositive, indv_antibody_response, 1, doSerorevert=TRUE)
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-4] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-4], Ov16_Seropositive_L3, indv_antibody_response, 2, doSerorevert=TRUE)
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-3] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-3], Ov16_Seropositive_L4, indv_antibody_response, 3, doSerorevert=TRUE)
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-2] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-2], Ov16_Seropositive_mating_no_mf, indv_antibody_response, 4, doSerorevert=TRUE)
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-1] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use-1], Ov16_Seropositive_mating_detectable_mf, indv_antibody_response, 5, doSerorevert=TRUE)
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index] <- findPositives(Ov16_Seropositive_Serorevert_matrix[,9*index_to_use], Ov16_Seropositive_mating_any_mf, indv_antibody_response, 6, doSerorevert=TRUE)
 
       mf_indv_prev <- as.integer(temp.mf[[2]] > 0)
       prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive)/N)
@@ -859,6 +875,11 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_matrix[,9*matrix_index-1] <- Ov16_Seropositive_mating_detectable_mf
       Ov16_Seropositive_matrix[,9*matrix_index] <- Ov16_Seropositive_mating_any_mf
 
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-8] <- all.mats.temp[,2]
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-7] <- all.mats.temp[,3]
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-6] <- as.integer(temp.mf[[2]] > 0)
+
+      old_matrix_index <- matrix_index
       matrix_index <- matrix_index + 1
     }
 
@@ -936,8 +957,8 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
       names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_output <- list(Ov16_Seropositive, mf_indv_prev, Ov16_Seropositive_pre_treat, mf_indv_prev_pre_treat, all.mats.temp_pre_treat, Ov16_Seropositive_matrix)
-        names(ov16_output) <- c('ov16_seropositive', 'mf_indv_prevalence', 'ov16_seropositive_pre_treatment', 'mf_indv_prevalence_pre_treatment', 'all_infection_burdens_pre_treatment', 'ov16_seropositive_matrix')
+        ov16_output <- list(Ov16_Seropositive, mf_indv_prev, Ov16_Seropositive_pre_treat, mf_indv_prev_pre_treat, all.mats.temp_pre_treat, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_output) <- c('ov16_seropositive', 'mf_indv_prevalence', 'ov16_seropositive_pre_treatment', 'mf_indv_prevalence_pre_treatment', 'all_infection_burdens_pre_treatment', 'ov16_seropositive_matrix', "ov16_seropositive_matrix_serorevert")
         outp <- append(outp, ov16_output)
       }
       return(outp)
