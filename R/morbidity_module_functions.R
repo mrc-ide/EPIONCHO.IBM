@@ -64,6 +64,10 @@ find_indiv_totest_func <- function(dat, mf.start, mf.end, morb.mat.tmp, temp_mf,
   # based on > 0 observed mf
   morb.mat.tmp$ToTestSevereItch <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$SevereItchStatus == 0 & morb.mat.tmp$Age >= 2, 1, 0) # for SI (if 0 disease state)
   morb.mat.tmp$ToTestRSD <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$RSDStatus == 0 & morb.mat.tmp$Age >= 2, 1, 0) # for RSD (if 0 disease state)
+  morb.mat.tmp$ToTestAtrophy <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$AtrophyStatus == 0, 1, 0)
+  morb.mat.tmp$ToTestHG <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$HGStatus == 0, 1, 0)
+  morb.mat.tmp$ToTestDepig <- ifelse(morb.mat.tmp$ObservedMFCount > 0 & morb.mat.tmp$DepigStatus == 0, 1, 0)
+
 
   return(morb.mat.tmp)
 
@@ -105,9 +109,9 @@ new_cases_morbidity_func <- function(morb.mat.tmp, SI_probs, RSD_probs, Atrp_pro
   # based on whether true mf present
   morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$ToTestSevereItch == 1, rbinom(sum(morb.mat.tmp$ToTestSevereItch), 1, SI_probs), morb.mat.tmp$SevereItchStatus) # severe itch (stay as prior disease condition status if test does not take place)
   morb.mat.tmp$RSDStatus <- ifelse(morb.mat.tmp$ToTestRSD == 1, rbinom(sum(morb.mat.tmp$ToTestRSD), 1, RSD_probs), morb.mat.tmp$RSDStatus) # RSD (stay as prior disease condition status if test does not take place)
-  morb.mat.tmp$AtrophyStatus <- ifelse(morb.mat.tmp$AtrophyStatus == 0, rbinom(length(morb.mat.tmp$AtrophyStatus), 1, calc_daily_prob(Atrp_probs, 365)), morb.mat.tmp$AtrophyStatus) # atrophy (non-reversible: only testing 0's
-  morb.mat.tmp$HGStatus <- ifelse(morb.mat.tmp$HGStatus == 0, rbinom(length(morb.mat.tmp$HGStatus), 1,  calc_daily_prob(Hg_probs, 365)), morb.mat.tmp$HGStatus) # HG (non-reversible: only testing 0's
-  morb.mat.tmp$DepigStatus <- ifelse(morb.mat.tmp$DepigStatus == 0, rbinom(length(morb.mat.tmp$DepigStatus), 1,  calc_daily_prob(Depigm_probs, 365)), morb.mat.tmp$DepigStatus) # depigmentation (non-reversible: only testing 0's
+  morb.mat.tmp$AtrophyStatus <- ifelse(morb.mat.tmp$ToTestAtrophy == 1, rbinom(sum(morb.mat.tmp$ToTestAtrophy), 1, calc_daily_prob(Atrp_probs, 365)), morb.mat.tmp$AtrophyStatus) # atrophy (non-reversible: only testing 0's
+  morb.mat.tmp$HGStatus <- ifelse(morb.mat.tmp$ToTestHG == 1, rbinom(sum(morb.mat.tmp$ToTestHG), 1,  calc_daily_prob(Hg_probs, 365)), morb.mat.tmp$HGStatus) # HG (non-reversible: only testing 0's
+  morb.mat.tmp$DepigStatus <- ifelse(morb.mat.tmp$ToTestDepig == 1, rbinom(sum(morb.mat.tmp$ToTestDepig), 1,  calc_daily_prob(Depigm_probs, 365)), morb.mat.tmp$DepigStatus) # depigmentation (non-reversible: only testing 0's
 
   # # based on whether observed mf present
   # morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$ToTestSevereItch == 1, rbinom(sum(morb.mat.tmp$ToTestSevereItch), 1, morb.mat.tmp[,38]), morb.mat.tmp$SevereItchStatus) # severe itch (stay as prior disease condition status if test does not take place)
@@ -392,10 +396,14 @@ find_indiv_totest_func2 <- function(dat, mf.start, mf.end, morb.mat.tmp, age_to_
   # Decrement the blindness countdown for those who have blindness pending, and update the blindness status for those who are now blind
   morb.mat.tmp$BlindnessCountdown <- ifelse(morb.mat.tmp$BlindnessPending == 1 & morb.mat.tmp$BlindnessCountdown > 0, morb.mat.tmp$BlindnessCountdown - 1, morb.mat.tmp$BlindnessCountdown)
   morb.mat.tmp$BlindnessStatus <- ifelse(morb.mat.tmp$BlindnessPending == 1 & morb.mat.tmp$BlindnessCountdown == 0, 1, morb.mat.tmp$BlindnessStatus)
-  
+
   # true number of mf per individual #
   mf_all <- rowSums(dat[, mf.start : mf.end]) # sum mf per individual across all 21 age classes
   morb.mat.tmp$TrueMFCount <- mf_all # true mf count
+
+  # find those individuals to test
+  morb.mat.tmp$ToTestBlind <- ifelse(morb.mat.tmp$TrueMFCount > 0 & morb.mat.tmp$BlindnessPending == 0 & morb.mat.tmp$BlindnessStatus == 0, 1, 0)
+
 
   # # extract number of mf per skin snip per individual
   # morb.mat.tmp[,5] <- round(temp.mf[[2]]) # mf per skin snip for all individuals
@@ -427,15 +435,15 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp.mf, blind.probs){
     morb.mat.tmp$ObservedMFCount > 0,
     ifelse(morb.mat.tmp$ObservedMFCount <= length(blind.probs), blind.probs[morb.mat.tmp$ObservedMFCount], blind.probs[length(blind.probs)]),
     0
-  )
+  ) # if observed mf count > 0 then assign blindness probability mapped to observed mf count (if mf count exceeds mapping assign last/highest prob value)
 
   # ======================= #
   # Undergo Bernouli trial  #
 
   # Test all users who are not blind or don't have blindness pending
-  blind_probs <- calc_daily_prob(morb.mat.tmp$BlindnessProb, 365)
-  distribution <- rbinom(length(blind_probs), 1, blind_probs)
-  morb.mat.tmp$BlindnessPending <- ifelse(morb.mat.tmp$BlindnessPending == 0, distribution, morb.mat.tmp$BlindnessPending)
+  blind_probs <- calc_daily_prob(morb.mat.tmp$BlindnessProb, 365) # convert to a vector of daily probs
+  distribution <- rbinom(length(blind_probs), 1, blind_probs) # create vector of 1 or 0s length of population with daily blindness probs
+  morb.mat.tmp$BlindnessPending <- ifelse(morb.mat.tmp$BlindnessPending == 0 & morb.mat.tmp$ToTestBlind == 1, distribution, morb.mat.tmp$BlindnessPending)
   stopifnot(length(which(is.na(distribution))) == 0)
   return(morb.mat.tmp)
 
