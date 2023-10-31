@@ -588,7 +588,8 @@ ep.equi.sim <- function(time.its,
           if((prevCov != treat.prob) | (prevRho != comp.correlation)){
 
             # 1) check and update/redraw any zero values introduced in pTreat for individuals since last MDA round
-            compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,2], prevCov, prevRho)
+            #compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,2], prevCov, prevRho)
+            compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,3], prevCov, prevRho)
 
             # 2) assign everyone a new/updated pTreat value for the next MDA round if cov and/or rho have changed
             cov = treat.prob
@@ -890,6 +891,10 @@ ep.equi.sim <- function(time.its,
 
       all.mats.temp[to.die, cols.to.zero] <- 0 #set age, sex and parasites to 0 (includes L1, but not L2 L3)
       all.mats.temp[to.die, 3] <- rbinom(length(to.die), 1, 0.5) #draw sex
+
+      if(correlated_compliance == "YES" & any(i > times.of.treat.in)){
+      compliance.mat[to.die, 3] <- 0
+      } # if individual dies update pTreat to 0 in compliance matrix
 
       if(epilepsy_module == "YES"){
 

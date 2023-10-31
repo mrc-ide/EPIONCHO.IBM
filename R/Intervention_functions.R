@@ -174,6 +174,9 @@ check_eligibility <- function(comp.mat, all.dt, minAgeMDA, maxAgeMDA) {
   # set up current age for eligibility criteria check for MDA (current age col)
   comp.mat[,1] <- all.dt[,2]
 
+  # update never treats (for those newly introduced)
+  #comp.mat[,2] <- all.dt[,2] # not needed as always assigned same as last person
+
   # Identify hosts in eligible age range (hostsEligibleAge col)
   comp.mat[,4] <- (comp.mat[,1] >= minAgeMDA) & (comp.mat[,1] < maxAgeMDA)
 
