@@ -1,4 +1,4 @@
-combineRFiles <- function(folderName="R/", fileName="all_funcs_combined_togo") {
+combineRFiles <- function(folderName="R/", fileName="all_funcs_combined") {
   sink(paste(fileName, ".R", sep=""))
 
 
@@ -8,7 +8,7 @@ combineRFiles <- function(folderName="R/", fileName="all_funcs_combined_togo") {
 
   i <- 1
   files <- filePrefix(list.files(filePrefix()))
-  files <- c(files, "runModelRCSTogo.R")
+  files <- c(files, "runModelRCS.R")
 
   for (file in files) {
     current_file = readLines(file)

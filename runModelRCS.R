@@ -5,35 +5,35 @@ set.seed(iter + (iter*3758))
 
 DT.in <- 1/366
 
-# kE = 0.2
-# delta.hz.in =  0.385,
-# delta.hinf.in = 0.003,
-# c.h.in = 0.008,
-# gam.dis.in = 0.2,
+kE = 0.2
 
-# kE = 0.3
-# delta.hz.in = 0.186,
-# delta.hinf.in = 0.003,
-# c.h.in = 0.005,
-# gam.dis.in = 0.2,
+#### Current file: runModelRCS.R
+#iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
+set.seed(parallel_iterator + (parallel_iterator*3758))
+
+DT.in <- 1/366
+
+if(kE == 0.2) {
+  delta.hz.in.val =  0.385
+  delta.hinf.in.val = 0.003
+  c.h.in.val = 0.008
+  gam.dis.in.val = 0.2
+} else {
+  delta.hz.in.val =  0.186
+  delta.hinf.in.val = 0.003
+  c.h.in.val = 0.005
+  gam.dis.in.val = 0.3
+}
 
 
 # Gabon Elisa Dataset
-
-# kE = 0.2
-#ABR.in <- 73
-#mda.val <- 0
-# kE = 0.3
-# ABR.in <- 176
-# mda.val <- 0
-#
-# # Gabon RDT Dataset
-# # kE = 0.2
-# ABR.in <- 76
-# mda.val <- 0
-# # kE = 0.3
-# ABR.in <- 180
-# mda.val <- 0
+if (kE == 0.2) {
+  ABR.in <- 73
+  mda.val <- 0
+} else {
+  ABR.in <- 176
+  mda.val <- 0
+}
 
 # try 13/14 as well
 treat.len = mda.val; treat.strt.yrs = 100; yrs.post.treat = 5
