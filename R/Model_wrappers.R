@@ -866,7 +866,7 @@ ep.equi.sim <- function(time.its,
     temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                 mf.start, mf.end, pop.size = N, kM.const.toggle)
 
-    mfp_recorded_year_tracker <- c(mfp_recorded_year_tracker, i / (1/time_its))
+    mfp_recorded_year_tracker <- c(mfp_recorded_year_tracker, i / (1/time.its))
     prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
     pnc_values <- c(pnc_values, mean(has_been_treated, na.rm=TRUE))
 
