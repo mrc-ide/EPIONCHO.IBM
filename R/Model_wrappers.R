@@ -614,7 +614,7 @@ ep.equi.sim <- function(time.its,
       compliance.mat <- eligible_out[[1]] # extract updated compliance matrix
 
       cov.in <- compliance.mat[,6] # this is vector of individuals to be treated from compliance mat, to feed into change.worm.per.ind.treat
-      has_been_treated <- has_been_treated | cov.in
+      has_been_treated <- has_been_treated | (cov.in == 1)
 
       # Count the number of treated hosts
       hostsEligibleAge <- compliance.mat[,4]
@@ -896,6 +896,7 @@ ep.equi.sim <- function(time.its,
 
       all.mats.temp[to.die, cols.to.zero] <- 0 #set age, sex and parasites to 0 (includes L1, but not L2 L3)
       all.mats.temp[to.die, 3] <- rbinom(length(to.die), 1, 0.5) #draw sex
+      has_been_treated[to.die] <- FALSE
 
       if(correlated_compliance == "YES" & any(i > times.of.treat.in)){
       compliance.mat[to.die, 3] <- 0
