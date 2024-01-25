@@ -73,8 +73,7 @@ ep.equi.sim <- function(time.its,
                         correlated_compliance = "NO",
                         comp.correlation,
                         treat.switch = NA,
-                        treat.type = NA,
-                        treat.switch.start=NA)
+                        treat.type = NA)
 
 
 {
