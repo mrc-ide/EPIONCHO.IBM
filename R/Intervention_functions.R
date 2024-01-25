@@ -147,7 +147,7 @@ editPTreat <- function(pTreat, cov, rho) {
   newPTreats <- sort(rbeta(N, alpha, beta))
 
   # Rank the original pTreat values to get indices for sorting
-  indices <- rank(pTreat)
+  indices <- sort(pTreat, index.return=TRUE)$ix
 
   # Assign the values from newPTreats to the appropriate places in pTreat vector
   pTreat <- newPTreats[indices]
