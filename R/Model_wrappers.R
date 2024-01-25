@@ -73,19 +73,19 @@ ep.equi.sim <- function(time.its,
                         correlated_compliance = "NO",
                         comp.correlation,
                         treat.switch = NA,
-                        treat.type = NA)
+                        treat.type = NA,
+                        treat.switch.start=NA)
 
 
 {
   # ====================== #
   # Set-up time parameters #
 
-  #DT <- 1/366 # default timestep
-  DT <- (1/366)/2 # half-day timestep required for MOX dynamics
+  DT <- 1/366 # default timestep
+  #DT <- (1/366)/2 # half-day timestep required for MOX dynamics
 
   time.its <- round(time.its / (DT))
-  #year_its <- seq(0, time.its, 366) # 1 day dt
-  year_its <- seq(0, time.its, 732) # 1/2 day dt
+  year_its <- seq(0, time.its, 1/DT)
 
   # if(give.treat == 1) #calculate timesteps at which treatment is given
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
@@ -150,7 +150,7 @@ ep.equi.sim <- function(time.its,
   mu.mf1 = 1.089; mu.mf2 = 1.428 #parameters controlling age-dependent mortality in mf (matt: these are y_l = y_m and d_l = d_m in equation S6/S7 & Table E)
   fec.w.1 = 70; fec.w.2 = 0.72 #parameters controlling age-dependent fecundity in adult worms (matt: fec.w.1 = F and fec.w.2 = G in Supp table E)
   #l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
-  l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366) - 1/2 day dt
+  l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
 
 
   # Treatment parameters #
@@ -191,8 +191,8 @@ ep.equi.sim <- function(time.its,
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
 
-    #if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)} # # 1 day dt
-    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 734)/ 732)} # 1/2 day dt
+    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - (1/DT)+((1/DT)*366)) * DT)} # # 1 day dt
+    #if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 734)/ 732)} # 1/2 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
     else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
@@ -200,8 +200,8 @@ ep.equi.sim <- function(time.its,
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
     print('MDA given at')
-    #print(paste(round(times.of.treat.in / 366, digits = 2), 'yrs', sep = '')) # 1 day dt
-    print(paste(round(times.of.treat.in / 732, digits = 2), 'yrs', sep = '')) # 1/2 day dt
+    print(paste(round(times.of.treat.in * DT, digits = 2), 'yrs', sep = '')) # 1 day dt
+    #print(paste(round(times.of.treat.in / 732, digits = 2), 'yrs', sep = '')) # 1/2 day dt
 
     print(times.of.treat.in)
 
@@ -352,6 +352,9 @@ ep.equi.sim <- function(time.its,
   treat.vec.in <- rep(NA, N) #for time since treatment calculations
 
   prev <-  c()
+  pnc_values <- c()
+  has_been_treated <- rep(FALSE, N)
+  mfp_recorded_year_tracker <- c()
   mean.mf.per.snip <- c()
   L3_vec <- vector()
   ABR_recorded <- c()
@@ -612,6 +615,7 @@ ep.equi.sim <- function(time.its,
       compliance.mat <- eligible_out[[1]] # extract updated compliance matrix
 
       cov.in <- compliance.mat[,6] # this is vector of individuals to be treated from compliance mat, to feed into change.worm.per.ind.treat
+      has_been_treated <- has_been_treated | cov.in
 
       # Count the number of treated hosts
       hostsEligibleAge <- compliance.mat[,4]
@@ -863,7 +867,9 @@ ep.equi.sim <- function(time.its,
     temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                 mf.start, mf.end, pop.size = N, kM.const.toggle)
 
+    mfp_recorded_year_tracker <- c(mfp_recorded_year_tracker, i / (1/time_its))
     prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
+    pnc_values <- c(pnc_values, mean(has_been_treated, na.rm=TRUE))
 
 
     mean.mf.per.snip <- c(mean.mf.per.snip, mean(temp.mf[[2]][which(all.mats.temp[,2] >= min.mont.age)]))
@@ -963,16 +969,16 @@ ep.equi.sim <- function(time.its,
     #enough outputs to restart sims
     if(isTRUE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded)
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded')
+      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded, mfp_recorded_year_tracker, pnc_values)
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded', 'year', 'pnc')
       return(outp)
     }
 
     #assuming output will not be used for further sims
     if(isFALSE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
-      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
+      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded, mfp_recorded_year_tracker, pnc_values)
+      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded', 'year', 'pnc')
       return(outp)
     }
   }
