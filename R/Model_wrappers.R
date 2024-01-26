@@ -868,7 +868,7 @@ ep.equi.sim <- function(time.its,
 
     mfp_recorded_year_tracker <- c(mfp_recorded_year_tracker, i / (1/time.its))
     prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
-    pnc_values <- c(pnc_values, mean(has_been_treated, na.rm=TRUE))
+    pnc_values <- c(pnc_values, (1 - mean(has_been_treated, na.rm=TRUE)))
 
 
     mean.mf.per.snip <- c(mean.mf.per.snip, mean(temp.mf[[2]][which(all.mats.temp[,2] >= min.mont.age)]))
