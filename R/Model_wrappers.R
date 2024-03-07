@@ -793,15 +793,15 @@ ep.equi.sim <- function(time.its,
 
     #sex and age dependent exposure, mean exposure must be 1, so ABR is meaningful
 
-    mls <- which(all.mats.cur[,3] == 1) # matt : ?
-    fmls <- which(all.mats.cur[,3] == 0) # matt: ?
+    mls <- which(all.mats.cur[,3] == 1) # index males
+    fmls <- which(all.mats.cur[,3] == 0) # index females
 
     s.a.exp <- rep(0, N)
 
-    s.a.exp[mls] <- m.exp * exp(-age.exp.m * (all.mats.cur[mls, 2]))
+    s.a.exp[mls] <- m.exp * exp(-age.exp.m * (all.mats.cur[mls, 2])) # this is E_m * exp(-alpha_m * age)
 
-    gam.m <- 1 / mean(s.a.exp[mls]) #normalize so mean = 1 (matt: is this equivalent to including the gamma_s term?)
-    s.a.exp[mls] <- s.a.exp[mls] * gam.m
+    gam.m <- 1 / mean(s.a.exp[mls]) # calculate the normalizing factor (gamma_m)so distribution of bites among age groups sums to 1
+    s.a.exp[mls] <- s.a.exp[mls] * gam.m # full age/sex specific exposure formula: E_m * gamma_m * exp(-alpha_m * age)
 
     s.a.exp[fmls] <- f.exp * exp(-age.exp.f * (all.mats.cur[fmls, 2]))
 
@@ -1256,7 +1256,7 @@ ep.equi.sim <- function(time.its,
 
   }
 
-  if(epilepsy_module == "YES"){
+  if(epilepsy_module == "YES" & morbidity_module == "NO"){
 
    if(isTRUE(run_equilibrium)){
       outp <- (list(prev, mean.mf.per.snip, L3_vec,
@@ -1292,11 +1292,15 @@ ep.equi.sim <- function(time.its,
       return(outp)
     }
 
-  } else if (morbidity_module == "YES"){
-
+  } else if (morbidity_module == "YES" & epilepsy_module == "YES"){
     if(isTRUE(run_equilibrium) || isFALSE(run_equilibrium)){
       outp <- (list(prev, mean.mf.per.snip, L3_vec,
                     list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
+                    prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
+                    OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
+                    OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
+                    list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
+                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs),
                     SI_prev = morbidity_prev_out[[1]], RSD_prev = morbidity_prev_out[[2]], Atrp_prev = morbidity_prev_out[[3]],
                     HG_prev = morbidity_prev_out[[4]], depigm_prev = morbidity_prev_out[[5]],
                     blind_prev = eye.dis.prev.out[[1]], visual_imp_prev = eye.dis.prev.out[[2]],
@@ -1331,6 +1335,9 @@ ep.equi.sim <- function(time.its,
                          mf_intens30_49 = mean.mf.per.snip30_49, mf_intens50_80 = mean.mf.per.snip50_80)))
 
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs',
+                       'OAE_prev','OAE_incidence',
+                       'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
+                       'OAE_incidence_males','OAE_incidence_females','all_OAE_equilibirum_ouputs',
                        'severe_itch_prev', 'RSD_prev', 'atrophy_prev','hanging_groin_prev', 'depigmentation_prev',
                        'blindness_prev', 'visual_impairment_prev',
                        'morbidity_ageprev_out','eye_morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs',
@@ -1339,10 +1346,55 @@ ep.equi.sim <- function(time.its,
     }
 
 
-    } else {
+  } else if (epilepsy_module == "NO" & morbidity_module == "YES"){
+    if(isTRUE(run_equilibrium) || isFALSE(run_equilibrium)){
+      outp <- (list(prev, mean.mf.per.snip, L3_vec,
+                    list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
+                    SI_prev = morbidity_prev_out[[1]], RSD_prev = morbidity_prev_out[[2]], Atrp_prev = morbidity_prev_out[[3]],
+                    HG_prev = morbidity_prev_out[[4]], depigm_prev = morbidity_prev_out[[5]],
+                    blind_prev = eye.dis.prev.out[[1]], visual_imp_prev = eye.dis.prev.out[[2]],
+                    list(SI_prev0_1 = morbidity_prev_out[[6]], SI_prev2_4 = morbidity_prev_out[[7]], SI_prev5_9 = morbidity_prev_out[[8]],
+                         SI_prev10_19 = morbidity_prev_out[[9]], SI_prev20_29 = morbidity_prev_out[[10]], SI_prev30_49 = morbidity_prev_out[[11]],
+                         SI_prev50_80 =  morbidity_prev_out[[12]],
+                         RSD_prev0_1 =  morbidity_prev_out[[13]], RSD_prev2_4 =  morbidity_prev_out[[14]], RSD_prev5_9 =  morbidity_prev_out[[15]],
+                         RSD_prev10_19 =  morbidity_prev_out[[16]], RSD_prev20_29 =  morbidity_prev_out[[17]], RSD_prev30_49 =  morbidity_prev_out[[18]],
+                         RSD_prev50_80 =  morbidity_prev_out[[19]],
+                         Atrp_prev0_1 =  morbidity_prev_out[[20]], Atrp_prev2_4 =  morbidity_prev_out[[21]], Atrp_prev5_9 =  morbidity_prev_out[[22]],
+                         Atrp_prev10_19 =  morbidity_prev_out[[23]], Atrp_prev20_29 =  morbidity_prev_out[[24]], Atrp_prev30_49 =  morbidity_prev_out[[25]],
+                         Atrp_prev50_80 =  morbidity_prev_out[[26]],
+                         HG_prev0_1 =  morbidity_prev_out[[27]], HG_prev2_4 =  morbidity_prev_out[[28]], HG_prev5_9 =  morbidity_prev_out[[29]],
+                         HG_prev10_19 =  morbidity_prev_out[[30]], HG_prev20_29 =  morbidity_prev_out[[31]], HG_prev30_49 =  morbidity_prev_out[[32]],
+                         HG_prev50_80 =  morbidity_prev_out[[33]],
+                         depigm_prev0_1 =  morbidity_prev_out[[34]], depigm_prev2_4 =  morbidity_prev_out[[35]], depigm_prev5_9 =  morbidity_prev_out[[36]],
+                         depigm_prev10_19 =  morbidity_prev_out[[37]], depigm_prev20_29 =  morbidity_prev_out[[38]], depigm_prev30_49 =  morbidity_prev_out[[39]],
+                         depigm_prev50_80 =  morbidity_prev_out[[40]]),
+                    list(blind_prev0_1 = eye.dis.prev.out[[3]], blind_prev2_4 = eye.dis.prev.out[[4]],
+                         blind_prev5_9 = eye.dis.prev.out[[5]], blind_prev10_19 = eye.dis.prev.out[[6]],
+                         blind_prev20_29 = eye.dis.prev.out[[7]], blind_prev30_49 = eye.dis.prev.out[[8]],
+                         blind_prev50_80 = eye.dis.prev.out[[9]],
+                         visual_imp_prev0_1 = eye.dis.prev.out[[10]], visual_imp_prev2_4 = eye.dis.prev.out[[11]],
+                         visual_imp_prev5_9 = eye.dis.prev.out[[12]], visual_imp_prev10_19 = eye.dis.prev.out[[13]],
+                         visual_imp_prev20_29 = eye.dis.prev.out[[14]], visual_imp_prev30_49 = eye.dis.prev.out[[15]],
+                         visual_imp_prev50_80 = eye.dis.prev.out[[16]]),
+                    ABR_recorded, coverage.recorded, list(all.morb.updated, sequela.postive.mat1, sequela.postive.mat2),
+                    list(mfprev0_1 = prev0_1, mfprev2_4 = prev2_4, mfprev5_9 = prev5_9, mfprev10_19 = prev10_19,
+                         mfprev20_29 = prev20_29, mfprev30_49 = prev30_49, mfprev50_80 = prev50_80),
+                    list(mf_intens0_1 = mean.mf.per.snip0_1, mf_intens2_4 = mean.mf.per.snip2_4, mf_intens5_9 = mean.mf.per.snip5_9,
+                         mf_intens10_19 = mean.mf.per.snip10_19, mf_intens20_29 = mean.mf.per.snip20_29,
+                         mf_intens30_49 = mean.mf.per.snip30_49, mf_intens50_80 = mean.mf.per.snip50_80)))
 
-    # ================================#
-    #  When epilpsy module not called #
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs',
+                       'severe_itch_prev', 'RSD_prev', 'atrophy_prev','hanging_groin_prev', 'depigmentation_prev',
+                       'blindness_prev', 'visual_impairment_prev',
+                       'morbidity_ageprev_out','eye_morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs',
+                       'mf_ageprev_out', 'mf_agintens_out')
+      return(outp)
+      }
+
+  } else {
+
+    # =====================================================#
+    #  When epilepsy  or other morbidity module not called #
 
     #enough outputs to restart sims
     if(isTRUE(run_equilibrium))
