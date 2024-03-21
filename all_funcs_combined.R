@@ -1918,8 +1918,7 @@ DT.in <- 1/366
 kE = 0.2
 
 #### Current file: runModelRCS.R
-#iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
-set.seed(parallel_iterator + (parallel_iterator*3758))
+iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 
 DT.in <- 1/366
 
