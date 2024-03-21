@@ -901,12 +901,12 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-8] <- all.mats.temp[,2]
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-7] <- all.mats.temp[,3]
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-6] <- as.integer(temp.mf[[2]] > 0)
-      Ov16_Seropositive_matrix[,9*matrix_index-5] <- Ov16_Seropositive_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-4] <- Ov16_Seropositive_L3_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-3] <- Ov16_Seropositive_L4_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-2] <- Ov16_Seropositive_mating_no_mf_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-1] <- Ov16_Seropositive_mating_detectable_mf_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index] <- Ov16_Seropositive_mating_any_mf_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-5] <- Ov16_Seropositive_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-4] <- Ov16_Seropositive_L3_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-3] <- Ov16_Seropositive_L4_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-2] <- Ov16_Seropositive_mating_no_mf_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-1] <- Ov16_Seropositive_mating_detectable_mf_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index] <- Ov16_Seropositive_mating_any_mf_serorevert
 
       matrix_index <- matrix_index + 1
     }
@@ -968,8 +968,8 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded)
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_seropos_outputs <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix, Ov16_Seropositive_Serorevert_matrix[,9])
-        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert', )
+        ov16_seropos_outputs <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         ov16_equilibrium_outputs <- list(ov16_seropos_outputs, mf_indv_prev)
         names(ov16_equilibrium_outputs) <- c('ov16_seropos_outputs', 'mf_indv_prev')
         ov16_output <- list(ov16_equilibrium_outputs)
@@ -985,7 +985,7 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
       names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_output <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix,  Ov16_Seropositive_Serorevert_matrix[,9])
+        ov16_output <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
         names(ov16_output) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         outp <- append(outp, ov16_output)
       }
