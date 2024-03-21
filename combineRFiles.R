@@ -1,5 +1,5 @@
-combineRFiles <- function(folderName="R/", fileName="all_funcs_combined") {
-  sink(paste(fileName, ".R", sep=""))
+combineRFiles <- function(folderName="R/", outputFileName="all_funcs_combined.R", modelRunFileName="runModelRCS.R") {
+  sink(outputFileName)
 
 
   filePrefix <- function(fileName="") {
@@ -8,7 +8,7 @@ combineRFiles <- function(folderName="R/", fileName="all_funcs_combined") {
 
   i <- 1
   files <- filePrefix(list.files(filePrefix()))
-  files <- c(files, "runModelRCS.R")
+  files <- c(files, modelRunFileName)
 
   for (file in files) {
     current_file = readLines(file)
@@ -19,4 +19,18 @@ combineRFiles <- function(folderName="R/", fileName="all_funcs_combined") {
   sink()
 
 }
-combineRFiles()
+
+outputFileName <- commandArgs(trailingOnly = TRUE)[1]
+modelRunFileName <- commandArgs(trailingOnly = TRUE)[2]
+
+if(outputFileName != "") {
+  if(modelRunFileName != "") {
+    combineRFiles(outputFileName=outputFileName, modelRunFileName=modelRunFileName)
+  } else {
+    combineRFiles(outputFileName=outputFileName)
+  }
+} else if (modelRunFileName != "") {
+  combineRFiles(modelRunFileName=modelRunFileName)
+} else {
+  combineRFiles()
+}
