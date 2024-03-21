@@ -1,3 +1,4 @@
+
 library(dplyr)
 
 iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
@@ -5,12 +6,15 @@ set.seed(iter + (iter*3758))
 
 DT.in <- 1/366
 
-kE = 0.2
+kEs = c(rep(0.2, 3000), rep(0.3, 3000))
+seroreversions = rep(c(rep("no_infection", 1500), rep("absence_of_trigger", 1500)), 2)
 
-#### Current file: runModelRCS.R
 iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 
 DT.in <- 1/366
+
+kE = kE_vals[iter]
+sero_val <- seroreversions[iter]
 
 if(kE == 0.2) {
   delta.hz.in.val =  0.385
@@ -61,11 +65,10 @@ output <- ep.equi.sim(time.its = timesteps,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
                       no_prev_run=TRUE,
-                      seroreversion="no_infection")
+                      seroreversion=sero_val)
 
-params <- list(mda.val, ABR.in)
-names(params) <- c('MDA', 'ABR')
+params <- list(mda.val, ABR.in, kE)
+names(params) <- c('MDA', 'ABR', 'Ke')
 output <- append(output, params)
 
-saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output",iter,".rds", sep=""))
-
+saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output", kE, "_", iter,".rds", sep=""))
