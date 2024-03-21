@@ -54,16 +54,15 @@ output <- ep.equi.sim(time.its = timesteps,
                       pnc = 0.01,
                       min.mont.age = 5,
                       vector.control.strt = NA,
-                      delta.hz.in =  0.385,
-                      delta.hinf.in = 0.003,
-                      c.h.in = 0.008,
-                      gam.dis.in = 0.2,
+                      delta.hz.in =  delta.hz.in.val,
+                      delta.hinf.in = delta.hinf.in.val,
+                      c.h.in = c.h.in.val,
+                      gam.dis.in = gam.dis.in.val,
                       run_equilibrium = FALSE,
-                      #equilibrium = output_equilibrium$all_equilibrium_outputs,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
-                      #ov16_equilibrium = output_equilibrium$ov16_equilibrium,
-                      no_prev_run=TRUE)
+                      no_prev_run=TRUE,
+                      seroreversion="no_infection")
 
 params <- list(mda.val, ABR.in)
 names(params) <- c('MDA', 'ABR')
