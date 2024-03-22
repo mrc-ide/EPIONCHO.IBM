@@ -978,6 +978,7 @@ ep.equi.sim <- function(time.its,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
                         OAE_equilibrium,
+                        N.in = 400,
                         calc_ov16=FALSE,
                         ov16_equilibrium=NA,
                         ov16_store_times = c(),
@@ -998,8 +999,8 @@ ep.equi.sim <- function(time.its,
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
   # else {times.of.treat.in <- 0}
 
-  if(length(ov_16_store_times) > 0) {
-    ov_16_store_times <- round(ov_16_store_times / (DT))
+  if(length(ov16_store_times) > 0) {
+    ov16_store_times <- round(ov16_store_times / (DT))
   }
   
   if(give.treat == 1)
@@ -1007,11 +1008,11 @@ ep.equi.sim <- function(time.its,
     treat.stop <- round(treat.stop / (DT))
     if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
     if(treat.start == 0) {treat.start <-  1}
-    if(length(ov_16_store_times) == 0) {
+    if(length(ov16_store_times) == 0) {
       ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(1/DT)+1)
     }
   } else {
-    if(length(ov_16_store_times) == 0) {
+    if(length(ov16_store_times) == 0) {
       ov16_store_times <- c(time.its-1)
     }
   }
@@ -1048,7 +1049,7 @@ ep.equi.sim <- function(time.its,
   g = 0.0096
   a.v = 0.39
   real.max.age = 80 #no humans live longer than 80 years
-  N = 2700 #human population size
+  N = N.in #human population size
   mean.age = 50 #mean human age (before truncation)
   int.L3 = 0.03; int.L2 = 0.03; int.L1 = 0.03
   lambda.zero = 0.33 # (matt:) per-capita rate that female worms lose their fertility (W_FF) & return to non-fertile state (W_FN)
@@ -1810,12 +1811,12 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-8] <- all.mats.temp[,2]
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-7] <- all.mats.temp[,3]
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-6] <- as.integer(temp.mf[[2]] > 0)
-      Ov16_Seropositive_matrix[,9*matrix_index-5] <- Ov16_Seropositive_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-4] <- Ov16_Seropositive_L3_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-3] <- Ov16_Seropositive_L4_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-2] <- Ov16_Seropositive_mating_no_mf_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index-1] <- Ov16_Seropositive_mating_detectable_mf_serorevert
-      Ov16_Seropositive_matrix[,9*matrix_index] <- Ov16_Seropositive_mating_any_mf_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-5] <- Ov16_Seropositive_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-4] <- Ov16_Seropositive_L3_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-3] <- Ov16_Seropositive_L4_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-2] <- Ov16_Seropositive_mating_no_mf_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-1] <- Ov16_Seropositive_mating_detectable_mf_serorevert
+      Ov16_Seropositive_Serorevert_matrix[,9*matrix_index] <- Ov16_Seropositive_mating_any_mf_serorevert
 
       matrix_index <- matrix_index + 1
     }
@@ -1877,8 +1878,8 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded)
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_seropos_outputs <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix, Ov16_Seropositive_Serorevert_matrix[,9])
-        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert', )
+        ov16_seropos_outputs <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         ov16_equilibrium_outputs <- list(ov16_seropos_outputs, mf_indv_prev)
         names(ov16_equilibrium_outputs) <- c('ov16_seropos_outputs', 'mf_indv_prev')
         ov16_output <- list(ov16_equilibrium_outputs)
@@ -1894,7 +1895,7 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
       names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_output <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix,  Ov16_Seropositive_Serorevert_matrix[,9])
+        ov16_output <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
         names(ov16_output) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         outp <- append(outp, ov16_output)
       }
@@ -1908,6 +1909,7 @@ ep.equi.sim <- function(time.its,
 
 #### Current file: runModelRCS.R 
 
+
 library(dplyr)
 
 iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
@@ -1915,12 +1917,15 @@ set.seed(iter + (iter*3758))
 
 DT.in <- 1/366
 
-kE = 0.2
+kEs = c(rep(0.2, 3000), rep(0.3, 3000))
+seroreversions = rep(c(rep("no_infection", 1500), rep("absence_of_trigger", 1500)), 2)
 
-#### Current file: runModelRCS.R
 iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 
 DT.in <- 1/366
+
+kE <- kEs[iter]
+sero_val <- seroreversions[iter]
 
 if(kE == 0.2) {
   delta.hz.in.val =  0.385
@@ -1967,15 +1972,15 @@ output <- ep.equi.sim(time.its = timesteps,
                       delta.hinf.in = delta.hinf.in.val,
                       c.h.in = c.h.in.val,
                       gam.dis.in = gam.dis.in.val,
+                      N.in = 2700,
                       run_equilibrium = FALSE,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
                       no_prev_run=TRUE,
-                      seroreversion="no_infection")
+                      seroreversion=sero_val)
 
-params <- list(mda.val, ABR.in)
-names(params) <- c('MDA', 'ABR')
+params <- list(mda.val, ABR.in, kE)
+names(params) <- c('MDA', 'ABR', 'Ke')
 output <- append(output, params)
 
-saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output",iter,".rds", sep=""))
-
+saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output", kE, "_", iter,".rds", sep=""))

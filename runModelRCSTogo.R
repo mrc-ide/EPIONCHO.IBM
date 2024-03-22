@@ -6,7 +6,7 @@ set.seed(iter + (iter*3758))
 kEs = c(rep(0.3, 4500), rep(0.4, 4500))
 seroreversions = rep("no_infection", 9000)
 
-kE = kE_vals[iter]
+kE = kEs[iter]
 sero_val <- seroreversions[iter]
 
 DT.in <- 1/366
@@ -100,6 +100,7 @@ output <- ep.equi.sim(time.its = timesteps,
                       delta.hinf.in = delta.hinf.in.val,
                       c.h.in = c.h.in.val,
                       gam.dis.in = gam.dis.in.val,
+                      N.in = 500,
                       run_equilibrium = FALSE,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,

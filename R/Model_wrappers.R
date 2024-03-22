@@ -69,6 +69,7 @@ ep.equi.sim <- function(time.its,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
                         OAE_equilibrium,
+                        N.in = 400,
                         calc_ov16=FALSE,
                         ov16_equilibrium=NA,
                         ov16_store_times = c(),
@@ -89,8 +90,8 @@ ep.equi.sim <- function(time.its,
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
   # else {times.of.treat.in <- 0}
 
-  if(length(ov_16_store_times) > 0) {
-    ov_16_store_times <- round(ov_16_store_times / (DT))
+  if(length(ov16_store_times) > 0) {
+    ov16_store_times <- round(ov16_store_times / (DT))
   }
   
   if(give.treat == 1)
@@ -98,11 +99,11 @@ ep.equi.sim <- function(time.its,
     treat.stop <- round(treat.stop / (DT))
     if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
     if(treat.start == 0) {treat.start <-  1}
-    if(length(ov_16_store_times) == 0) {
+    if(length(ov16_store_times) == 0) {
       ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(1/DT)+1)
     }
   } else {
-    if(length(ov_16_store_times) == 0) {
+    if(length(ov16_store_times) == 0) {
       ov16_store_times <- c(time.its-1)
     }
   }
@@ -139,7 +140,7 @@ ep.equi.sim <- function(time.its,
   g = 0.0096
   a.v = 0.39
   real.max.age = 80 #no humans live longer than 80 years
-  N = 2700 #human population size
+  N = N.in #human population size
   mean.age = 50 #mean human age (before truncation)
   int.L3 = 0.03; int.L2 = 0.03; int.L1 = 0.03
   lambda.zero = 0.33 # (matt:) per-capita rate that female worms lose their fertility (W_FF) & return to non-fertile state (W_FN)

@@ -13,7 +13,7 @@ iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 
 DT.in <- 1/366
 
-kE = kE_vals[iter]
+kE <- kEs[iter]
 sero_val <- seroreversions[iter]
 
 if(kE == 0.2) {
@@ -61,6 +61,7 @@ output <- ep.equi.sim(time.its = timesteps,
                       delta.hinf.in = delta.hinf.in.val,
                       c.h.in = c.h.in.val,
                       gam.dis.in = gam.dis.in.val,
+                      N.in = 2700,
                       run_equilibrium = FALSE,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
