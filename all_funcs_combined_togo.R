@@ -1009,7 +1009,7 @@ ep.equi.sim <- function(time.its,
     if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
     if(treat.start == 0) {treat.start <-  1}
     if(length(ov16_store_times) == 0) {
-      ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(1/DT)+1)
+      ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(0.5/DT))
     }
   } else {
     if(length(ov16_store_times) == 0) {
@@ -1909,8 +1909,6 @@ ep.equi.sim <- function(time.its,
 
 #### Current file: runModelRCSTogo.R 
 
-library(dplyr)
-
 iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 set.seed(iter + (iter*3758))
 
@@ -1923,10 +1921,10 @@ sero_val <- seroreversions[iter]
 DT.in <- 1/366
 
 if(kE == 0.4) {
-    delta.hz.in.val = 0.118,
-    delta.hinf.in.val = 0.002,
-    c.h.in.val = 0.004,
-    gam.dis.in.val = 0.4,
+    delta.hz.in.val = 0.118
+    delta.hinf.in.val = 0.002
+    c.h.in.val = 0.004
+    gam.dis.in.val = 0.4
 } else {
     delta.hz.in.val =  0.186
     delta.hinf.in.val = 0.003
@@ -1940,7 +1938,7 @@ vector.control.efficacies <- rep(rep(c(.60, .75, .95), 4500), 2)
 vctr.control.efficacy <- vector.control.efficacies[iter]
 
 prefecture = "oti"
-if(kE = 0.3) {
+if(kE == 0.3) {
     if(prefecture == "bassar") {
         ABR.in <- round(rgamma(1, 20.12, .0077)) # 70% Bassar
     }
@@ -1972,13 +1970,13 @@ if(prefecture == "bassar") {
     cstm_treat_params <- list(start_biannual=treat.strt.yrs+14, coverage_changes=c(treat.strt.yrs+7, treat.strt.yrs+14), coverage_change_values=c(0.60, 0.75, 0.85))
 }
 if(prefecture == "oti") {
-    # treat.strt.yrs = 1996
-    mda.val <- 19
-    treat.len = mda.val; treat.strt.yrs = 100; yrs.post.treat = 10
-
-    treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
-    timesteps = treat.stp + yrs.post.treat #final duration
-    cstm_treat_params <- list(start_biannual=treat.strt.yrs+7, coverage_changes=c(treat.strt.yrs+7), coverage_change_values=c(0.75, 0.80))
+  # treat.strt.yrs = 2000
+  mda.val <- 15
+  treat.len = mda.val; treat.strt.yrs = 104; yrs.post.treat = 10
+  
+  treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
+  timesteps = treat.stp + yrs.post.treat #final duration
+  cstm_treat_params <- list(start_biannual=treat.strt.yrs+3, coverage_changes=c(-1, treat.strt.yrs+3), coverage_change_values=c(0, 0.75, 0.80))
 }
 if(prefecture == "keran") {
     # treat.strt.yrs = 1989
@@ -2011,7 +2009,6 @@ output <- ep.equi.sim(time.its = timesteps,
                       delta.hinf.in = delta.hinf.in.val,
                       c.h.in = c.h.in.val,
                       gam.dis.in = gam.dis.in.val,
-                      N.in = 500,
                       run_equilibrium = FALSE,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
@@ -2019,8 +2016,8 @@ output <- ep.equi.sim(time.its = timesteps,
                       custom_treat_params=cstm_treat_params,
                       seroreversion=sero_val)
 
-params <- list(mda.val, ABR.in, kE)
-names(params) <- c('MDA', 'ABR', 'Ke')
+params <- list(mda.val, ABR.in, kE, sero_val, vctr.control.efficacy)
+names(params) <- c('MDA', 'ABR', 'Ke', "sero_type", "vctr.ctrl.eff")
 output <- append(output, params)
 
-saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test/ov16_output/ov16_any_worm_output", kE, "_", iter,".rds", sep=""))
+saveRDS(output, paste("/rds/general/user/ar722/home/ov16_test_togo/ov16_output/ov16_any_worm_output_togo_", prefecture, "_", kE, "_", iter,".rds", sep=""))
