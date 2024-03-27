@@ -77,5 +77,5 @@ For a detailed practical guide please see the [Installing and Running
 EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM.Rmd)
 vignette
 
-For a detailed practical guide/demo for runnign more complex interventions, with variable MDA coverage, variable timing (e.g., some round of annual and biannual MDA),
+For a detailed practical guide/demo for running more complex interventions, with variable MDA coverage, variable timing (e.g., some round of annual and biannual MDA),
 and inclusion of vector control, please see the [Running complex intervention guide for EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_complex_interventions.Rmd) vignette
