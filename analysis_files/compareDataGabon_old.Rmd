@@ -824,6 +824,7 @@ make_adjusted_plot <- function(df1, df2, compValLabel, compVal1, compVal2, df3, 
   
   df2$Hypothesis <- factor(df2$Hypothesis, levels = c("L3 exposure", "L4-L5 moult", "Any worm", "Mating worm pair", "Mating worm pair with any mf", "Mating worm pair with detectable mf"), ordered=TRUE)
   color_vals <- c("L3 exposure"="green", "L4-L5 moult"="blue", "Any worm"="red", "Mating worm pair"="red", "Mating worm pair with any mf"="green", "Mating worm pair with detectable mf"="blue")
+  color_vals <- c("Actual Data"="black", "Any worm"="blue", "L3 exposure"="purple", "L4-L5 moult"="#6366f2", "Mating worm pair"="brown", "Mating worm pair with any mf"="red", "Mating worm pair with detectable mf"="orange")
   
   df3$Hypothesis <- factor(df3$Hypothesis, levels = c("L3 exposure", "L4-L5 moult", "Any worm", "Mating worm pair", "Mating worm pair with any mf", "Mating worm pair with detectable mf"), ordered=TRUE)
   
@@ -846,27 +847,27 @@ make_adjusted_plot <- function(df1, df2, compValLabel, compVal1, compVal2, df3, 
   return(plot)
 }
 
-adjust_comp <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_elisa_k2, "Diagnostic Adjustment", "No", "Yes", simulation_summary_sens_spec_elisa_k2)
+adjust_comp <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_elisa_100_mount, "Diagnostic Adjustment", "No", "Yes", simulation_summary_sens_spec_elisa_100_mount)
 
 k_comp <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_sens_spec_elisa, "Overdispersion Parameter", "0.3", "0.2", simulation_summary_sens_spec_elisa_k2, "b)")
 
-ggsave("images/gabon_adjust_comp_new.png", adjust_comp, width=7500, height = 6000, units="px", dpi=900)
+ggsave("images/gabon_adjust_comp_new_paper.png", adjust_comp, width=7500, height = 6000, units="px", dpi=900)
 
-ggsave("images/gabon_k_compare_new.png", k_comp, width=7500, height = 6000, units="px", dpi=900)
+ggsave("images/gabon_k_compare_new_paper.png", k_comp, width=7500, height = 6000, units="px", dpi=900)
 
 
 ggsave("images/gabon_init_graph.png", grid.arrange(adjust_comp + guides(color="none", linetype="none") + ylim(0, 45), k_comp + ylim(0, 25), ncol=1), width=10500, height = 10500, units="px", dpi=900)
 
-antib_k2 <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_sens_spec_elisa_100_mount, "% Mounting Antibody Response", "100", "80", simulation_summary_sens_spec_elisa_k2, "a)", "w/ Changing Antibody Response")
-ggsave("images/gabon_k2_mounting.png", antib_k2, width=7500, height = 6000, units="px", dpi=900)
+antib_k2 <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_sens_spec_elisa_100_mount, "% Mounting Antibody Response", "100", "80", simulation_summary_sens_spec_elisa_k2, "c)", "w/ Changing Antibody Response")
+ggsave("images/gabon_k2_mounting_paper.png", antib_k2, width=7500, height = 6000, units="px", dpi=900)
 
-trig_sero_k2 <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_sens_spec_elisa_sero_trigger, "Seroreversion", "Yes", "No", simulation_summary_sens_spec_elisa_k2, "b)", "w/ Seroreversion")
-ggsave("images/gabon_k2_sero_trigger.png", trig_sero_k2, width=7500, height = 6000, units="px", dpi=900)
+trig_sero_k2 <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_sens_spec_elisa_sero_trigger, "Seroreversion", "Yes", "No", simulation_summary_sens_spec_elisa_100_mount, "a)", "w/ Seroreversion")
+ggsave("images/gabon_k2_sero_trigger_paper.png", trig_sero_k2, width=7500, height = 6000, units="px", dpi=900)
 
-inf_sero_k2 <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_sens_spec_elisa_sero_no_inf, "Seroreversion", "Yes", "No", simulation_summary_sens_spec_elisa_k2, "c)", "w/ Seroreversion")
-ggsave("images/gabon_k2_sero_infection.png", inf_sero_k2, width=7500, height = 6000, units="px", dpi=900)
+inf_sero_k2 <- make_adjusted_plot(summarized_gabon_rdt_elisa, simulation_summary_sens_spec_elisa_sero_no_inf, "Seroreversion", "Yes", "No", simulation_summary_sens_spec_elisa_100_mount, "b)", "w/ Seroreversion")
+ggsave("images/gabon_k2_sero_infection_paper.png", inf_sero_k2, width=7500, height = 6000, units="px", dpi=900)
 
-ggsave("images/gabon_k2_sero_mount_fig.png", grid.arrange(antib_k2 + ylim(0,25), grid.arrange(trig_sero_k2 + guides(color="none", linetype="none"), inf_sero_k2  + guides(color="none", linetype="none"), ncol=2), ncol=1), width=7500, height = 8250, units="px", dpi=900)
+ggsave("images/gabon_k2_sero_mount_fig_paper.png", grid.arrange(grid.arrange(trig_sero_k2 + guides(color="none", linetype="none"), inf_sero_k2  + guides(color="none", linetype="none"), ncol=2), antib_k2 + ylim(0,25), ncol=1), width=7500, height = 8250, units="px", dpi=900)
 ```
 
 ### Make Plots

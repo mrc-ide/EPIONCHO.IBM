@@ -21,6 +21,7 @@ library(foreach)
 library(data.table)
 library(webshot)
 library(gridExtra)
+library(patchwork)
 knitr::knit_hooks$set(timeit = local({
   now = NULL
   function(before, options) {
@@ -42,7 +43,7 @@ knitr::knit_hooks$set(timeit = local({
 
 processRCSFiles_onlyMFP <- function(files="oti_simulation/") {
   fileToUse <- paste('data/', files, sep="")
-  num_cores <- 4
+  num_cores <- detectCores() - 2
   cl <- makeCluster(num_cores)
   registerDoParallel(cl)
   mfpVals <- foreach(file=list.files(fileToUse), i=1:4500, .combine=rbind, .verbose=FALSE) %dopar% {
@@ -273,8 +274,10 @@ summarizeSimulationDataHelper <- function(data, sensSpec, sensAgeGroup=5) {
 }
 
 summarizeSimulationDataHelper_2 <- function(df, groupByCols1, groupByCols2, hypNamesLoc, hypothesisNames, groupHyp) {
-  hypNamesLoc2 <- hypNamesLoc+2
-  hypNamesLoc3 <- hypNamesLoc2+2
+  old_hyp_names <- hypothesisNames
+  hypothesisNames <- rep(old_hyp_names, 3)#c(old_hyp_names, paste(old_hyp_names, "_lb", sep=""), paste(old_hyp_names, "_ub", sep=""))
+  hypNamesLoc2 <- hypNamesLoc+length(old_hyp_names)
+  hypNamesLoc3 <- hypNamesLoc2+length(old_hyp_names)
   df <- df %>%
     dplyr::group_by(!!!syms(groupByCols1)) %>%
     dplyr::summarise(ov16_any_worm_prev=mean(ov16_pos),
@@ -283,6 +286,20 @@ summarizeSimulationDataHelper_2 <- function(df, groupByCols1, groupByCols2, hypN
                      ov16_mating_no_mf_prev=mean(ov16_pos_mating_no_mf),
                      ov16_mating_detectable_mf_prev=mean(ov16_pos_mating_detectable_mf),
                      ov16_mating_any_mf_prev=mean(ov16_pos_mating_any_mf),
+                     
+                     ov16_any_worm_prev_lb=wilson.ci(sum(ov16_pos), n())[1],
+                     ov16_l3_prev_lb=wilson.ci(sum(ov16_pos_l3), n())[1],
+                     ov16_l4_prev_lb=wilson.ci(sum(ov16_pos_l4), n())[1],
+                     ov16_mating_no_mf_prev_lb=wilson.ci(sum(ov16_pos_mating_no_mf), n())[1],
+                     ov16_mating_detectable_mf_prev_lb=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[1],
+                     ov16_mating_any_mf_prev_lb=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[1],
+                     ov16_any_worm_prev_ub=wilson.ci(sum(ov16_pos), n())[2],
+                     ov16_l3_prev_ub=wilson.ci(sum(ov16_pos_l3), n())[2],
+                     ov16_l4_prev_ub=wilson.ci(sum(ov16_pos_l4), n())[2],
+                     ov16_mating_no_mf_prev_ub=wilson.ci(sum(ov16_pos_mating_no_mf), n())[2],
+                     ov16_mating_detectable_mf_prev_ub=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[2],
+                     ov16_mating_any_mf_prev_ub=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[2],
+                     
                      mf_prev=mean(mf_prev),
                      # ov16_any_worm_lb=wilson.ci(sum(ov16_pos), n())[1],
                      # ov16_l3_lb=wilson.ci(sum(ov16_pos_l3), n())[1],
@@ -300,16 +317,22 @@ summarizeSimulationDataHelper_2 <- function(df, groupByCols1, groupByCols2, hypN
                      mf_lb=wilson.ci(sum(mf_prev), n())[1],
                      mf_ub=wilson.ci(sum(mf_prev), n())[2],
                      .groups="drop") %>% as.data.frame()
-  colnames(df)[all_of(hypNamesLoc)] <- hypothesisNames
-  df <- df %>%
-    as.data.frame() %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev")# %>% pivot_longer(cols=all_of(hypNamesLoc2), names_to="Hypothesis_LB", values_to = "ov16_prev_lb")  %>% pivot_longer(cols=all_of(hypNamesLoc3), names_to="Hypothesis_UB", values_to = "ov16_prev_ub")
-
+  colnames(df)[all_of(c(hypNamesLoc, hypNamesLoc2, hypNamesLoc3))] <- hypothesisNames
+  df1 <- df %>%
+    as.data.frame() %>% select(-c(hypNamesLoc2, hypNamesLoc3)) %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev")
+  df2 <- df %>%
+    as.data.frame() %>% select(-c(hypNamesLoc, hypNamesLoc3)) %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev_lb")
+  df3 <- df %>%
+    as.data.frame() %>% select(-c(hypNamesLoc2, hypNamesLoc)) %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev_ub")
   if(groupHyp) {
-    df <- df %>% mutate(
+    df1 <- df1 %>% filter(
+      !grepl("Mating", Hypothesis) | Hypothesis == "Mating worm pair with any mf"
+    ) %>% 
+    mutate(
       Hypothesis = case_when(
         grepl("Mating", Hypothesis) ~ "Patent Infection",
         TRUE ~ "Pre-Patent Infection"
-      ),
+      )
       # Hypothesis_LB = case_when(
       #   grepl("Mating", Hypothesis) ~ "Patent Infection",
       #   TRUE ~ "Pre-Patent Infection"
@@ -319,9 +342,26 @@ summarizeSimulationDataHelper_2 <- function(df, groupByCols1, groupByCols2, hypN
       #   TRUE ~ "Pre-Patent Infection"
       # )
     )
+    df2 <- df2 %>% filter(
+      !grepl("Mating", Hypothesis) | Hypothesis == "Mating worm pair with any mf"
+    ) %>% mutate(
+      Hypothesis = case_when(
+        grepl("Mating", Hypothesis) ~ "Patent Infection",
+        TRUE ~ "Pre-Patent Infection"
+      )
+    )
+    df3 <- df3 %>% filter(
+      !grepl("Mating", Hypothesis) | Hypothesis == "Mating worm pair with any mf"
+    ) %>% mutate(
+      Hypothesis = case_when(
+        grepl("Mating", Hypothesis) ~ "Patent Infection",
+        TRUE ~ "Pre-Patent Infection"
+      )
+    )
   }
 
   if("age_groups" %in% groupByCols2) {
+    df <- df1
     df <- df %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
     dplyr::summarise(ov16_prev=mean(ov16_prev), mf_prev=mean(mf_prev), mf_lb=mean(mf_lb), mf_ub=mean(mf_ub), .groups="drop") %>% as.data.frame() %>%
     mutate(
@@ -331,8 +371,13 @@ summarizeSimulationDataHelper_2 <- function(df, groupByCols1, groupByCols2, hypN
       )
     )
   } else {
-    df <- df %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    df1 <- df1 %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
     dplyr::summarise(ov16_prev=mean(ov16_prev), mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+    df2 <- df2 %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(ov16_prev_lb=mean(ov16_prev_lb), mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+    df3 <- df3 %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(ov16_prev_ub=mean(ov16_prev_ub), mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+    df <- df1 %>% left_join(df2, by=c("Hypothesis"="Hypothesis", "vctr.ctrl.eff"="vctr.ctrl.eff")) %>% left_join(df3, by=c("Hypothesis"="Hypothesis", "vctr.ctrl.eff"="vctr.ctrl.eff"))
   }
   return(df)
 }
@@ -409,23 +454,23 @@ togo_sens_spec_vec <- c(0.714, 0.711)
 
 simulatedTogoDataBassar <- processRCSFiles("bassar_simulation/", verbose=FALSE, whichLocation = 1)
 simulatedBassar <- simulatedTogoDataBassar$allOutputs
-#simulation_summary_age_group_bassar <- summarizeSimulationData(simulatedBassar, groupBySex=FALSE)
+simulation_summary_age_group_bassar <- summarizeSimulationData(simulatedBassar, groupBySex=FALSE)
 simulation_summary_bassar <- summarizeSimulationData(simulatedBassar, groupBySex=FALSE, summary=TRUE)
-#simulation_summary_sens_spec_age_group_bassar <- summarizeSimulationData(simulatedBassar, togo_sens_spec_vec, groupBySex=FALSE)
+simulation_summary_sens_spec_age_group_bassar <- summarizeSimulationData(simulatedBassar, togo_sens_spec_vec, groupBySex=FALSE)
 simulation_summary_sens_spec_bassar <- summarizeSimulationData(simulatedBassar, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
 
 simulatedTogoDataOti <- processRCSFiles("oti_simulation/", verbose=FALSE, whichLocation = 1)
 simulatedOti <- simulatedTogoDataOti$allOutputs
-#simulation_summary_age_group_oti <- summarizeSimulationData(simulatedOti, groupBySex=FALSE)
+simulation_summary_age_group_oti <- summarizeSimulationData(simulatedOti, groupBySex=FALSE)
 simulation_summary_oti <- summarizeSimulationData(simulatedOti, groupBySex=FALSE, summary=TRUE)
-#simulation_summary_sens_spec_age_group_oti <- summarizeSimulationData(simulatedOti, togo_sens_spec_vec, groupBySex=FALSE)
+simulation_summary_sens_spec_age_group_oti <- summarizeSimulationData(simulatedOti, togo_sens_spec_vec, groupBySex=FALSE)
 simulation_summary_sens_spec_oti <- summarizeSimulationData(simulatedOti, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
 
 simulatedTogoDataKeran <- processRCSFiles("keran_simulation/", verbose=FALSE, whichLocation = 1)
 simulatedKeran <- simulatedTogoDataKeran$allOutputs
-#simulation_summary_age_group_keran <- summarizeSimulationData(simulatedKeran, groupBySex=FALSE)
+simulation_summary_age_group_keran <- summarizeSimulationData(simulatedKeran, groupBySex=FALSE)
 simulation_summary_keran <- summarizeSimulationData(simulatedKeran, groupBySex=FALSE, summary=TRUE)
-#simulation_summary_sens_spec_age_group_keran <- summarizeSimulationData(simulatedKeran, togo_sens_spec_vec, groupBySex=FALSE)
+simulation_summary_sens_spec_age_group_keran <- summarizeSimulationData(simulatedKeran, togo_sens_spec_vec, groupBySex=FALSE)
 simulation_summary_sens_spec_keran <- summarizeSimulationData(simulatedKeran, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
 
 combinedSimulation <- selectRunsFromAllPrefectures(simulatedKeran, simulatedOti, simulatedBassar)
@@ -459,6 +504,7 @@ simulatedBassar_k3_100_mount <- simulatedTogoDataBassar_k3_100_mount$allOutputs
 
 simulation_summary_bassar_k3_100_mount <- summarizeSimulationData(simulatedBassar_k3_100_mount, groupBySex=FALSE, summary=TRUE)
 simulation_summary_sens_spec_bassar_k3_100_mount <- summarizeSimulationData(simulatedBassar_k3_100_mount, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
+
 
 simulatedTogoDataOti_k3_seroreversion <- processRCSFiles("oti_simulation_k3_seroreversion/", verbose=FALSE, whichLocation = 1, useSerorevert=TRUE)
 simulatedOti_k3_seroreversion <- simulatedTogoDataOti_k3_seroreversion$allOutputs
@@ -495,6 +541,9 @@ simulation_summary_age_group_combined_k3_100_mount <- summarizeSimulationData(co
 simulation_summary_combined_k3_100_mount <- summarizeSimulationData(combinedSimulation_k3_100_mount, groupBySex=FALSE, summary=TRUE)
 simulation_summary_sens_spec_age_group_combined_k3_100_mount <- summarizeSimulationData(combinedSimulation_k3_100_mount, togo_sens_spec_vec, groupBySex=FALSE)
 simulation_summary_sens_spec_combined_k3_100_mount <- summarizeSimulationData(combinedSimulation_k3_100_mount, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
+
+simulation_summary_sens_spec_combined_k3_100_mount_oepa <- summarizeSimulationData(combinedSimulation_k3_100_mount, c(0.43, 0.9998), groupBySex=FALSE)
+simulation_summary_sens_spec_combined_k3_100_mount_oepa_2 <- summarizeSimulationData(combinedSimulation_k3_100_mount, c(0.714, 0.9998), groupBySex=FALSE)
 ```
 #### k4 Simulations
 
@@ -502,26 +551,26 @@ simulation_summary_sens_spec_combined_k3_100_mount <- summarizeSimulationData(co
 simulatedTogoDataBassar_k4 <- processRCSFiles("bassar_simulation_k4_seroreversion/", verbose=FALSE, whichLocation = 1)
 simulatedBassar_k4 <- simulatedTogoDataBassar_k4$allOutputs
 
-#simulation_summary_age_group_bassar_k4 <- summarizeSimulationData(simulatedBassar_k4, groupBySex=FALSE)
+simulation_summary_age_group_bassar_k4 <- summarizeSimulationData(simulatedBassar_k4, groupBySex=FALSE)
 simulation_summary_bassar_k4 <- summarizeSimulationData(simulatedBassar_k4, groupBySex=FALSE, summary=TRUE)
-#simulation_summary_sens_spec_age_group_bassar_k4 <- summarizeSimulationData(simulatedBassar_k4, togo_sens_spec_vec, groupBySex=FALSE)
+simulation_summary_sens_spec_age_group_bassar_k4 <- summarizeSimulationData(simulatedBassar_k4, togo_sens_spec_vec, groupBySex=FALSE)
 simulation_summary_sens_spec_bassar_k4 <- summarizeSimulationData(simulatedBassar_k4, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
 
 
 
 simulatedTogoDataOti_k4 <- processRCSFiles("oti_simulation_k4_seroreversion/", verbose=FALSE, whichLocation = 1)
 simulatedOti_k4 <- simulatedTogoDataOti_k4$allOutputs
-#simulation_summary_age_group_oti_k4 <- summarizeSimulationData(simulatedOti, groupBySex=FALSE)
+simulation_summary_age_group_oti_k4 <- summarizeSimulationData(simulatedOti, groupBySex=FALSE)
 simulation_summary_oti_k4 <- summarizeSimulationData(simulatedOti, groupBySex=FALSE, summary=TRUE)
-#simulation_summary_sens_spec_age_group_oti_k4 <- summarizeSimulationData(simulatedOti_k4, togo_sens_spec_vec, groupBySex=FALSE)
+simulation_summary_sens_spec_age_group_oti_k4 <- summarizeSimulationData(simulatedOti_k4, togo_sens_spec_vec, groupBySex=FALSE)
 simulation_summary_sens_spec_oti_k4 <- summarizeSimulationData(simulatedOti_k4, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
 
 
 simulatedTogoDataKeran_k4 <- processRCSFiles("keran_simulation_k4_seroreversion/", verbose=FALSE, whichLocation = 1)
 simulatedKeran_k4 <- simulatedTogoDataKeran_k4$allOutputs
-#simulation_summary_age_group_keran_k4 <- summarizeSimulationData(simulatedKeran_k4, groupBySex=FALSE)
+simulation_summary_age_group_keran_k4 <- summarizeSimulationData(simulatedKeran_k4, groupBySex=FALSE)
 simulation_summary_keran_k4 <- summarizeSimulationData(simulatedKeran_k4, groupBySex=FALSE, summary=TRUE)
-#simulation_summary_sens_spec_age_group_keran_k4 <- summarizeSimulationData(simulatedKeran_k4, togo_sens_spec_vec, groupBySex=FALSE)
+simulation_summary_sens_spec_age_group_keran_k4 <- summarizeSimulationData(simulatedKeran_k4, togo_sens_spec_vec, groupBySex=FALSE)
 simulation_summary_sens_spec_keran_k4 <- summarizeSimulationData(simulatedKeran_k4, togo_sens_spec_vec, groupBySex=FALSE, summary=TRUE)
 
 
@@ -807,13 +856,16 @@ makeAgeGroupGraphs <- function(originalData, originalMfData, projectionDf, prefe
   # ALL
   
 
-  projectionDf$Hypothesis <- factor(projectionDf$Hypothesis, levels = c("L3 exposure", "L4-L5 moult", "Any worm", "Mating worm pair", "Mating worm pair with any mf", "Mating worm pair with detectable mf"))
+  #projectionDf$Hypothesis <- factor(projectionDf$Hypothesis, levels = c("L3 exposure", "L4-L5 moult", "Any worm", "Mating worm pair", "Mating worm pair with any mf", "Mating worm pair with detectable mf"))
+  projectionDf$Hypothesis <- factor(projectionDf$Hypothesis, levels = c("Pre-Patent Infection", "Patent Infection"))
   color_vals <- c("Any worm"="green", "L3 exposure"="blue", "L4-L5 moult"="purple", "Mating worm pair"="brown", "Mating worm pair with any mf"="red", "Mating worm pair with detectable mf"="orange")#c("blue", "cyan", "orange", "purple", "violet", "green")
   #color_vals <- c("blue", "green")
   size_vals <- c(2, 1.25, 0.75, 2, 1.25, 0.75)
   #size_vals <- c(1,1)
   
   resid <- calcResiduals(originalData, originalMfData, projectionDf, paste(prefecture, extra))
+  print("Residuals:")
+  print(calcResiduals(originalData, originalMfData, projectionDf, paste(prefecture, extra)))
   p1 <- ggplot() + geom_line(aes(x=age_groups, y=ov16_prev*100, linetype=factor(paste(vctr.ctrl.eff*100, "%", sep="")), color=Hypothesis, size=Hypothesis), data=(projectionDf)) + geom_point(aes(x=age_groups, y=ov16_seroprev*100), color="black", data=originalData) +
     geom_errorbar(aes(x=age_groups, ymin=ov16_wilson_lb*100, ymax=ov16_wilson_ub*100), color="black", data=originalData) +
   #ggtitle(paste("a) All Hypotheses", extra)) +
@@ -827,6 +879,7 @@ makeAgeGroupGraphs <- function(originalData, originalMfData, projectionDf, prefe
   ggtitle(paste("Mating Worms", prefecture, extra)) +
   xlab("Age (years)") + ylab("Ov16 Seroprevalence (%)") +
   scale_color_manual("Hypotheses", values=c("blue", "cyan", "orange")) + scale_size_manual(guide="none", values=c(2, 1.25, 0.75))  +
+    theme_bw() +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=4),
@@ -840,6 +893,7 @@ makeAgeGroupGraphs <- function(originalData, originalMfData, projectionDf, prefe
   ggtitle(paste("Non-Mating Worms", prefecture, extra)) +
   xlab("Age (years)") + ylab("Ov16 Seroprevalence (%)") +
   scale_color_manual("Hypotheses", values=c("blue", "cyan", "orange")) + scale_size_manual(guide="none", values=c(2, 1.25, 0.75))  +
+    theme_bw() +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
@@ -849,6 +903,7 @@ makeAgeGroupGraphs <- function(originalData, originalMfData, projectionDf, prefe
   
   p4 <- ggplot() + geom_point(aes(x=age_groups, y=mf_prev*100), color='black', data=originalMfData) + geom_errorbar(aes(x=age_groups, ymin=mf_wilson_lb*100, ymax=mf_wilson_ub*100), alpha=0.7, color='black', data=originalMfData) +
   geom_line(aes(x=age_groups, y=mf_prev*100, color=factor(paste(vctr.ctrl.eff*100, "%", sep=""))), data=projectionDf) +
+  theme_bw() +
   scale_y_continuous(breaks=seq(0, 30, 5), limits=c(0, 30)) +
   scale_x_continuous(breaks=seq(0, 80, 5), limits=c(0, 80)) +
   scale_color_manual("Vector Control Efficacy", values=c("blue", "green", "red")) +
@@ -942,7 +997,7 @@ custom_css <- "<style>.kable.table tbody tr:nth-child(6n+7)::before { content: '
 kableTable <- lsrDf %>% filter(grepl("Combined", Descriptor)) %>% mutate(
   Hypothesis = case_when(
     grepl("Mating", Hypothesis) == TRUE ~ "Mating Worm Pair",
-    TRUE ~ "Pre-Microfilarial Load"
+    TRUE ~ Hypothesis#"Pre-Microfilarial Load"
   ) 
 ) %>% group_by(Hypothesis, Descriptor, `Vctr Ctrl Efficacy`) %>% summarise(ov16=round(mean(ov16), 2), .groups="drop") %>% as.data.frame() %>% pivot_wider(id_cols=c(Hypothesis, `Vctr Ctrl Efficacy`), names_from=c(Descriptor), values_from=c(ov16)) %>% mutate(
   across(3:18, ~ ifelse(. == min(.), text_spec(., bold=TRUE), .))
@@ -953,6 +1008,78 @@ kableTable
 #   across(3:10, ~ ifelse(. == min(.), text_spec(., bold=TRUE), .))
 # ) %>% kable('html', escape=FALSE) %>% kable_classic() %>% row_spec(c(6, 12), extra_css="border-bottom: 1px solid;")
 
+```
+
+### Clinical Infectious Disease Age-Group plots
+```{r}
+makeAgeGroupGraphsSingle <- function(originalData, projectionDf, compare_label, label1, prefecture, extra="", name_vals=c('a)', 'b)', "c)")) {
+  graph_vals <- list()
+  index <- 1
+  vct_ctrl_list <- projectionDf %>% select(vctr.ctrl.eff) %>% distinct() %>% .[[1]]
+  for(vct_ctr in vct_ctrl_list) {
+    tmp_projection_data <- projectionDf %>% filter(vctr.ctrl.eff == vct_ctr)
+    
+    p1 <- ggplot() + 
+      geom_line(aes(x=age_groups, y=ov16_prev*100, linetype=factor(paste(vctr.ctrl.eff*100,"%", sep=""), levels=c("60%", "75%", "95%")), color=Hypothesis, size=Hypothesis), data=tmp_projection_data) + 
+  
+      geom_point(aes(x=age_groups, y=ov16_seroprev*100), color="black", alpha=0.5, data=originalData) + geom_errorbar(aes(x=age_groups, ymin=ov16_wilson_lb*100, ymax=ov16_wilson_ub*100), width=2.5, alpha=0.5, color="black", data=originalData) +
+      scale_linetype_manual("Vector Control Efficacy", values=c("60%"="solid", "75%"="dashed", "95%"="dotted"),
+                            drop=FALSE) +
+    
+      ggtitle(paste(name_vals[index]))+#, "Patent Infection Hypotheses", extra)) +
+    xlab("Age (years)") + ylab("Ov16 Seroprevalence (%)") +
+    scale_color_manual("Hypotheses", values=c("Patent Infection"="darkred", "Pre-Patent Infection"="blue")) + 
+      scale_size_manual(guide="none", values=c(1, 1))  +
+      guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2)) +
+      ylim(0, 100) +
+      xlim(0,81) +
+      theme_bw() +
+      theme(
+        title = element_text(size=10),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=8),
+        legend.key.size = unit(0.8, 'lines'),
+        legend.position = "bottom",  # Set legend to the bottom
+        legend.direction = "horizontal"
+      )
+    graph_vals[[paste(vct_ctr, sep="")]] <- p1
+    index <- index + 1
+  }
+  
+  
+  return(graph_vals)
+  
+  
+}
+new_paper_plots_base_k3 <- makeAgeGroupGraphsSingle(togoOv16Data, simulation_summary_age_group_combined_k3_100_mount, "kE Value", "0.3", "Combined")
+
+new_paper_plots_base_k3_arranged <- ((new_paper_plots_base_k3[[1]] + theme(axis.title.x=element_blank())) / (new_paper_plots_base_k3[[2]] + theme(axis.title.x=element_blank())) / (new_paper_plots_base_k3[[3]])) + plot_layout(guides = "collect") + plot_annotation(
+  theme = theme(legend.position = "bottom")
+)
+
+ggsave("images/togo_age_binned_base_k_3_paper.png", new_paper_plots_base_k3_arranged, width=6000, height = 7500, units="px", dpi=900)
+
+new_paper_plots_base_k3_adjusted <- makeAgeGroupGraphsSingle(togoOv16Data, simulation_summary_sens_spec_age_group_combined_k3_100_mount, "kE Value", "0.3", "Combined")
+
+new_paper_plots_base_k3_adjusted_arranged <- ( (new_paper_plots_base_k3_adjusted[[1]] + theme(axis.title.x=element_blank())) / (new_paper_plots_base_k3_adjusted[[2]] + theme(axis.title.x=element_blank())) / (new_paper_plots_base_k3_adjusted[[3]])) + plot_layout(guides = "collect") + plot_annotation(
+  theme = theme(legend.position = "bottom")
+)
+
+ggsave("images/togo_age_binned_base_k_3_adjusted_paper.png", new_paper_plots_base_k3_adjusted_arranged, width=6000, height = 7500, units="px", dpi=900)
+
+
+new_paper_plots_base_k3_adjusted_oepa <- makeAgeGroupGraphsSingle(togoOv16Data, simulation_summary_sens_spec_combined_k3_100_mount_oepa, "kE Value", "0.3", "Combined")
+
+new_paper_plots_base_k3_adjusted_oepa_2 <- makeAgeGroupGraphsSingle(togoOv16Data, simulation_summary_sens_spec_combined_k3_100_mount_oepa_2, "kE Value", "0.3", "Combined", name_vals = c("d)", "e)", "f)"))
+
+new_paper_plots_base_k3_adjusted_oepa_arranged <- (((new_paper_plots_base_k3_adjusted_oepa[[1]] + theme(axis.title.x=element_blank())) / (new_paper_plots_base_k3_adjusted_oepa[[2]] + theme(axis.title.x=element_blank())) / (new_paper_plots_base_k3_adjusted_oepa[[3]])) |
+(
+  (new_paper_plots_base_k3_adjusted_oepa_2[[1]] + theme(axis.title.y=element_blank(), axis.title.x=element_blank())) / (new_paper_plots_base_k3_adjusted_oepa_2[[2]] + theme(axis.title.y=element_blank(), axis.title.x=element_blank())) / (new_paper_plots_base_k3_adjusted_oepa_2[[3]] + theme(axis.title.y=element_blank()))
+)) + plot_layout(guides = "collect") + plot_annotation(
+  theme = theme(legend.position = "bottom")
+)
+new_paper_plots_base_k3_adjusted_oepa_arranged
+ggsave("images/togo_age_binned_base_k_3_adjusted_oepa_paper.png", new_paper_plots_base_k3_adjusted_oepa_arranged, width=6000, height = 7500, units="px", dpi=900)
 ```
 
 ##### Graphs for Paper
@@ -971,11 +1098,15 @@ makeAgeGroupGraphsSingle <- function(originalData, projectionDf, compare_label, 
   scale_color_manual("Hypotheses", values=c("darkred", "green", "orange"), guide="none") + scale_size_manual(guide="none", values=c(1, 1))  +
     guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2)) +
     ylim(0, 100) +
+    xlim(0,81) +
+    theme_bw() +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
       legend.title = element_text(size=8),
-      legend.key.size = unit(0.8, 'lines')
+      legend.key.size = unit(0.8, 'lines'),
+      legend.position = "bottom",  # Set legend to the bottom
+      legend.direction = "horizontal"
     )
   
   
@@ -990,11 +1121,15 @@ makeAgeGroupGraphsSingle <- function(originalData, projectionDf, compare_label, 
   scale_color_manual("Hypotheses", values=c("blue", "blue", "orange"), guide="none") + scale_size_manual(guide="none", values=c(1,1))  +
     guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2)) +
     ylim(0, 100) +
+    xlim(0,81) +
+    theme_bw() +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
       legend.title = element_text(size=8),
-      legend.key.size = unit(0.8, 'lines')
+      legend.key.size = unit(0.8, 'lines'),
+      legend.position = "bottom",  # Set legend to the bottom
+      legend.direction = "horizontal"
     )
   
   return(list(non_mating=p2, mating=p1))
@@ -1021,11 +1156,14 @@ makeAgeGroupGraphs_compare <- function(originalData, projectionDf, projectionDf2
   scale_color_manual("Hypotheses", values=c("darkred", "green", "orange")) + scale_size_manual(guide="none", values=c(1, 1))  +
     guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2),alpha = guide_legend(order = 3)) +
     ylim(0, 100) +
+    xlim(0,81) +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
       legend.title = element_text(size=8),
-      legend.key.size = unit(0.8, 'lines')
+      legend.key.size = unit(0.8, 'lines'),
+      legend.position = "bottom",  # Set legend to the bottom
+      legend.direction = "horizontal"
     )
 
 # Any Worm hypotheses
@@ -1043,11 +1181,14 @@ makeAgeGroupGraphs_compare <- function(originalData, projectionDf, projectionDf2
   scale_color_manual("Hypotheses", values=c("blue", "green", "orange")) + scale_size_manual(guide="none", values=c(1,1))  +
     guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2),alpha = guide_legend(order = 3)) +
     ylim(0, 100) +
+    xlim(0,81) +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
       legend.title = element_text(size=8),
-      legend.key.size = unit(0.8, 'lines')
+      legend.key.size = unit(0.8, 'lines'),
+      legend.position = "bottom",  # Set legend to the bottom
+      legend.direction = "horizontal"
     )
   
   return(list(non_mating=p2, mating=p1))
@@ -1067,18 +1208,22 @@ makeAgeGroupGraphs_compare <- function(originalData, projectionDf, projectionDf2
   scale_color_manual("Hypotheses", values=c("blue", "green", "orange")) + scale_size_manual(guide="none", values=c(1, 1))  +
     guides(linetype = guide_legend(order = 1), color = guide_legend(order = 2),alpha = guide_legend(order = 3)) +
     ylim(0, 100) +
+    xlim(0,81) +
+    theme_bw() +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
       legend.title = element_text(size=8),
-      legend.key.size = unit(0.8, 'lines')
+      legend.key.size = unit(0.8, 'lines'),
+      legend.position = "bottom",  # Set legend to the bottom
+      legend.direction = "horizontal"
     )
   return(list(mating=p1))
 }
 
 
-k_3_basic <- makeAgeGroupGraphsSingle(togoOv16Data, simulation_summary_age_group_combined, "kE Value", "0.3", "Combined")
 
+k_3_basic <- makeAgeGroupGraphsSingle(togoOv16Data, simulation_summary_age_group_combined, "kE Value", "0.3", "Combined")
 ggsave("images/togo_age_binned_base_k_3.png", do.call(grid.arrange, k_3_basic), width=7500, height = 6000, units="px", dpi=900)
 
 k_4_basic <- makeAgeGroupGraphsSingle(togoOv16Data, simulation_summary_age_group_combined_k4, "kE Value", "0.4", "Combined")
@@ -1132,13 +1277,16 @@ ggsave("images/all_worm_both_k_comp.png", grid.arrange(results$combined$plots$al
 
 ```{r}
 savePlots <- function(p1, p2, p3, p4, p5) {
+  legendPlot <- ggplot() +
+    geom_blank() + theme_void()
   grid.arrange(
-    grid.arrange(p1, p2, p3, p4, ncol=2),
-    p5,
-    nrow=2,
-    heights=c(2, 1)
+    p1, p2, p3, p4, p5, legendPlot, ncol=2
+    #p5,
+    #nrow=2,
+    #heights=c(2, 1)
   )
 }
+
 makeBarCharts <- function(groupedDf, simulationDf, prefectureVal, extra="", label=c("a)", "b)")) {
   
   
@@ -1179,23 +1327,24 @@ makeBarCharts <- function(groupedDf, simulationDf, prefectureVal, extra="", labe
     }
   }
   
-  
-  simulationDf$all_ages[19:21,] <- list(c(0.6, 0.75, 0.95), rep('Actual Data', 3), rep(allAgeOv16, 3), rep(0, 3))
+  simulationDf$all_ages[19:21,] <- list(c(0.6, 0.75, 0.95), rep('Actual Data', 3), rep(allAgeOv16, 3), rep(0, 3),rep(0, 3),rep(0, 3),rep(0, 3),rep(0, 3))
   simulationDf$all_ages$lb <- c(rep(NA, 18), rep(all_ages_lb, 3))
   simulationDf$all_ages$ub <- c(rep(NA, 18), rep(all_ages_ub, 3))
   
-  simulationDf$under10[19:21,] <- list(c(0.6, 0.75, 0.95), rep('Actual Data', 3), rep(under10Ov16, 3), rep(0, 3))
+  simulationDf$under10[19:21,] <- list(c(0.6, 0.75, 0.95), rep('Actual Data', 3), rep(under10Ov16, 3), rep(0, 3), rep(0, 3),rep(0, 3),rep(0, 3),rep(0, 3))
   simulationDf$under10$lb <- c(rep(NA, 18), rep(children_lb, 3))
   simulationDf$under10$ub <- c(rep(NA, 18), rep(children_ub, 3))
   
   simulationDf$all_ages$Hypothesis <- factor(simulationDf$all_ages$Hypothesis, levels = c("Actual Data", "L3 exposure", "L4-L5 moult", "Any worm", "Mating worm pair", "Mating worm pair with any mf", "Mating worm pair with detectable mf"), ordered=TRUE)
   simulationDf$under10$Hypothesis <- factor(simulationDf$under10$Hypothesis, levels =  c("Actual Data", "L3 exposure", "L4-L5 moult", "Any worm", "Mating worm pair", "Mating worm pair with any mf", "Mating worm pair with detectable mf"), ordered=TRUE)#c("Actual Data", "L3 Exposure", "L4-L5 moult", "Any Worm", "Mating worm", "Mating Worm with any MF", "Mating Worm with detectable MF"), ordered=TRUE)
   
-  allagesplot <- ggplot() + geom_bar(aes(x=factor(vctr.ctrl.eff*100), y=ov16_prev*100, fill=Hypothesis), stat="identity", position="dodge", data=simulationDf$all_ages) + geom_errorbar(aes(x=factor(vctr.ctrl.eff*100), ymin=lb, ymax=ub, group=Hypothesis), color="red", position="dodge", data=simulationDf$all_ages) +
+  allagesplot <- ggplot() + geom_bar(aes(x=factor(vctr.ctrl.eff*100), y=ov16_prev*100, fill=Hypothesis), stat="identity", position="dodge", data=simulationDf$all_ages) + geom_errorbar(aes(x=factor(vctr.ctrl.eff*100), ymin=lb, ymax=ub, group=Hypothesis), color="red", alpha=0.5, position="dodge", data=simulationDf$all_ages) +
+    geom_errorbar(aes(x=factor(vctr.ctrl.eff*100), ymin=ov16_prev_lb*100, ymax=ov16_prev_ub*100, group=Hypothesis), color="black", alpha=0.5, position="dodge", data=simulationDf$all_ages) +
   scale_fill_manual(values = color_vals) + 
     ggtitle(paste(label[1], "All-age Seroprevalence in", prefectureVal)) +
     xlab("Vector Control Efficacy (%)") +
     ylab("Ov16 Seroprevalence (%)") +
+    theme_bw() +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
@@ -1204,10 +1353,12 @@ makeBarCharts <- function(groupedDf, simulationDf, prefectureVal, extra="", labe
     )
   #old_colors <- c("green", "blue", "purple", "red", "orange", "gold")
 
-  under10plot <- ggplot() + geom_bar(aes(x=factor(vctr.ctrl.eff*100), y=ov16_prev*100, fill=Hypothesis), stat="identity", position="dodge", data=simulationDf$under10) +  geom_errorbar(aes(x=factor(vctr.ctrl.eff*100), ymin=lb, ymax=ub, group=Hypothesis), color="red", position="dodge", data=simulationDf$under10) +
-  scale_fill_manual(values = color_vals) + ggtitle(paste(label[2], "<10 Seroprevalence in", prefectureVal)) +
+  under10plot <- ggplot() + geom_bar(aes(x=factor(vctr.ctrl.eff*100), y=ov16_prev*100, fill=Hypothesis), stat="identity", position="dodge", data=simulationDf$under10) +  geom_errorbar(aes(x=factor(vctr.ctrl.eff*100), ymin=lb, ymax=ub, group=Hypothesis), color="red", alpha=0.5, position="dodge", data=simulationDf$under10) +
+    geom_errorbar(aes(x=factor(vctr.ctrl.eff*100), ymin=ov16_prev_lb*100, ymax=ov16_prev_ub*100, group=Hypothesis), alpha=0.5, color="black", position="dodge", data=simulationDf$under10) +
+  scale_fill_manual(values = color_vals, drop=TRUE) + ggtitle(paste(label[2], "<10 Seroprevalence in", prefectureVal)) +
     xlab("Vector Control Efficacy (%)") +
     ylab("Ov16 Seroprevalence (%)") +
+    theme_bw() +
     theme(
       title = element_text(size=10),
       legend.text = element_text(size=6),
@@ -1218,71 +1369,86 @@ makeBarCharts <- function(groupedDf, simulationDf, prefectureVal, extra="", labe
   return(list(allages=allagesplot, under10=under10plot, within_ci=withinCi))
 }
 
-oti_bar <- makeBarCharts(groupedVillageData, simulation_summary_oti, 'OTI', 'k3')
-keran_bar <- makeBarCharts(groupedVillageData, simulation_summary_keran, 'Keran', 'k3', label=c('c)', 'd)'))
-bassar_bar <- makeBarCharts(groupedVillageData, simulation_summary_bassar, 'Bassar', 'k3', label=c('e)', 'f)'))
+#oti_bar <- makeBarCharts(groupedVillageData, simulation_summary_oti, 'OTI', 'k3')
+#keran_bar <- makeBarCharts(groupedVillageData, simulation_summary_keran, 'Keran', 'k3', label=c('c)', 'd)'))
+#bassar_bar <- makeBarCharts(groupedVillageData, simulation_summary_bassar, 'Bassar', 'k3', label=c('e)', 'f)'))
 
-original_bar_plots <- savePlots(oti_bar$allages + theme(legend.position="none"), oti_bar$under10 + theme(legend.position="none"), keran_bar$allages + theme(legend.position="none"), keran_bar$under10 + theme(legend.position="none"), bassar_bar$allages)
+#original_bar_plots <- savePlots(oti_bar$allages + theme(legend.position="none"), oti_bar$under10 + theme(legend.position="none"), keran_bar$allages + theme(legend.position="none"), keran_bar$under10 + theme(legend.position="none"), bassar_bar$allages)
 #grid.arrange(oti_bar$allages + theme(legend.position="none"), oti_bar$under10 + theme(legend.position="none"), keran_bar$allages + theme(legend.position="none"), keran_bar$under10 + theme(legend.position="none"), bassar_bar$allages, ncol=2)
-ggsave("images/togo_prefecture_bar_plots.png", original_bar_plots, width=7500, height = 6000, units="px", dpi=900)
+#ggsave("images/togo_prefecture_bar_plots.png", original_bar_plots, width=7500, height = 6000, units="px", dpi=900)
 
 
-oti_bar_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_oti, 'OTI', "k3 Adjusted")
-keran_bar_adjusted <-makeBarCharts(groupedVillageData, simulation_summary_sens_spec_keran, 'Keran', "k3 Adjusted", label=c("c)", "d)"))
-bassar_bar_adjusted <-makeBarCharts(groupedVillageData, simulation_summary_sens_spec_bassar, 'Bassar', "k3 Adjusted", label=c("e)", "f)"))
+#oti_bar_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_oti, 'OTI', "k3 Adjusted")
+#keran_bar_adjusted <-makeBarCharts(groupedVillageData, simulation_summary_sens_spec_keran, 'Keran', "k3 Adjusted", label=c("c)", "d)"))
+#bassar_bar_adjusted <-makeBarCharts(groupedVillageData, simulation_summary_sens_spec_bassar, 'Bassar', "k3 Adjusted", label=c("e)", "f)"))
 
-original_bar_plots_adjusted <- savePlots(oti_bar_adjusted$allages + theme(legend.position="none"), oti_bar_adjusted$under10 + theme(legend.position="none"), keran_bar_adjusted$allages + theme(legend.position="none"), keran_bar_adjusted$under10 + theme(legend.position="none"), bassar_bar_adjusted$allages)
-#grid.arrange(oti_bar_adjusted$allages + theme(legend.position="none"), oti_bar_adjusted$under10 + theme(legend.position="none"), keran_bar_adjusted$allages + theme(legend.position="none"), keran_bar_adjusted$under10 + theme(legend.position="none"), bassar_bar_adjusted$allages, ncol=2)
-ggsave("images/togo_prefecture_bar_plots_adjusted.png", original_bar_plots_adjusted, width=7500, height = 6000, units="px", dpi=900)
+#original_bar_plots_adjusted <- savePlots(oti_bar_adjusted$allages + theme(legend.position="none"), oti_bar_adjusted$under10 + theme(legend.position="none"), keran_bar_adjusted$allages + theme(legend.position="none"), keran_bar_adjusted$under10 + theme(legend.position="none"), bassar_bar_adjusted$allages)
 
-
-oti_bar_k4 <- makeBarCharts(groupedVillageData, simulation_summary_oti_k4, 'OTI', "k4")
-keran_bar_k4 <- makeBarCharts(groupedVillageData, simulation_summary_keran_k4, 'Keran', "k4", label=c("c)", "d)"))
-bassar_bar_k4 <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k4, 'Bassar', "k4", label=c("e)", "f)"))
-
-original_bar_plots_k4 <- savePlots(oti_bar_k4$allages + theme(legend.position="none"), oti_bar_k4$under10 + theme(legend.position="none"), keran_bar_k4$allages + theme(legend.position="none"), keran_bar_k4$under10 + theme(legend.position="none"), bassar_bar_k4$allages) 
-#grid.arrange(oti_bar_k4$allages + theme(legend.position="none"), oti_bar_k4$under10 + theme(legend.position="none"), keran_bar_k4$allages + theme(legend.position="none"), keran_bar_k4$under10 + theme(legend.position="none"), bassar_bar_k4$allages, ncol=2)
-ggsave("images/togo_prefecture_bar_plots_k4.png", original_bar_plots_k4, width=7500, height = 6000, units="px", dpi=900)
-
-oti_bar_k4_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_oti_k4, 'OTI', "k4 Adjusted")
-keran_bar_k4_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_keran_k4, 'Keran', "k4 Adjusted", label=c("c)", "d)"))
-bassar_bar_k4_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_bassar_k4, 'Bassar', "k4 Adjusted", label=c("e)", "f)"))
-
-original_bar_plots_k4_adjusted <- savePlots(oti_bar_k4_adjusted$allages + theme(legend.position="none"), oti_bar_k4_adjusted$under10 + theme(legend.position="none"), keran_bar_k4_adjusted$allages + theme(legend.position="none"), keran_bar_k4_adjusted$under10 + theme(legend.position="none"), bassar_bar_k4_adjusted$allages)
-#grid.arrange(oti_bar_k4_adjusted$allages + theme(legend.position="none"), oti_bar_k4_adjusted$under10 + theme(legend.position="none"), keran_bar_k4_adjusted$allages + theme(legend.position="none"), keran_bar_k4_adjusted$under10 + theme(legend.position="none"), bassar_bar_k4_adjusted$allages, ncol=2)
-ggsave("images/togo_prefecture_bar_plots_k4_adjusted.png", original_bar_plots_k4_adjusted, width=7500, height = 6000, units="px", dpi=900)
+#ggsave("images/togo_prefecture_bar_plots_adjusted.png", original_bar_plots_adjusted, width=7500, height = 6000, units="px", dpi=900)
 
 
-oti_bar_k4_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_oti_k4_seroreversion, 'OTI', "k4 Seroreversion")
-keran_bar_k4_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_keran_k4_seroreversion, 'Keran', "k4 Seroreversion", label=c("c)", "d)"))
-bassar_bar_k4_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k4_seroreversion, 'Bassar', "k4 Seroreversion", label=c("e)", "f)"))
+#oti_bar_k4 <- makeBarCharts(groupedVillageData, simulation_summary_oti_k4, 'OTI', "k4")
+#keran_bar_k4 <- makeBarCharts(groupedVillageData, simulation_summary_keran_k4, 'Keran', "k4", label=c("c)", "d)"))
+#bassar_bar_k4 <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k4, 'Bassar', "k4", label=c("e)", "f)"))
 
-original_bar_plots_k4_seroreversion <- savePlots(oti_bar_k4_seroreversion$allages + theme(legend.position="none"), oti_bar_k4_seroreversion$under10 + theme(legend.position="none"), keran_bar_k4_seroreversion$allages + theme(legend.position="none"), keran_bar_k4_seroreversion$under10 + theme(legend.position="none"), bassar_bar_k4_seroreversion$allages)
-#grid.arrange(oti_bar_k4_seroreversion$allages + theme(legend.position="none"), oti_bar_k4_seroreversion$under10 + theme(legend.position="none"), keran_bar_k4_seroreversion$allages + theme(legend.position="none"), keran_bar_k4_seroreversion$under10 + theme(legend.position="none"), bassar_bar_k4_seroreversion$allages, ncol=2)
-ggsave("images/togo_prefecture_bar_plots_k4_seroreversion.png", original_bar_plots_k4_seroreversion, width=7500, height = 6000, units="px", dpi=900)
+#original_bar_plots_k4 <- savePlots(oti_bar_k4$allages + theme(legend.position="none"), oti_bar_k4$under10 + theme(legend.position="none"), keran_bar_k4$allages + theme(legend.position="none"), keran_bar_k4$under10 + theme(legend.position="none"), bassar_bar_k4$allages) 
 
-oti_bar_k4_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_oti_k4_100_mount, 'OTI', "k4 100 Mount")
-keran_bar_k4_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_keran_k4_100_mount, 'Keran', "k4 100 Mount", label=c("c)", "d)"))
-bassar_bar_k4_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k4_100_mount, 'Bassar', "k4 100 Mount", label=c("e)", "f)"))
+#ggsave("images/togo_prefecture_bar_plots_k4.png", original_bar_plots_k4, width=7500, height = 6000, units="px", dpi=900)
 
-original_bar_plots_k4_100_mount <- savePlots(oti_bar_k4_100_mount$allages + theme(legend.position="none"), oti_bar_k4_100_mount$under10 + theme(legend.position="none"), keran_bar_k4_100_mount$allages + theme(legend.position="none"), keran_bar_k4_100_mount$under10 + theme(legend.position="none"), bassar_bar_k4_100_mount$allages)
-#grid.arrange(oti_bar_k4_100_mount$allages + theme(legend.position="none"), oti_bar_k4_100_mount$under10 + theme(legend.position="none"), keran_bar_k4_100_mount$allages + theme(legend.position="none"), keran_bar_k4_100_mount$under10 + theme(legend.position="none"), bassar_bar_k4_100_mount$allages, ncol=2)
-ggsave("images/togo_prefecture_bar_plots_k4_100_mount.png", original_bar_plots_k4_100_mount, width=7500, height = 6000, units="px", dpi=900)
+#oti_bar_k4_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_oti_k4, 'OTI', "k4 Adjusted")
+#keran_bar_k4_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_keran_k4, 'Keran', "k4 Adjusted", label=c("c)", "d)"))
+#bassar_bar_k4_adjusted <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_bassar_k4, 'Bassar', "k4 Adjusted", label=c("e)", "f)"))
 
-oti_bar_k3_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_oti_k3_seroreversion, 'OTI', "k3 Seroreversion")
-keran_bar_k3_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_keran_k3_seroreversion, 'Keran', "k3 Seroreversion", label=c("c)", "d)"))
-bassar_bar_k3_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k3_seroreversion, 'Bassar', "k3 Seroreversion", label=c("e)", "f)"))
+#original_bar_plots_k4_adjusted <- savePlots(oti_bar_k4_adjusted$allages + theme(legend.position="none"), oti_bar_k4_adjusted$under10 + theme(legend.position="none"), keran_bar_k4_adjusted$allages + theme(legend.position="none"), keran_bar_k4_adjusted$under10 + theme(legend.position="none"), bassar_bar_k4_adjusted$allages)
+#ggsave("images/togo_prefecture_bar_plots_k4_adjusted.png", original_bar_plots_k4_adjusted, width=7500, height = 6000, units="px", dpi=900)
 
-original_bar_plots_k3_seroreversion <- savePlots(oti_bar_k3_seroreversion$allages + theme(legend.position="none"), oti_bar_k3_seroreversion$under10 + theme(legend.position="none"), keran_bar_k3_seroreversion$allages + theme(legend.position="none"), keran_bar_k3_seroreversion$under10 + theme(legend.position="none"), bassar_bar_k3_seroreversion$allages) #grid.arrange(oti_bar_k3_seroreversion$allages + theme(legend.position="none"), oti_bar_k3_seroreversion$under10 + theme(legend.position="none"), keran_bar_k3_seroreversion$allages + theme(legend.position="none"), keran_bar_k3_seroreversion$under10 + theme(legend.position="none"), bassar_bar_k3_seroreversion$allages, ncol=2)
-ggsave("images/togo_prefecture_bar_plots_k3_seroreversion.png", original_bar_plots_k3_seroreversion, width=7500, height = 6000, units="px", dpi=900)
 
-oti_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_oti_k3_100_mount, 'OTI', "k3 100 Mount")
-keran_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_keran_k3_100_mount, 'Keran', "k3 100 Mount", label=c("c)", "d)"))
-bassar_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k3_100_mount, 'Bassar', "k3 100 Mount", label=c("e)", "f)"))
+#oti_bar_k4_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_oti_k4_seroreversion, 'OTI', "k4 Seroreversion")
+#keran_bar_k4_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_keran_k4_seroreversion, 'Keran', "k4 Seroreversion", label=c("c)", "d)"))
+#bassar_bar_k4_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k4_seroreversion, 'Bassar', "k4 Seroreversion", label=c("e)", "f)"))
 
-original_bar_plots_k3_100_mount <- savePlots(oti_bar_k3_100_mount$allages + theme(legend.position="none"), oti_bar_k3_100_mount$under10 + theme(legend.position="none"), keran_bar_k3_100_mount$allages + theme(legend.position="none"), keran_bar_k3_100_mount$under10 + theme(legend.position="none"), bassar_bar_k3_100_mount$allages)
-#grid.arrange(oti_bar_k3_100_mount$allages + theme(legend.position="none"), oti_bar_k3_100_mount$under10 + theme(legend.position="none"), keran_bar_k3_100_mount$allages + theme(legend.position="none"), keran_bar_k3_100_mount$under10 + theme(legend.position="none"), bassar_bar_k3_100_mount$allages, nrow=3, ncol=2, heights=c(1, 2))
-ggsave("images/togo_prefecture_bar_plots_k3_100_mount.png", original_bar_plots_k3_100_mount, width=7500, height = 6000, units="px", dpi=900)
+#original_bar_plots_k4_seroreversion <- savePlots(oti_bar_k4_seroreversion$allages + theme(legend.position="none"), oti_bar_k4_seroreversion$under10 + theme(legend.position="none"), keran_bar_k4_seroreversion$allages + theme(legend.position="none"), keran_bar_k4_seroreversion$under10 + theme(legend.position="none"), bassar_bar_k4_seroreversion$allages)
+#ggsave("images/togo_prefecture_bar_plots_k4_seroreversion.png", original_bar_plots_k4_seroreversion, width=7500, height = 6000, units="px", dpi=900)
+
+#oti_bar_k4_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_oti_k4_100_mount, 'OTI', "k4 100 Mount")
+#keran_bar_k4_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_keran_k4_100_mount, 'Keran', "k4 100 Mount", label=c("c)", "d)"))
+#bassar_bar_k4_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k4_100_mount, 'Bassar', "k4 100 Mount", label=c("e)", "f)"))
+
+#original_bar_plots_k4_100_mount <- savePlots(oti_bar_k4_100_mount$allages + theme(legend.position="none"), oti_bar_k4_100_mount$under10 + theme(legend.position="none"), keran_bar_k4_100_mount$allages + theme(legend.position="none"), keran_bar_k4_100_mount$under10 + theme(legend.position="none"), bassar_bar_k4_100_mount$allages)
+#ggsave("images/togo_prefecture_bar_plots_k4_100_mount.png", original_bar_plots_k4_100_mount, width=7500, height = 6000, units="px", dpi=900)
+
+# oti_bar_k3_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_oti_k3_seroreversion, 'OTI', "k3 Seroreversion")
+# keran_bar_k3_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_keran_k3_seroreversion, 'Keran', "k3 Seroreversion", label=c("c)", "d)"))
+# bassar_bar_k3_seroreversion <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k3_seroreversion, 'Bassar', "k3 Seroreversion", label=c("e)", "f)"))
+
+# original_bar_plots_k3_seroreversion <- savePlots(oti_bar_k3_seroreversion$allages + theme(legend.position="none"), oti_bar_k3_seroreversion$under10 + theme(legend.position="none"), keran_bar_k3_seroreversion$allages + theme(legend.position="none"), keran_bar_k3_seroreversion$under10 + theme(legend.position="none"), bassar_bar_k3_seroreversion$allages)
+#ggsave("images/togo_prefecture_bar_plots_k3_seroreversion.png", original_bar_plots_k3_seroreversion, width=7500, height = 6000, units="px", dpi=900)
+
+#oti_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_oti_k3_100_mount, 'OTI', "k3 100 Mount")
+#keran_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_keran_k3_100_mount, 'Keran', "k3 100 Mount", label=c("c)", "d)"))
+#bassar_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_bassar_k3_100_mount, 'Bassar', "k3 100 Mount", label=c("e)", "f)"))
+
+oti_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_oti_k3_100_mount, 'OTI', "k3 100 Mount")
+keran_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_keran_k3_100_mount, 'Keran', "k3 100 Mount", label=c("c)", "d)"))
+bassar_bar_k3_100_mount <- makeBarCharts(groupedVillageData, simulation_summary_sens_spec_bassar_k3_100_mount, 'Bassar', "k3 100 Mount", label=c("e)", "f)"))
+
+
+original_bar_plots_k3_100_mount <- grid.arrange(grid.arrange(
+  oti_bar_k3_100_mount$allages +  scale_y_continuous(breaks=seq(0,70, 10), limits = c(0,71)) + theme(legend.position="none", axis.title.x=element_blank()),
+  keran_bar_k3_100_mount$allages +  scale_y_continuous(breaks=seq(0,70, 10), limits = c(0,71)) + theme(legend.position="none", axis.title.x=element_blank()),
+  bassar_bar_k3_100_mount$allages + scale_y_continuous(breaks=seq(0,70, 10), limits = c(0,71)) + theme(legend.position = "none"), nrow=3, heights=c(0.9825,0.9825,1.035)),
+  grid.arrange(oti_bar_k3_100_mount$under10 + scale_y_continuous(breaks=seq(0,70, 10), limits = c(0,71)) + theme(legend.position="none", axis.title.x=element_blank(), axis.title.y=element_blank()), 
+  keran_bar_k3_100_mount$under10 + scale_y_continuous(breaks=seq(0,70, 10), limits = c(0,71)) + theme(legend.position="none", axis.title.y=element_blank()),
+  (ggplot() + geom_blank() + theme_void()), nrow=3, heights=c(0.9825,1.055,0.9625)), ncol=2)
+
+# bassar_bar_k3_100_mount$allages +
+#     theme(
+#       legend.text = element_text(size=8),
+#       legend.title = element_text(size=10),
+#       legend.key.size = unit(1, 'lines')
+#     )
+
+ggsave("images/togo_prefecture_bar_plots_k3_100_mount_paper.png", original_bar_plots_k3_100_mount, width=7500, height = 6000, units="px", dpi=900)
 
 
 # simulation_summary_bassar$all_ages$ov16_prev <- as.numeric(simulation_summary_bassar$all_ages$ov16_prev) * 100

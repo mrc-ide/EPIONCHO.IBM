@@ -1,0 +1,1272 @@
+---
+title: "Compare Togo Data"
+author: "Aditya Ramani"
+date: "2023-08-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(7281998)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(fastR2)
+library(stringr)
+library(gtable)
+library(knitr)
+library(kableExtra)
+library(doParallel)
+library(foreach)
+library(data.table)
+library(webshot)
+library(gridExtra)
+library(patchwork)
+knitr::knit_hooks$set(timeit = local({
+  now = NULL
+  function(before, options) {
+    if (before) {
+      now <<- Sys.time()
+    } else {
+      res = difftime(Sys.time(), now)
+      now <<- NULL
+      # use options$label if you want the chunk label as well
+      paste('Time for this code chunk:', as.character(res))
+    }
+  }})
+)
+```
+
+## Simulation Data
+
+```{r simulation_processing_functions}
+calcSensSpecSeroPrev <- function(run_seropos_data, sens=1, spec=1, prob=c()) {
+  indv <- length(run_seropos_data)
+  if(length(prob) < indv) {
+    prob <- runif(indv)
+  }
+
+  if(length(sens) == 0 | is.na(sens)) {
+    sens <- 1
+  }
+  if(length(sens) == 0 | is.na(spec)) {
+    spec <- 1
+  }
+
+  new_seropos_data<-rep(0, indv)
+  pos <- which(run_seropos_data==1)
+  neg <- which(run_seropos_data==0)
+
+  if(length(pos) > 0) {
+    new_seropos_data[pos] <- as.numeric(prob[pos] <= sens)
+  }
+  if(length(neg) > 0) {
+    new_seropos_data[neg] <- as.numeric(prob[neg] > spec)
+  }
+  return(new_seropos_data)
+}
+
+summarizeSimulationDataHelper <- function(data, sensSpec, sensAgeGroup=5) {
+  data$probs <- runif(dim(data)[1])
+  if(is.data.frame(sensSpec)) {
+    data <- data %>% dplyr::group_by(run_num, age_groups) %>%
+      mutate(
+        ov16_pos=calcSensSpecSeroPrev(ov16_pos, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_l3=calcSensSpecSeroPrev(ov16_pos_l3, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_l4=calcSensSpecSeroPrev(ov16_pos_l4, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_mating_no_mf=calcSensSpecSeroPrev(ov16_pos_mating_no_mf, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_mating_detectable_mf=calcSensSpecSeroPrev(ov16_pos_mating_detectable_mf, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs),
+        
+        ov16_pos_mating_any_mf=calcSensSpecSeroPrev(ov16_pos_mating_any_mf, sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'sens'][1], sensSpec[(sensSpec$age_group %in% age_groups) | (sensSpec$age_group %in% (round(age_groups[1]/sensAgeGroup)*sensAgeGroup)), 'spec'][1], probs)
+      ) %>% ungroup() %>% as.data.frame()
+  } else {
+    sens=sensSpec[1]; spec=sensSpec[2]
+    if(sens != 1 | spec != 1) {
+      data <- data %>% group_by(run_num) %>%
+        mutate(
+          ov16_pos=calcSensSpecSeroPrev(ov16_pos, sens, spec, probs),
+          ov16_pos_l3=calcSensSpecSeroPrev(ov16_pos_l3, sens, spec, probs),
+          ov16_pos_l4=calcSensSpecSeroPrev(ov16_pos_l4, sens, spec, probs),
+          ov16_pos_mating_no_mf=calcSensSpecSeroPrev(ov16_pos_mating_no_mf, sens, spec, probs),
+          ov16_pos_mating_detectable_mf=calcSensSpecSeroPrev(ov16_pos_mating_detectable_mf, sens, spec, probs),
+          ov16_pos_mating_any_mf=calcSensSpecSeroPrev(ov16_pos_mating_any_mf, sens, spec, probs)
+        ) %>% ungroup() %>% as.data.frame()
+    }
+  }
+  return(data)
+}
+
+summarizeSimulationDataHelper_2 <- function(df, groupByCols1, groupByCols2, hypNamesLoc, hypothesisNames, groupHyp) {
+  old_hyp_names <- hypothesisNames
+  hypothesisNames <- rep(old_hyp_names, 3)#c(old_hyp_names, paste(old_hyp_names, "_lb", sep=""), paste(old_hyp_names, "_ub", sep=""))
+  hypNamesLoc2 <- hypNamesLoc+length(old_hyp_names)
+  hypNamesLoc3 <- hypNamesLoc2+length(old_hyp_names)
+  df <- df %>%
+    dplyr::group_by(!!!syms(groupByCols1)) %>%
+    dplyr::summarise(ov16_any_worm_prev=mean(ov16_pos),
+                     ov16_l3_prev=mean(ov16_pos_l3),
+                     ov16_l4_prev=mean(ov16_pos_l4),
+                     ov16_mating_no_mf_prev=mean(ov16_pos_mating_no_mf),
+                     ov16_mating_detectable_mf_prev=mean(ov16_pos_mating_detectable_mf),
+                     ov16_mating_any_mf_prev=mean(ov16_pos_mating_any_mf),
+                     
+                     ov16_any_worm_prev_lb=wilson.ci(sum(ov16_pos), n())[1],
+                     ov16_l3_prev_lb=wilson.ci(sum(ov16_pos_l3), n())[1],
+                     ov16_l4_prev_lb=wilson.ci(sum(ov16_pos_l4), n())[1],
+                     ov16_mating_no_mf_prev_lb=wilson.ci(sum(ov16_pos_mating_no_mf), n())[1],
+                     ov16_mating_detectable_mf_prev_lb=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[1],
+                     ov16_mating_any_mf_prev_lb=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[1],
+                     ov16_any_worm_prev_ub=wilson.ci(sum(ov16_pos), n())[2],
+                     ov16_l3_prev_ub=wilson.ci(sum(ov16_pos_l3), n())[2],
+                     ov16_l4_prev_ub=wilson.ci(sum(ov16_pos_l4), n())[2],
+                     ov16_mating_no_mf_prev_ub=wilson.ci(sum(ov16_pos_mating_no_mf), n())[2],
+                     ov16_mating_detectable_mf_prev_ub=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[2],
+                     ov16_mating_any_mf_prev_ub=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[2],
+                     
+                     # ov16_any_worm_lb=wilson.ci(sum(ov16_pos), n())[1],
+                     # ov16_l3_lb=wilson.ci(sum(ov16_pos_l3), n())[1],
+                     # ov16_l5_lb=wilson.ci(sum(ov16_pos_l4), n())[1],
+                     # ov16_mating_lb=wilson.ci(sum(ov16_pos_mating_no_mf), n())[1],
+                     # ov16_mating_detect_mf_lb=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[1],
+                     # ov16_mating_any_mf_lb=wilson.ci(sum(ov16_pos_mating_any_mf), n())[1],
+                     # ov16_any_worm_ub=wilson.ci(sum(ov16_pos), n())[2],
+                     # ov16_l3_ub=wilson.ci(sum(ov16_pos_l3), n())[2],
+                     # ov16_l5_ub=wilson.ci(sum(ov16_pos_l4), n())[2],
+                     # ov16_mating_ub=wilson.ci(sum(ov16_pos_mating_no_mf), n())[2],
+                     # ov16_mating_detect_mf_ub=wilson.ci(sum(ov16_pos_mating_detectable_mf), n())[2],
+                     # 
+                     # ov16_mating_any_mf_ub=wilson.ci(sum(ov16_pos_mating_any_mf), n())[2],
+                     num_mf_pos=sum(mf_prev),
+                     total_mf=n(),
+                     mf_prev=mean(mf_prev),
+                     .groups="drop") %>% as.data.frame()
+  colnames(df)[all_of(c(hypNamesLoc, hypNamesLoc2, hypNamesLoc3))] <- hypothesisNames
+  df1 <- df %>%
+    as.data.frame() %>% select(-c(hypNamesLoc2, hypNamesLoc3)) %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev")
+  df2 <- df %>%
+    as.data.frame() %>% select(-c(hypNamesLoc, hypNamesLoc3)) %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev_lb")
+  df3 <- df %>%
+    as.data.frame() %>% select(-c(hypNamesLoc2, hypNamesLoc)) %>% pivot_longer(cols=all_of(hypNamesLoc), names_to="Hypothesis", values_to = "ov16_prev_ub")
+  if(groupHyp) {
+    df1 <- df1 %>% filter(
+      !grepl("Mating", Hypothesis) | Hypothesis == "Mating worm pair with any mf"
+    ) %>% 
+    mutate(
+      Hypothesis = case_when(
+        grepl("Mating", Hypothesis) ~ "Patent Infection",
+        TRUE ~ "Pre-Patent Infection"
+      )
+      # Hypothesis_LB = case_when(
+      #   grepl("Mating", Hypothesis) ~ "Patent Infection",
+      #   TRUE ~ "Pre-Patent Infection"
+      # ),
+      # Hypothesis_UB = case_when(
+      #   grepl("Mating", Hypothesis) ~ "Patent Infection",
+      #   TRUE ~ "Pre-Patent Infection"
+      # )
+    )
+    df2 <- df2 %>% filter(
+      !grepl("Mating", Hypothesis) | Hypothesis == "Mating worm pair with any mf"
+    ) %>% mutate(
+      Hypothesis = case_when(
+        grepl("Mating", Hypothesis) ~ "Patent Infection",
+        TRUE ~ "Pre-Patent Infection"
+      )
+    )
+    df3 <- df3 %>% filter(
+      !grepl("Mating", Hypothesis) | Hypothesis == "Mating worm pair with any mf"
+    ) %>% mutate(
+      Hypothesis = case_when(
+        grepl("Mating", Hypothesis) ~ "Patent Infection",
+        TRUE ~ "Pre-Patent Infection"
+      )
+    )
+  }
+
+  if("age_groups" %in% groupByCols2) {
+    df <- df1
+    df <- df %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(
+      ov16_q1=quantile(ov16_prev, probs=0.25),
+      ov16_q3=quantile(ov16_prev, probs=0.75),
+      ov16_prev=mean(ov16_prev),
+      mf_q1=quantile(mf_prev, probs=0.25),
+      mf_q3=quantile(mf_prev, probs=0.75),
+      mf_prev=mean(mf_prev),
+      mf_lb=wilson.ci(mean(num_mf_pos), mean(total_mf))[1],
+      mf_ub=wilson.ci(mean(num_mf_pos), mean(total_mf))[2],
+      .groups="drop") %>% as.data.frame() %>%
+    mutate(
+      mf_prev = case_when(
+        age_groups == 0 & mf_prev > 0 ~ 0,
+        TRUE ~ mf_prev
+      )
+    )
+  } else {
+    df1 <- df1 %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(ov16_prev=mean(ov16_prev), mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+    df2 <- df2 %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(ov16_prev_lb=mean(ov16_prev_lb), mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+    df3 <- df3 %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(ov16_prev_ub=mean(ov16_prev_ub), mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+    df <- df1 %>% left_join(df2, by=c("Hypothesis"="Hypothesis", "vctr.ctrl.eff"="vctr.ctrl.eff")) %>% left_join(df3, by=c("Hypothesis"="Hypothesis", "vctr.ctrl.eff"="vctr.ctrl.eff"))
+  }
+  return(df)
+}
+
+summarizeSimulationData <- function(data, sensSpec=c(1,1), groupBySex=TRUE, sensAgeGroup=5, summary=FALSE, swapAgeGroups=TRUE, groupHyp=TRUE) {
+  df <- data
+  hypothesisNames <- list("Any worm", "L3 exposure", "L4-L5 moult", "Mating worm pair", "Mating worm pair with detectable mf", "Mating worm pair with any mf")
+  groupByCols1 <- c("run_num", "age_groups", "vctr.ctrl.eff")
+  groupByCols2 <- c("age_groups", "vctr.ctrl.eff", "Hypothesis")
+  hypNamesLoc <- 4:9
+  if(groupBySex) {
+    groupByCols1 <- c("run_num", "age_groups", "sex", "vctr.ctrl.eff")
+    groupByCols2 <- c("age_groups", "sex", "Hypothesis", "vctr.ctrl.eff")
+    hypNamesLoc <- 5:10
+  }
+  if(summary) {
+    groupByCols1 <- c("run_num", "vctr.ctrl.eff")
+    groupByCols2 <- c("vctr.ctrl.eff", "Hypothesis")
+    hypNamesLoc <- 3:8
+  }
+  if(swapAgeGroups) {
+    tmp <- df$age_groups
+    df$age_groups <- df$age_groups_old #df$age_groups_lsr
+    #df$age_groups_old  <- tmp
+  }
+  
+  df <- summarizeSimulationDataHelper(df, sensSpec, sensAgeGroup)
+  
+  justChildren <- NA
+  if(summary) {
+    underTenDf <- df %>% filter(age >= 5 & age < 11)
+    print(paste("Total number of children under 10", dim(underTenDf)[1]))
+    justChildren <- summarizeSimulationDataHelper_2(underTenDf, groupByCols1, groupByCols2, hypNamesLoc, hypothesisNames, groupHyp & !summary)
+  }
+  df <- summarizeSimulationDataHelper_2(df, groupByCols1, groupByCols2, hypNamesLoc, hypothesisNames, groupHyp & !summary)
+  
+  if(summary) {
+    returnVals <- list(df, justChildren)
+    names(returnVals) <- c("all_ages", "under10")
+    return(returnVals)
+  }
+  return(df)
+}
+
+selectRunsFromAllPrefectures <- function(df1, df2, df3, sampleNum=c()) {
+  age_groups <- c(7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 70.5)
+  sampleSize = c(172, 212, 95, 118, 195, 135, 105, 89, 90, 62, 61, 80)
+  sampleSizeList = list()
+  for(i in 1:length(age_groups)) {
+    sampleSizeList[[age_groups[i]]] = sampleSize[i]
+  }
+  if(length(sampleNum) == 3) {
+    #rowsToPick1 <- sample(1:max(df1$run_num), sampleNum[1], replace = FALSE)
+    #rowsToPick2 <- sample(1:max(df2$run_num), sampleNum[2], replace = FALSE)
+    #rowsToPick3 <- sample(1:max(df3$run_num), sampleNum[3], replace = FALSE)
+    #df1 <- df1 %>% filter(run_num %in% rowsToPick1)
+    #df2 <- df2 %>% filter(run_num %in% rowsToPick2)
+    #df3 <- df3 %>% filter(run_num %in% rowsToPick3)
+    df1 <- df1 %>% group_by(run_num) %>% slice_sample(n=sampleNum[1], replace=TRUE) %>% ungroup()
+    df2 <- df2 %>% group_by(run_num) %>% slice_sample(n=sampleNum[2], replace=TRUE) %>% ungroup()
+    df3 <- df3 %>% group_by(run_num) %>% slice_sample(n=sampleNum[3], replace=TRUE) %>% ungroup()
+  }
+  df1 <- df1 %>% mutate(prefecture="Oti") %>% mutate(run_num = dense_rank(run_num))
+  df2 <- df2 %>% mutate(prefecture="Keran") %>% mutate(run_num = dense_rank(run_num))
+  df3 <- df3 %>%  mutate(prefecture="Bassar") %>% mutate(run_num = dense_rank(run_num))
+  df <- base::rbind(
+    df1, df2, df3
+  )
+  return_df <- df
+  #return_df <- NA
+  #index = 1
+  #for(age_group in unique(age_groups)) {
+  #  if(index == 1) {
+  #    return_df <- df %>% filter(age_groups_old == age_group) %>% group_by(run_num) %>%
+  #      slice_sample(n=sampleSizeList[[age_group]], replace=TRUE)
+  #  } else {
+  #    return_df <- rbind(return_df, df %>% filter(age_groups_old == age_group) %>%
+  #                         group_by(run_num) %>%
+  #                         slice_sample(n=sampleSizeList[[age_group]], replace=TRUE))
+  #  }
+  #  index <- index + 1
+  #}
+  return(return_df)
+}
+
+togo_sens_spec_vec <- c(0.714, 0.711)
+
+#sens_range <- c(0.43, 0.60, seq(0.70, 0.80, 0.05))
+sens<-c(81, 95, 78, 97, 84, 60, 80, 71.4, 53, 78, 83, 82.5)
+print("Sens Vals")
+print(quantile(sens, probs=c(0.25, 0.50, 0.75)))
+print(mean(sens))
+sens_range <- c(0.70, 0.80, 0.85)
+
+#spec_range <- c(0.70, 0.75, 0.80, 0.85, 0.95, 0.991, 0.997, 0.999, 0.9998)
+spec<-c(94,75,97,71.1,100,84.8,55.7)
+print("Spec Vals")
+print(quantile(spec, probs=c(0.25, 0.50, 0.75)))
+print(mean(spec))
+spec_range <- c(0.70, 0.85, 0.95)
+sens_spec_options <- list()
+sens_spec_index <- 1
+for(sens in sens_range) {
+  for (spec in spec_range) {
+    sens_spec_options[[sens_spec_index]] <- c(sens, spec)
+    sens_spec_index <- sens_spec_index + 1
+  }
+}
+```
+
+### Setup and Explore Simulation Data
+
+#### New Runs 100 Mount Aggregated
+```{r}
+fix_age_groups <- function(df) {
+  return(df %>% mutate(age_groups_old = case_when(
+                                                age < 1 ~ 0,
+                                                age < 5 ~ 2.5,
+                                                age < 11 ~ 7.5,
+                                                age < 16 ~ 13,
+                                                age < 21 ~ 18,
+                                                age < 26 ~ 23,
+                                                age < 31 ~ 28,
+                                                age < 36 ~ 33,
+                                                age < 41 ~ 38,
+                                                age < 46 ~ 43,
+                                                age < 51 ~ 48,
+                                                age < 56 ~ 53,
+                                                age < 61 ~ 58,
+                                                age < 66 ~ 63,
+                                                TRUE ~ 73
+                                              )))
+}
+place_to_pick = "_start_2015"
+k3_100_mount_simulation_summary_combined_sens_spec_list <- list()
+
+togo_bassar_100_mount_agg <- readRDS(paste("data/togo_bassar_100_mount_data", place_to_pick, ".RDS", sep=""))
+simulatedBassar_k3_100_mount <- togo_bassar_100_mount_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_combined_sens_spec_list[[paste("bassar", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedBassar_k3_100_mount, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_oti_100_mount_agg <- readRDS(paste("data/togo_oti_100_mount_data", place_to_pick, ".RDS", sep=""))
+simulatedOti_k3_100_mount <- togo_oti_100_mount_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_combined_sens_spec_list[[paste("oti", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k3_100_mount, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_keran_100_mount_agg <- readRDS(paste("data/togo_keran_100_mount_data", place_to_pick, ".RDS", sep=""))
+simulatedKeran_k3_100_mount <- togo_keran_100_mount_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_combined_sens_spec_list[[paste("keran", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedKeran_k3_100_mount, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+k3_100_mount_simulation_summary_age_group_combined_sens_spec_list <- list()
+combinedSimulation_k3_100_mount <- selectRunsFromAllPrefectures(readRDS(paste("data/togo_oti_100_mount_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups(),
+  readRDS(paste("data/togo_keran_100_mount_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups(),
+  readRDS(paste("data/togo_bassar_100_mount_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups(),
+  sampleNum=c(500*0.22,500*0.37,500*0.41))
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_age_group_combined_sens_spec_list[[paste(sens_spec_val, collapse="_")]] <- summarizeSimulationData(combinedSimulation_k3_100_mount, sens_spec_val, groupBySex=FALSE)
+}
+
+k4_100_mount_simulation_summary_combined_sens_spec_list <- list()
+
+simulatedBassar_k4_100_mount <- togo_bassar_100_mount_agg$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k4_100_mount_simulation_summary_combined_sens_spec_list[[paste("bassar", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedBassar_k4_100_mount, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+simulatedOti_k4_100_mount <- togo_oti_100_mount_agg$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k4_100_mount_simulation_summary_combined_sens_spec_list[[paste("oti", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k4_100_mount, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+simulatedKeran_k4_100_mount <- togo_keran_100_mount_agg$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k4_100_mount_simulation_summary_combined_sens_spec_list[[paste("keran", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedKeran_k4_100_mount, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+k4_100_mount_simulation_summary_age_group_combined_sens_spec_list <- list()
+combinedSimulation_k4_100_mount <- selectRunsFromAllPrefectures(
+  readRDS(paste("data/togo_oti_100_mount_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups(),
+  readRDS(paste("data/togo_keran_100_mount_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups(),
+  readRDS(paste("data/togo_bassar_100_mount_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups(),
+  sampleNum=c(500*0.22,500*0.37,500*0.41))
+
+for (sens_spec_val in sens_spec_options) {
+  k4_100_mount_simulation_summary_age_group_combined_sens_spec_list[[paste(sens_spec_val, collapse="_")]] <- summarizeSimulationData(combinedSimulation_k4_100_mount, sens_spec_val, groupBySex=FALSE)
+}
+
+rm(togo_bassar_100_mount_agg)
+rm(togo_oti_100_mount_agg)
+rm(togo_keran_100_mount_agg)
+```
+
+##### New Runs Seroreversion Aggregated
+```{r}
+k3_seroreversion_simulation_summary_combined_sens_spec_list <- list()
+
+togo_bassar_seroreversion_agg <- readRDS(paste("data/togo_bassar_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedBassar_k3_seroreversion <- togo_bassar_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_seroreversion_simulation_summary_combined_sens_spec_list[[paste("bassar", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedBassar_k3_seroreversion, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_oti_seroreversion_agg <- readRDS(paste("data/togo_oti_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedOti_k3_seroreversion <- togo_oti_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_seroreversion_simulation_summary_combined_sens_spec_list[[paste("oti", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k3_seroreversion, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_keran_seroreversion_agg <- readRDS(paste("data/togo_keran_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedKeran_k3_seroreversion <- togo_keran_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_seroreversion_simulation_summary_combined_sens_spec_list[[paste("keran", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedKeran_k3_seroreversion, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+
+k3_seroreversion_simulation_summary_age_group_combined_sens_spec_list <- list()
+combinedSimulation_k3_seroreversion <- selectRunsFromAllPrefectures(
+  readRDS(paste("data/togo_oti_seroreversion_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups(),
+  readRDS(paste("data/togo_keran_seroreversion_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups(),
+  readRDS(paste("data/togo_bassar_seroreversion_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups(),
+  sampleNum=c(500*0.22,500*0.37,500*0.41))
+
+for (sens_spec_val in sens_spec_options) {
+  k3_seroreversion_simulation_summary_age_group_combined_sens_spec_list[[paste(sens_spec_val, collapse="_")]] <- summarizeSimulationData(combinedSimulation_k3_seroreversion, sens_spec_val, groupBySex=FALSE)
+}
+
+k4_seroreversion_simulation_summary_combined_sens_spec_list <- list()
+
+simulatedBassar_k4_seroreversion <- togo_bassar_seroreversion_agg$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k4_seroreversion_simulation_summary_combined_sens_spec_list[[paste("bassar", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedBassar_k4_seroreversion, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+simulatedOti_k4_seroreversion <- togo_oti_seroreversion_agg$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k4_seroreversion_simulation_summary_combined_sens_spec_list[[paste("oti", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k4_seroreversion, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+simulatedKeran_k4_seroreversion <- togo_keran_seroreversion_agg$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_seroreversion_simulation_summary_combined_sens_spec_list[[paste("keran", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedKeran_k4_seroreversion, sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+
+
+
+k4_seroreversion_simulation_summary_age_group_combined_sens_spec_list <- list()
+combinedSimulation_k4_seroreversion <- selectRunsFromAllPrefectures(
+  readRDS(paste("data/togo_oti_seroreversion_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups(),
+  readRDS(paste("data/togo_keran_seroreversion_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups(),
+  readRDS(paste("data/togo_bassar_seroreversion_data", place_to_pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.4) %>% fix_age_groups(),
+  sampleNum=c(500*0.22,500*0.37,500*0.41))
+for (sens_spec_val in sens_spec_options) {
+  k4_seroreversion_simulation_summary_age_group_combined_sens_spec_list[[paste(sens_spec_val, collapse="_")]] <- summarizeSimulationData(combinedSimulation_k4_seroreversion, sens_spec_val, groupBySex=FALSE)
+}
+
+rm(togo_bassar_seroreversion_agg)
+rm(togo_oti_seroreversion_agg)
+rm(togo_keran_seroreversion_agg)
+
+```
+
+##### Checking Projected MFP
+```{r}
+togo_bassar_data_df <- readRDS("data/togo_bassar_mfp_data.RDS")$mf_prev_df
+togo_bassar_data_df %>% group_by(Ke, vctr.ctrl.eff) %>% summarize(mean_mfp_start_2015 = mean(mf_prev_start_2015)*100, mean_mfp_mid_2015 = mean(mf_prev_mid_2015)*100, mean_mfp_end_2015 = mean(mf_prev_after_2015)*100) %>% View()
+
+togo_oti_data_df <- readRDS("data/togo_oti_mfp_data.RDS")$mf_prev_df
+togo_oti_data_df %>% group_by(Ke, vctr.ctrl.eff) %>% summarize(mean_mfp_start_2015 = mean(mf_prev_start_2015)*100, mean_mfp_mid_2015 = mean(mf_prev_mid_2015)*100, mean_mfp_end_2015 = mean(mf_prev_after_2015)*100) %>% View()
+
+togo_keran_data_df <- readRDS("data/togo_keran_mfp_data.RDS")$mf_prev_df
+togo_keran_data_df %>% group_by(Ke, vctr.ctrl.eff) %>% summarize(mean_mfp_start_2015 = mean(mf_prev_start_2015)*100, mean_mfp_mid_2015 = mean(mf_prev_mid_2015)*100, mean_mfp_end_2015 = mean(mf_prev_after_2015)*100) %>% View()
+
+
+all_mfp_df <- data.frame(matrix(ncol=9, nrow=0))
+colnames(all_mfp_df) <- c("sample_point", "prefecture", "vctr.ctrl.eff", "Ke", "mf_prev", "lb", "ub", "q1", "q3")
+all_places_to_pick = c("_start_2015", "_mid_2015", "_end_2015")
+for(prefecture in c("bassar", "oti", "keran")) {
+  for(pick in all_places_to_pick) {
+    tmp <- readRDS(paste("data/togo_", prefecture, "_100_mount_data", pick, ".RDS", sep=""))$allOutputs
+    tmp <- tmp %>% filter(age >= 5) %>%
+      group_by(run_num, vctr.ctrl.eff, Ke) %>% 
+      summarize(num_pos = sum(mf_prev), total=n(), mf_prev=mean(mf_prev), .groups="drop") %>% 
+      group_by(vctr.ctrl.eff, Ke) %>% 
+      summarize(
+        q1 = quantile(mf_prev, probs=0.25)*100,
+        q3 = quantile(mf_prev, probs=0.75)*100,
+        mf_prev = mean(mf_prev)*100, 
+        lb=wilson.ci(mean(num_pos), mean(total))[1]*100, 
+        ub=wilson.ci(mean(num_pos), mean(total))[2]*100, .groups="drop") %>% 
+      mutate(prefecture=prefecture, sample_point=pick) %>% 
+      select(sample_point, prefecture, everything()) %>% 
+      mutate(lb=ifelse(lb < 0, 0, lb))
+    all_mfp_df <- rbind(all_mfp_df, tmp)
+    rm(tmp)
+  }
+}
+
+for(pick in all_places_to_pick) {
+  combined_mfp <- selectRunsFromAllPrefectures(
+    readRDS(paste("data/togo_oti_100_mount_data", pick, ".RDS", sep=""))$allOutputs,
+    readRDS(paste("data/togo_keran_100_mount_data", pick, ".RDS", sep=""))$allOutputs,
+    readRDS(paste("data/togo_bassar_100_mount_data", pick, ".RDS", sep=""))$allOutputs,
+    sampleNum=c(500*0.22,500*0.37,500*0.41)
+    ) %>% filter(age >= 5) %>%
+    group_by(run_num, vctr.ctrl.eff, Ke) %>% 
+    summarize(num_pos = sum(mf_prev), total=n(), mf_prev=mean(mf_prev), .groups="drop") %>% 
+    group_by(vctr.ctrl.eff, Ke) %>% 
+    summarize(
+      q1 = quantile(mf_prev, probs=0.25)*100,
+      q3 = quantile(mf_prev, probs=0.75)*100,
+      mf_prev = mean(mf_prev)*100, 
+      lb=wilson.ci(mean(num_pos), mean(total))[1]*100, 
+      ub=wilson.ci(mean(num_pos), mean(total))[2]*100, .groups="drop") %>%
+    mutate(prefecture="combined", sample_point=pick) %>% 
+    select(sample_point, prefecture, everything()) %>% 
+    mutate(lb=ifelse(lb < 0, 0, lb))
+  all_mfp_df <- rbind(all_mfp_df, combined_mfp)
+  rm(combined_mfp)
+}
+
+
+all_mfp_df %>% 
+  pivot_wider(id_cols=c(sample_point, prefecture, vctr.ctrl.eff), names_from=Ke, values_from=c(mf_prev, q1, q3)) %>%View()
+  mutate(
+    k3_vals = paste0(round(mf_prev_0.3, 3), "% (", round(q1_0.3, 3), "-", round(q3_0.3, 3), ")"),
+    k4_vals = paste0(round(mf_prev_0.4, 3), "% (", round(q1_0.4, 3), "-", round(q3_0.4, 3), ")"),
+    prefecture = factor(prefecture, levels=c("oti", "keran", "bassar", "combined"))
+  ) %>%
+  select(sample_point, prefecture, vctr.ctrl.eff, k3_vals, k4_vals) %>%
+  arrange(sample_point, prefecture, vctr.ctrl.eff) %>%
+  kable('html', escape=FALSE) %>% kable_classic()
+
+
+```
+
+## Actual Data
+
+```{r basic_read_functions, timeit=TRUE}
+# all data from tables in https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5849363/
+togoMF <- function(combined_pop=TRUE) {
+  # 2 years each side except for 7.5 (2.5y gap) and 70.5 (9.5y gap)
+  ageGroups <- c(7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 70.5)
+  male_pop <- c(96, 106, 31, 32, 58, 45, 42, 45, 37, 32, 29, 42)
+  female_pop <- c(76, 106, 64, 86, 137, 90, 63, 44, 53, 30, 32, 38)
+  mf_pos_male <- c(1, 1, 0, 2, 9, 6, 6, 4, 3, 2, 1, 1)
+  mf_pos_female <- c(3, 3, 1, 4, 7, 7, 8, 3, 3, 0, 3, 4)
+  wilson_lb_m <- c()
+  wilson_ub_m <- c()
+  wilson_lb_f <- c()
+  wilson_ub_f <- c()
+  for(i in 1:length(ageGroups)) {
+    wilson_ci_m <- wilson.ci(mf_pos_male[i], male_pop[i])
+    wilson_ci_f <- wilson.ci(mf_pos_female[i], female_pop[i])
+
+    wilson_lb_m <- c(wilson_lb_m, wilson_ci_m[1])
+    wilson_ub_m <- c(wilson_ub_m, wilson_ci_m[2])
+    wilson_lb_f <- c(wilson_lb_f, wilson_ci_f[1])
+    wilson_ub_f <- c(wilson_ub_f, wilson_ci_f[2])
+  }
+  
+  data <- data.frame(age_groups=ageGroups, male_pop=male_pop, female_pop=female_pop, mf_pos_male=mf_pos_male, mf_pos_female=mf_pos_female,
+                     mf_wilson_lb_m=wilson_lb_m, mf_wilson_ub_m=wilson_ub_m,
+                     mf_wilson_lb_f=wilson_lb_f, mf_wilson_ub_f=wilson_ub_f) %>%
+    mutate(mf_prev_male = mf_pos_male/male_pop,
+           mf_prev_female=mf_pos_female/female_pop,
+           mf_wilson_lb_m=ifelse(mf_wilson_lb_m < 0, 0, mf_wilson_lb_m),
+           mf_wilson_lb_f=ifelse(mf_wilson_lb_f < 0, 0, mf_wilson_lb_f))
+  
+  if(combined_pop) {
+    total_pop <- male_pop + female_pop
+    total_mf_pos <- mf_pos_male + mf_pos_female
+    wilson_lb <- c()
+    wilson_ub <- c()
+    for(i in 1:length(ageGroups)) {
+      wilson_ci <- wilson.ci(total_mf_pos[i], total_pop[i])
+
+      wilson_lb <- c(wilson_lb, wilson_ci[1])
+      wilson_ub <- c(wilson_ub, wilson_ci[2])
+    }
+    data <- data %>% mutate(total_pop=total_pop, mf_pos_total=total_mf_pos, mf_wilson_lb=wilson_lb, mf_wilson_ub=wilson_ub) %>% 
+      mutate(
+        mf_prev = mf_pos_total/total_pop
+      )
+  }
+  return(data)
+}
+
+togoOv16 <- function() {
+  # 2 years each side except for 7.5 (2.5y gap) and 75.5 (4.5y gap)
+  ageGroups <- c(7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 63, 68, 75.5)
+  participants <- c(87, 76, 41, 44, 75, 58, 40, 27, 43, 24, 30, 13, 16, 2)
+  ov16_pos <- c(13, 12, 7, 18, 31, 22, 20, 11, 15, 15, 17, 6, 9, 2)
+
+  ageGroups <- c(0, 7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 63, 73)
+  participants <- c(1, 87, 76, 41, 44, 75, 58, 40, 27, 43, 24, 30, 13, 18)
+  ov16_pos <- c(0, 13, 12, 7, 18, 31, 22, 20, 11, 15, 15, 17, 6, 11)
+  wilson_lb <- c()
+  wilson_ub <- c()
+  for(i in 1:length(ov16_pos)) {
+    if(i==1) {
+      wilson_lb <- c(wilson_lb, 0)
+      wilson_ub <- c(wilson_ub, 0)
+      next
+    }
+    wilson_ci <- wilson.ci(ov16_pos[i], participants[i])
+
+    wilson_lb <- c(wilson_lb, wilson_ci[1])
+    wilson_ub <- c(wilson_ub, wilson_ci[2])
+  }
+  data <- data.frame(age_groups=ageGroups, participants=participants, ov16_seropos=ov16_pos,
+                     ov16_wilson_lb=wilson_lb, ov16_wilson_ub=wilson_ub) %>%
+    mutate(ov16_seroprev = ov16_pos/participants)
+  return(data)
+}
+
+togoVillage <- function() {
+  riverBasin <- c(rep('Oti', 3), rep('Keran', 4), rep('Mo', 4))
+  # https://journals.plos.org/plosntds/article/figure?id=10.1371/journal.pntd.0006312.g002
+  # https://www.citypopulation.de/en/togo/admin/
+  prefecture <- c('OTI', 'OTI', 'OTI', #c('KPENDJAL', 'KPENDJAL', 'OTI',#
+                  'Keran', 'Keran', 'Keran', 'Keran',
+                  'Bassar', 'Bassar', 'Bassar', 'Bassar')
+  village <- c('Pancerys', 'Boutchakou', 'Koukoumbou',
+               'Goulbi', 'Tchitchira', 'Koutougou Solla', 'Kpantiiyagou',
+               'Bawlensi', 'Mo-Village', 'Katcha-Konkomba', 'Saboundi')
+  mfExamined <- c(140, 127, 57,
+                  131, 146, 81, 181,
+                  148, 151, 188, 105)
+  mfPositive <- c(4, 1, 3,
+                  15, 15, 11, 14,
+                  0, 13, 5, 2)
+  mfLB <- c(0, 0, 0, 
+            7.5, 6.6, 8.6, 4.4,
+            0, 4.9, 0, 0)
+  mfUB <- c(6.6, 4.8, 11.2,
+            15.4, 14.0, 18.5, 11.11,
+            3.7, 12.2, 5.9, 6.3)
+  ov16ElisaExaminedAllAges <- c(92, 92, 70,
+                         92, 92, 79, 92,
+                         NA, 22, NA, 13)
+  ov16ElisaPositive <- c(10, 15, 9,
+                         42, 42, 45, 46,
+                         NA, 9, NA, 1)
+  ov16ElisaLB <- c(4.4, 8.6, 4.8, 
+                   35.5, 35.3, 45.8, 39.6,
+                   NA, 18.6, NA, 0)
+  ov16ElisaUB <- c(17.4, 24, 20.9,
+                   56, 56, 68.1, 60.4,
+                   NA, 63.2, NA, 24.4)
+  # Age 5-10
+  ov16ElisaChildrenExamined <- c(25, 15, 17,
+                         1, 1, 6, 22,
+                         NA, NA, NA, NA)
+  ov16ElisaChildrenPositive <- c(1, 1, 1,
+                                 0, 0, 4, 6,
+                                 NA, NA, NA, NA)
+  ov16ElisaChildrenLB <- c(0, 0, 0,
+                           0, 12.4, 17.1, 15.4,
+                           NA, NA, NA, NA)
+  ov16ElisaChildrenUB <- c(12.3, 21.0, 18.4,
+                           0, 20.6, 47.5, 51.2,
+                           NA, NA, NA, NA)
+  
+  df <- data.frame(river_basin=riverBasin, prefecture=prefecture, village=village, mf_pop=mfExamined,
+                   mf_pos=mfPositive, ov16_pop_all_ages=ov16ElisaExaminedAllAges,
+                   ov16_pos_all_ages=ov16ElisaPositive, ov16_pop_children=ov16ElisaChildrenExamined,
+                   ov16_pos_children=ov16ElisaChildrenPositive,
+                   ov16_all_ages_lb=ov16ElisaLB,
+                   ov16_all_ages_ub=ov16ElisaUB,
+                   ov16_children_lb=ov16ElisaChildrenLB,
+                   ov16_children_ub=ov16ElisaChildrenUB)
+  return(df)
+}
+```
+
+### Setup and Explore Data
+
+```{r init_act_data, timeit=TRUE}
+togoMFData <- togoMF()
+
+togoOv16Data <- togoOv16()
+
+togoVillageData <- togoVillage()
+
+groupedVillageData <- togoVillageData %>% group_by(river_basin, prefecture) %>% summarise(across(-c('village'), ~ sum(.x, na.rm=TRUE)), .groups='drop') %>% as.data.frame() %>%
+  mutate(
+    mf_prev = mf_pos/mf_pop,
+    ov16_prev_all_ages = ov16_pos_all_ages/ov16_pop_all_ages,
+    ov16_prev_children = ov16_pos_children/ov16_pop_children
+  )
+
+groupedVillageData$all_ages_lb <- c(44.1, 12.8, 9.2)
+groupedVillageData$all_ages_ub <- c(54.5, 44.3, 17.6)
+groupedVillageData$children_lb <- c(15.4, NA, 0)
+groupedVillageData$children_ub <- c(51.2, NA, 11.2)
+  
+togoVillageData <- togoVillageData %>% mutate(
+  mf_prev=mf_pos/mf_pop,
+  ov16_prev_all_ages = ov16_pos_all_ages/ov16_pop_all_ages,
+  ov16_prev_children = ov16_pos_children/ov16_pop_children
+)
+```
+
+Based on the above result, we can say that the Multicountry data is RDT Data, as it matches in MF prevalence and OV16 seroprevalence exactly with the Village grouped RDT data. Additionally, it is only of by 7 individuals
+
+
+
+## Plots
+
+### MFP Plot Agg
+```{r}
+k3_mfp_df <- list()
+all_places_to_pick = c("_start_2015", "_mid_2015", "_end_2015")
+for(pick in all_places_to_pick) {
+  combinedSimulation_k3_100_mount <- selectRunsFromAllPrefectures(
+    readRDS(paste("data/togo_oti_100_mount_data", pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% mutate(age_groups_old = case_when(
+                                                age < 1 ~ 0,
+                                                age < 5 ~ 2.5,
+                                                age < 11 ~ 7.5,
+                                                age < 16 ~ 13,
+                                                age < 21 ~ 18,
+                                                age < 26 ~ 23,
+                                                age < 31 ~ 28,
+                                                age < 36 ~ 33,
+                                                age < 41 ~ 38,
+                                                age < 46 ~ 43,
+                                                age < 51 ~ 48,
+                                                age < 56 ~ 53,
+                                                age < 61 ~ 58,
+                                                TRUE ~ 70.5
+                                              )),
+    readRDS(paste("data/togo_keran_100_mount_data", pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% mutate(age_groups_old = case_when(
+                                                age < 1 ~ 0,
+                                                age < 5 ~ 2.5,
+                                                age < 11 ~ 7.5,
+                                                age < 16 ~ 13,
+                                                age < 21 ~ 18,
+                                                age < 26 ~ 23,
+                                                age < 31 ~ 28,
+                                                age < 36 ~ 33,
+                                                age < 41 ~ 38,
+                                                age < 46 ~ 43,
+                                                age < 51 ~ 48,
+                                                age < 56 ~ 53,
+                                                age < 61 ~ 58,
+                                                TRUE ~ 70.5
+                                              )),
+    readRDS(paste("data/togo_bassar_100_mount_data", pick, ".RDS", sep=""))$allOutputs %>% filter(Ke == 0.3) %>% mutate(age_groups_old = case_when(
+                                                age < 1 ~ 0,
+                                                age < 5 ~ 2.5,
+                                                age < 11 ~ 7.5,
+                                                age < 16 ~ 13,
+                                                age < 21 ~ 18,
+                                                age < 26 ~ 23,
+                                                age < 31 ~ 28,
+                                                age < 36 ~ 33,
+                                                age < 41 ~ 38,
+                                                age < 46 ~ 43,
+                                                age < 51 ~ 48,
+                                                age < 56 ~ 53,
+                                                age < 61 ~ 58,
+                                                TRUE ~ 70.5
+                                              )),
+    sampleNum=c(500*0.22,500*0.37,500*0.41))
+  
+  if(length(k3_mfp_df) == 0) {
+    k3_mfp_df <- summarizeSimulationData(combinedSimulation_k3_100_mount, c(1,1), groupBySex=FALSE) %>% mutate(sample_time=pick)
+  } else {
+    k3_mfp_df <- rbind(k3_mfp_df,
+                       summarizeSimulationData(combinedSimulation_k3_100_mount, c(1,1), groupBySex=FALSE) %>% mutate(sample_time=pick))
+  }
+  gc()
+}
+
+mfp_plot <- ggplot() + geom_point(data=togoMFData, aes(x=age_groups, y=mf_prev*100, color="Observed Data")) +
+  geom_errorbar(data=togoMFData, aes(x=age_groups, ymin=mf_wilson_lb*100, ymax=mf_wilson_ub*100), width=2.5, alpha=0.5) + 
+  geom_line(data=k3_mfp_df %>% filter(sample_time == "_end_2015"), aes(x=age_groups, y=mf_prev*100, color=factor(vctr.ctrl.eff), linetype=sample_time), size=1) +
+  geom_ribbon(data=k3_mfp_df %>% filter(sample_time == "_end_2015"), aes(x=age_groups, ymin=mf_q1*100, ymax=mf_q3*100, color=factor(vctr.ctrl.eff), fill=factor(vctr.ctrl.eff), linetype=sample_time), alpha=0.1) +
+  #geom_line(data=k4_mfp_df, aes(x=age_groups, y=mf_prev*100, color="Simulation K4")) +
+  #geom_ribbon(data=k4_mfp_df, aes(x=age_groups, ymin=mf_lb*100, ymax=mf_ub*100), color="lightblue", fill="lightblue", linetype="dashed", alpha=0.2) +
+  scale_color_manual("Type", values=c("black", "red", "lightblue", "green")) +
+  scale_fill_manual("Type", values=c("black", "red", "lightblue", "green")) +
+  scale_x_continuous(breaks=seq(0, 80, 5)) +
+  xlab("Age (years)") +
+  ylab("Microfilarial Prevalence (%)")
+mfp_plot
+ggsave("images/togo_combined_mfp_graph_new.png",mfp_plot, width=4250, height=3000, units="px", dpi=450)
+```
+
+### Clinical Infectious Disease Age-Group plots
+
+#### LSR Values
+```{r}
+calculateLSRs <- function(originalData, projection_df_list) {
+  combined_df <- NA
+  for(sens_spec_val in names(projection_df_list)) {
+    if(!is.data.frame(combined_df)) {
+      combined_df <- projection_df_list[[sens_spec_val]] %>% mutate(sens_spec = sens_spec_val)
+    } else {
+      combined_df <- rbind(combined_df, projection_df_list[[sens_spec_val]] %>% mutate(sens_spec = sens_spec_val))
+    }
+  }
+  combined_df_2 <- combined_df %>% separate_wider_delim(sens_spec, delim="_", names=c("sens", "spec"))
+  
+  lsr_calculation <- list()
+  vct_ctrl_list <- combined_df_2 %>% select(vctr.ctrl.eff) %>% distinct() %>% .[[1]]
+  for(vct_ctr in vct_ctrl_list) {
+    tmp_projection_data <- combined_df_2 %>% filter(vctr.ctrl.eff == vct_ctr) %>% mutate(
+      sens = paste(as.numeric(sens)*100, "%", sep=""),
+      spec = paste(as.numeric(spec)*100, "%", sep="")
+    )
+    
+    if(length(lsr_calculation) == 0) {
+      lsr_calculation <- merge(tmp_projection_data, originalData, by=c("age_groups")) %>%
+        mutate(lsr_value = ((ov16_prev*100) - (ov16_seroprev*100))**2) %>%
+        select(Hypothesis, sens, spec, vctr.ctrl.eff, age_groups, lsr_value)
+    } else {
+      lsr_calculation <- rbind(
+        lsr_calculation,
+        merge(tmp_projection_data, originalData, by=c("age_groups")) %>%
+          mutate(lsr_value = ((ov16_prev*100) - (ov16_seroprev*100))**2) %>%
+          select(Hypothesis, sens, spec, vctr.ctrl.eff, age_groups, lsr_value)
+      )
+    }
+  }
+  return(lsr_calculation %>% mutate(Hypothesis=factor(Hypothesis, levels=c("Pre-Patent Infection", "Patent Infection"))))
+}
+k3_100_mount_lsrs <- calculateLSRs(togoOv16Data %>% filter(age_groups > 0), k3_100_mount_simulation_summary_age_group_combined_sens_spec_list)
+
+k3_100_mount_lsrs %>% group_by(Hypothesis, vctr.ctrl.eff, sens, spec) %>% summarise(cum_lsr = sum(lsr_value), .groups="drop") %>% ungroup() %>% as.data.frame() %>% select(Hypothesis, vctr.ctrl.eff, sens, spec, cum_lsr) %>% pivot_wider(names_from = c(spec), values_from=c(cum_lsr)) %>% group_by(sens) %>% mutate(across(3:5, ~ ifelse(. == min(.), text_spec(round(., 2), bold=TRUE), round(., 2)))) %>% arrange(sens) %>% kable('html', escape=FALSE) %>% kable_classic()# %>% row_spec(c(9), extra_css="border-bottom: 1px solid;")
+
+k3_100_mount_lsrs %>% filter(age_groups <= 23) %>% group_by(Hypothesis, vctr.ctrl.eff, sens, spec) %>% summarise(cum_lsr = sum(lsr_value), .groups="drop") %>% ungroup() %>% as.data.frame() %>% select(Hypothesis, vctr.ctrl.eff, sens, spec, cum_lsr) %>% pivot_wider(names_from = c(spec), values_from=c(cum_lsr)) %>% group_by(sens) %>% mutate(across(3:5, ~ ifelse(. == min(.), text_spec(round(., 2), bold=TRUE), round(., 2)))) %>% arrange(sens) %>% kable('html', escape=FALSE) %>% kable_classic()# %>% row_spec(c(9), extra_css="border-bottom: 1px solid;")
+
+k3_seroreversion_lsrs <- calculateLSRs(togoOv16Data, k3_seroreversion_simulation_summary_age_group_combined_sens_spec_list)
+
+k3_seroreversion_lsrs %>% group_by(Hypothesis, vctr.ctrl.eff, sens, spec) %>% summarise(cum_lsr = sum(lsr_value), .groups="drop") %>% ungroup() %>% as.data.frame() %>% select(Hypothesis, vctr.ctrl.eff, sens, spec, cum_lsr) %>% pivot_wider(names_from = spec, values_from=c(cum_lsr)) %>% group_by(sens) %>% mutate(across(3:5, ~ ifelse(. == min(.), text_spec(round(., 2), bold=TRUE), round(., 2)))
+) %>% arrange(sens) %>% kable('html', escape=FALSE) %>% kable_classic() #%>% row_spec(c(9), extra_css="border-bottom: 1px solid;")
+
+k3_seroreversion_lsrs %>% filter(age_groups <= 23) %>% group_by(Hypothesis, vctr.ctrl.eff, sens, spec) %>% summarise(cum_lsr = sum(lsr_value), .groups="drop") %>% ungroup() %>% as.data.frame() %>% select(Hypothesis, vctr.ctrl.eff, sens, spec, cum_lsr) %>% pivot_wider(names_from = spec, values_from=c(cum_lsr)) %>% group_by(sens) %>% mutate(across(3:5, ~ ifelse(. == min(.), text_spec(round(., 2), bold=TRUE), round(., 2)))
+) %>% arrange(sens) %>% kable('html', escape=FALSE) %>% kable_classic() #%>% row_spec(c(9), extra_css="border-bottom: 1px solid;")
+
+```
+
+```{r}
+calculateLSRs_prefecture <- function(originalData, projection_df_list, use_all_age=FALSE) {
+  combined_df <- NA
+  for(sens_spec_val in names(projection_df_list)) {
+    df_to_use <- projection_df_list[[sens_spec_val]]$all_ages
+    if (!use_all_age) {
+      df_to_use <- projection_df_list[[sens_spec_val]]$under10
+    }
+    if(!is.data.frame(combined_df)) {
+      combined_df <- df_to_use %>% mutate(sens_spec = sens_spec_val)
+    } else {
+      combined_df <- rbind(combined_df, df_to_use %>% mutate(sens_spec = sens_spec_val))
+    }
+  }
+  combined_df_2 <- combined_df %>% 
+    separate_wider_delim(sens_spec, delim="_", names=c("sens", "spec")) %>%
+    separate_wider_delim(sens, delim=" ", names=c("prefecture", "sens")) %>%
+    separate_wider_delim(spec, delim=" ", names=c("to_drop", "spec")) %>%
+    select(-to_drop) %>% 
+    filter(Hypothesis %in% c(
+                            "Observed", 
+                            "L3 exposure", 
+                            "L4-L5 moult",
+                            "Any worm", 
+                            "Mating worm pair with any mf"
+                          )) %>%
+    mutate(
+      Hypothesis = factor(Hypothesis,
+                          c(
+                            "Observed", 
+                            "L3 exposure", 
+                            "L4-L5 moult",
+                            "Any worm", 
+                            "Mating worm pair with any mf"
+                          )),
+      sens = paste(as.numeric(sens)*100, "%", sep=""),
+      spec = paste(as.numeric(spec)*100, "%", sep="")
+    ) %>% select(
+      Hypothesis, sens, spec, prefecture, vctr.ctrl.eff, ov16_prev 
+    )
+  if(!use_all_age) {
+    combined_df_2 <- combined_df_2 %>% filter(prefecture != "bassar")
+  }
+  
+  lsr_calculation <- list()
+  vct_ctrl_list <- combined_df_2 %>% select(vctr.ctrl.eff) %>% distinct() %>% .[[1]]
+  for(vctr.ctrl in vct_ctrl_list) {
+    filtered_original_df <- originalData %>% mutate(prefecture=tolower(prefecture))
+    if(use_all_age) {
+      filtered_original_df <- filtered_original_df %>% mutate(
+        ov16_to_use = ov16_prev_all_ages
+      )
+    } else {
+      filtered_original_df <- filtered_original_df %>% mutate(
+        ov16_to_use = ov16_prev_children
+      )
+    }
+    
+    tmp_projection_data <- combined_df_2 %>% filter(vctr.ctrl.eff == vctr.ctrl)
+    if(length(lsr_calculation) == 0) {
+      lsr_calculation <- left_join(tmp_projection_data, filtered_original_df, by=c("prefecture")) %>%
+        mutate(lsr_value = ((ov16_prev*100) - (ov16_to_use*100))**2) %>%
+        select(Hypothesis, sens, spec, vctr.ctrl.eff, prefecture, lsr_value)
+    } else {
+      lsr_calculation <- rbind(
+        lsr_calculation,
+        left_join(tmp_projection_data, filtered_original_df, by=c("prefecture")) %>%
+          mutate(lsr_value = ((ov16_prev*100) - (ov16_to_use*100))**2) %>%
+          select(Hypothesis, sens, spec, vctr.ctrl.eff, prefecture, lsr_value)
+      )
+    }
+  }
+  return(lsr_calculation)
+}
+
+k3_100_mount_prefecture_lsrs <- calculateLSRs_prefecture(groupedVillageData, k3_100_mount_simulation_summary_combined_sens_spec_list, use_all_age = FALSE)
+
+k3_100_mount_prefecture_lsrs %>% filter(vctr.ctrl.eff == "0.75") %>% mutate(Hypothesis = case_when(
+  grepl("Mating", Hypothesis) ~ "Patent Infection",
+  TRUE ~ "Pre-Patent Infection"
+  )
+) %>% group_by(Hypothesis, sens, spec, prefecture) %>% summarise(cum_lsr = mean(lsr_value), .groups="drop") %>% ungroup() %>% as.data.frame() %>% select(Hypothesis, prefecture, sens, spec, cum_lsr) %>% pivot_wider(names_from = spec, values_from=c(cum_lsr)) %>% mutate(across(4:12, ~ ifelse(. == min(.), text_spec(round(., 2), bold=TRUE), round(., 2)))) %>% arrange(Hypothesis) %>% kable('html', escape=FALSE) %>% kable_classic() %>% row_spec(c(9), extra_css="border-bottom: 1px solid;")
+
+
+k3_seroreversion_prefecture_lsrs <- calculateLSRs_prefecture(groupedVillageData, k3_seroreversion_simulation_summary_combined_sens_spec_list, use_all_age = TRUE)
+
+k3_seroreversion_prefecture_lsrs %>% filter(vctr.ctrl.eff == "0.75") %>% mutate(Hypothesis = case_when(
+  grepl("Mating", Hypothesis) ~ "Patent Infection",
+  TRUE ~ "Pre-Patent Infection"
+  )
+) %>% group_by(Hypothesis, sens, spec, prefecture) %>% summarise(cum_lsr = mean(lsr_value), .groups="drop") %>% ungroup() %>% as.data.frame() %>% select(Hypothesis, prefecture, sens, spec, cum_lsr) %>% pivot_wider(names_from = c(prefecture, sens), values_from=c(cum_lsr)) %>% group_by(spec) %>% mutate(across(2:11, ~ ifelse(. == min(.), text_spec(round(., 2), bold=TRUE), round(., 2)))) %>% ungroup() %>% arrange(spec) %>% select(sort(names(.))) %>% kable('html', escape=FALSE) %>% kable_classic()
+
+k3_seroreversion_prefecture_lsrs %>% filter(vctr.ctrl.eff == "0.75") %>% mutate(Hypothesis = case_when(
+  grepl("Mating", Hypothesis) ~ "Patent Infection",
+  TRUE ~ "Pre-Patent Infection"
+  )
+) %>% group_by(Hypothesis, sens, spec, prefecture) %>% summarise(cum_lsr = mean(lsr_value), .groups="drop") %>% ungroup() %>% as.data.frame() %>% select(Hypothesis, prefecture, sens, spec, cum_lsr) %>% pivot_wider(names_from = c(sens), values_from=c(cum_lsr)) %>% group_by(Hypothesis, spec) %>% summarise(across(2:6, ~ mean(.)), .groups="drop") %>% group_by(spec) %>% mutate(across(2:6, ~ ifelse(. == min(.), text_spec(round(., 2), bold=TRUE), round(., 2)))) %>% ungroup() %>% arrange(spec) %>% kable('html', escape=FALSE) %>% kable_classic()
+```
+
+#### Age Grouped Graphs
+
+```{r cid_graph_function}
+filterHypotheses <- function(data) {
+  actual_hyps <- c("Patent Infection")
+  data <- data %>% filter(Hypothesis %in% actual_hyps) %>% mutate(
+    Hypothesis = "Mating worm pair with any mf"
+  )
+  return(data)
+}
+
+makeAgeGroupGraphsSensSpec <- function(originalData, projection_df_list, descriptor, facet_value="sens ~ spec", facet_1, facet_2) {
+  combined_df <- NA
+  for(sens_spec_val in names(projection_df_list)) {
+    if(!is.data.frame(combined_df)) {
+      combined_df <- projection_df_list[[sens_spec_val]] %>% mutate(sens_spec = sens_spec_val)
+    } else {
+      combined_df <- rbind(combined_df, projection_df_list[[sens_spec_val]] %>% mutate(sens_spec = sens_spec_val))
+    }
+  }
+
+  combined_df_2 <- combined_df %>% separate_wider_delim(sens_spec, delim="_", names=c("sens", "spec"))
+  
+  #vct_ctrl_list <- combined_df_2 %>% select(vctr.ctrl.eff) %>% distinct() %>% .[[1]]
+  #for(vct_ctr in vct_ctrl_list) {
+    tmp_projection_data <- combined_df_2 %>% 
+      #filter(vctr.ctrl.eff == vct_ctr) %>% 
+      mutate(vctr.ctrl.eff = paste(as.numeric(vctr.ctrl.eff)*100, "%", sep="")) %>% 
+      mutate(
+        sens = paste(as.numeric(sens)*100, "%", sep=""),
+        spec = paste(as.numeric(spec)*100, "%", sep="")
+      ) %>% filterHypotheses()
+
+    
+
+    color_vals <- c("Mating worm pair with any mf"="darkred", "Patent Infection"="darkred", "Pre-Patent Infection"="blue")
+    color_vals <- c("60%"="brown", "75%"="red", "95%"="orange")
+    #color_vals <- c("60%"="black", "75%" = "black", "95%" = "black")
+    linetype_vals <- c("60%"="solid", "75%"="dashed", "95%"="dotted", "none"="none")
+    p1 <- ggplot() + 
+      geom_line(
+        aes(x=age_groups, y=ov16_prev*100, 
+            linetype=factor(vctr.ctrl.eff),
+            color=vctr.ctrl.eff#Hypothesis
+            ), 
+        size=0.5, data=tmp_projection_data
+      ) +
+      geom_ribbon(
+        aes(x=age_groups, ymin=ov16_q1*100, ymax=ov16_q3*100,
+            fill=vctr.ctrl.eff,
+            linetype=vctr.ctrl.eff
+            ),
+        alpha=0.1,
+        size=0.1,
+        data=tmp_projection_data
+      ) +
+      geom_point(
+        aes(x=age_groups, y=ov16_seroprev*100), 
+        color="black", alpha=0.5, data=originalData, size=0.5
+      ) +
+      geom_errorbar(
+        aes(x=age_groups, ymin=ov16_wilson_lb*100, ymax=ov16_wilson_ub*100), 
+        width=2.5, alpha=0.5, color="black", data=originalData
+      ) +
+      xlab("Age (years)") + ylab("Ov16 Seroprevalence (%)") +
+      #scale_color_manual("Hypotheses", values=color_vals) +
+      scale_color_manual("Vector Control Efficacy", values=color_vals) +
+      scale_fill_manual("Vector Control Efficacy", values=color_vals) +
+      scale_linetype_manual("Vector Control Efficacy", values=linetype_vals) +
+      #guides(
+      #  linetype = guide_legend(order = 1), 
+      #  color = guide_legend(order = 2)
+      #) +
+      theme_bw() +
+      facet_grid(facet_value) +
+      scale_y_continuous(
+        limits=c(0, 101), 
+        breaks=seq(0, 100, 25), 
+        sec.axis = sec_axis(~ . , name = facet_1, breaks = NULL, labels = NULL)
+      ) +
+      scale_x_continuous(
+        limits=c(0, 81), 
+        breaks=seq(0, 100, 20) 
+        #sec.axis = sec_axis(~ . , name = facet_2, breaks = NULL, labels = NULL)
+      ) +
+      ggtitle(facet_2) +
+      theme_bw() +
+      theme(
+        plot.title = element_text(size=10, hjust = 0.5),
+        axis.title.y = element_text(size=10),
+        title = element_text(size=10),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=8),
+        legend.key.size = unit(0.8, 'lines'),
+        legend.position = "bottom",  # Set legend to the bottom
+        legend.direction = "horizontal",
+        axis.text.y = element_text(size=6),
+        axis.text.x = element_text(size=6),
+        strip.placement = "outside",
+        panel.grid.minor = element_blank(),
+        axis.line.x = element_line(color = "black"),
+        axis.line.y = element_line(color = "black"),
+        strip.text.y = element_text(angle=0),
+        axis.line.y.right = element_blank()
+      )
+      #ggtitle(paste("Vector Control Efficacy:", vct_ctr*100))
+    #ggsave(paste("images/togo_sens_spec_analysis_", descriptor, "_", vct_ctr, ".png", sep=""), p1, units="in", height=4, width=5.5, dpi=300)
+    ggsave(paste("images/togo_sens_spec_analysis_", descriptor, ".png", sep=""), p1, units="in", height=4, width=5.5, dpi=300)
+    print(p1)
+  #}
+}
+
+makeAgeGroupGraphsSensSpec(togoOv16Data, k3_100_mount_simulation_summary_age_group_combined_sens_spec_list, "basic_v3", "sens ~ spec", "Sensitivity", "Specificity")
+
+makeAgeGroupGraphsSensSpec(togoOv16Data, k3_seroreversion_simulation_summary_age_group_combined_sens_spec_list, "seroreversion_v3", "sens ~ spec", "Sensitivity", "Specificity")
+```
+
+#### Prefecture Bar Charts
+
+```{r}
+makePrefectureBarSensSpec <- function(original_data, projection_df_list, use_all_age=TRUE, descriptor="", sero_dfs=list()) {
+  ylab <- "All Ages"
+  if (grepl("under10", descriptor)) {
+    ylab <- "Under 10 Year-Old"
+  }
+  color_vals <- c("Observed"="black", "Any worm"="blue", "L3 exposure"="purple", "L4-L5 moult"="#6366f2", "Mating worm pair"="brown", "Mating worm pair with any mf"="red", "Mating worm pair with detectable mf"="orange")
+  color_vals <- c("Observed"="black", "VCE: 60%"="brown", "VCE: 75%"="red", "VCE: 95%"="orange", "VCE: 60%*"="blue", "VCE: 75%*"="purple", "VCE: 95%*"="#6366f2")
+  fill_vals <- c("Observed"="black", "VCE: 60%"="brown", "VCE: 75%"="red", "VCE: 95%"="orange", "VCE: 60%*"="white", "VCE: 75%*"="white", "VCE: 95%*"="white")
+  color_vals <- c("Observed"="black", "Observed Error Bar"= "red", "Error Bar"= "black", "VCE: 60%"="black", "VCE: 75%"="black", "VCE: 95%"="black", "VCE: 60%*"="brown", "VCE: 75%*"="red", "VCE: 95%*"="orange")
+  error_bar_colors <- c("Observed"="red", "Any worm"="red", "L3 exposure"="red", "L4-L5 moult"="red", "Mating worm pair"="red", "Mating worm pair with any mf"="red", "Mating worm pair with detectable mf"="red")
+  error_bar_colors <- c("Observed"="red", "VCE: 60%"="black", "VCE: 75%"="black", "VCE: 95%"="black", "VCE: 60%*"="black", "VCE: 75%*"="black", "VCE: 95%*"="black")
+  combined_df <- NA
+  for(sens_spec_val in names(projection_df_list)) {
+    df_to_use <- projection_df_list[[sens_spec_val]]$all_ages
+    if(length(sero_dfs) > 0) {
+      df_to_use <- df_to_use %>% mutate(seroreversion = FALSE)
+      df_to_use <- rbind(df_to_use, sero_dfs[[sens_spec_val]]$all_ages %>% mutate(seroreversion = TRUE))
+    }
+    if (!use_all_age) {
+      df_to_use <- projection_df_list[[sens_spec_val]]$under10
+      if(length(sero_dfs) > 0) {
+        df_to_use <- df_to_use %>% mutate(seroreversion = FALSE)
+        df_to_use <- rbind(df_to_use, sero_dfs[[sens_spec_val]]$under10 %>% mutate(seroreversion = TRUE))
+      }
+    }
+    if(!is.data.frame(combined_df)) {
+      combined_df <- df_to_use %>% mutate(sens_spec = sens_spec_val)
+    } else {
+      combined_df <- rbind(combined_df, df_to_use %>% mutate(sens_spec = sens_spec_val))
+    }
+    filtered_original_df <- original_data %>% mutate(prefecture=tolower(prefecture)) %>% filter(str_detect(sens_spec_val, prefecture))
+    if(use_all_age) {
+      combined_df <- rbind(
+        combined_df,
+        list(
+          #c(0.6, 0.75, 0.95), 
+          c(-1, -1),
+          rep("Observed", 2), 
+          rep(filtered_original_df$ov16_prev_all_ages, 2),
+          rep(NA, 2),
+          rep(filtered_original_df$all_ages_lb, 2) / 100,
+          rep(NA, 2),
+          rep(filtered_original_df$all_ages_ub, 2) / 100,
+          rep(NA, 2),
+          c(FALSE, TRUE),
+          rep(sens_spec_val, 2)
+        )
+      )
+    } else {
+      combined_df <- rbind(
+        combined_df,
+        list(
+          #c(0.6, 0.75, 0.95), 
+          c(-1, -1), 
+          rep("Observed", 2), 
+          rep(filtered_original_df$ov16_prev_children, 2),
+          rep(NA, 2),
+          rep(filtered_original_df$children_lb, 2) / 100,
+          rep(NA, 2),
+          rep(filtered_original_df$children_ub, 2) / 100,
+          rep(NA, 2),
+          c(FALSE, TRUE),
+          rep(sens_spec_val, 2)
+        )
+      )
+    }
+  }
+  combined_df_2 <- combined_df %>% 
+    separate_wider_delim(sens_spec, delim="_", names=c("sens", "spec")) %>%
+    separate_wider_delim(sens, delim=" ", names=c("prefecture", "sens")) %>%
+    separate_wider_delim(spec, delim=" ", names=c("to_drop", "spec")) %>%
+    select(-to_drop) %>% 
+    filter(Hypothesis %in% c(
+                            "Observed", 
+                            #"L3 exposure", 
+                            #"L4-L5 moult",
+                            #"Any worm", 
+                            "Mating worm pair with any mf"
+                          )) %>%
+    mutate(
+      prefecture = factor(str_to_title(prefecture), levels=c("Oti", "Keran", "Bassar")),
+      Hypothesis = factor(Hypothesis,
+                          c(
+                            "Observed", 
+                            "L3 exposure", 
+                            "L4-L5 moult",
+                            "Any worm", 
+                            "Mating worm pair with any mf"
+                          )),
+      error_bar_colors = ifelse(vctr.ctrl.eff < 0, "Observed Error Bar", "Error Bar"),
+      vctr.ctrl.eff = ifelse(vctr.ctrl.eff > 0, paste("VCE: ", as.numeric(vctr.ctrl.eff)*100, "%", sep=""), "Observed"),
+      vctr.ctrl.eff = ifelse(seroreversion == TRUE & vctr.ctrl.eff != "Observed", paste0(vctr.ctrl.eff, "*"), vctr.ctrl.eff),
+      vctr.ctrl.eff = factor(vctr.ctrl.eff, levels=c("Observed", "VCE: 60%", "VCE: 60%*", "VCE: 75%", "VCE: 75%*", "VCE: 95%", "VCE: 95%*")),
+      seroreversion = ifelse(seroreversion, "S", "NS"),
+      seroreversion = ifelse(vctr.ctrl.eff == "Observed", "", seroreversion),
+      sens = paste(as.numeric(sens)*100, "%", sep=""),
+      spec = paste(as.numeric(spec)*100, "%", sep="")
+    )
+
+  if(!use_all_age) {
+    combined_df_2 <- combined_df_2 %>% filter(prefecture != "Bassar")
+  }
+  
+  vct_ctrl_list <- combined_df_2 %>% select(vctr.ctrl.eff) %>% distinct() %>% .[[1]]
+  #for(vctr.ctrl in vct_ctrl_list) {
+  
+    #plot <- ggplot(data=(combined_df_2 %>% filter(vctr.ctrl.eff == 0.6))) + 
+    plot <- ggplot(data=combined_df_2) + 
+      #geom_bar(aes(x=prefecture, y=ov16_prev*100, fill=Hypothesis), position="dodge", stat="identity") + 
+      #geom_errorbar(aes(x=prefecture, ymin=ov16_prev_lb*100, ymax=ov16_prev_ub*100, group=Hypothesis, color=Hypothesis), alpha=0.5, position="dodge") +
+      geom_bar(aes(x=prefecture, y=ov16_prev*100, fill=vctr.ctrl.eff, color=vctr.ctrl.eff), position=position_dodge(width=0.9), width=0.6, stat="identity") + 
+      geom_errorbar(aes(x=prefecture, ymin=ov16_prev_lb*100, ymax=ov16_prev_ub*100, group=vctr.ctrl.eff, color=error_bar_colors), width=0.3, position=position_dodge(width=0.9)) +
+      #geom_text(aes(x=prefecture, y=0, group=vctr.ctrl.eff, label=seroreversion), position = position_dodge(width=0.9), vjust = 1.5, size=1) +
+      scale_fill_manual("Model", values=fill_vals) +#color_vals) +
+      scale_color_manual("Model", values=color_vals,
+                         breaks=c(
+                           "Observed",
+                           "VCE: 60%",
+                           "VCE: 60%*",
+                           "VCE: 75%",
+                           "VCE: 75%*",
+                           "VCE: 95%",
+                           "VCE: 95%*"
+                         )) +#error_bar_colors) +
+      #scale_alpha_manual("Seroreversion", values=c(1, 0.5)) +
+      facet_grid(sens ~ spec) +
+      xlab("Prefecture") +
+      scale_y_continuous(
+        paste("Ov16", ylab, "Seroprevalence (%)"),
+        limits = c(-5, max(combined_df_2$ov16_prev_ub*100)),
+        breaks=seq(0, 60, 20),
+        sec.axis = sec_axis(~ . , name = "Sensitivity", breaks = NULL, labels = NULL)
+      ) +
+      ggtitle("Specificity") +
+      theme_bw() +
+      theme(
+          plot.title = element_text(size=10, hjust = 0.5),
+          axis.title.y = element_text(size=10),
+          title = element_text(size=10),
+          legend.text = element_text(size=6),
+          legend.title = element_text(size=8),
+          legend.key.size = unit(0.8, 'lines'),
+          legend.position = "bottom",  # Set legend to the bottom
+          legend.direction = "horizontal",
+          axis.text.y = element_text(size=6),
+          axis.text.x = element_text(size=6, angle=70, vjust=0.5),
+          strip.placement = "outside",
+          panel.border = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          axis.line.x = element_line(color = "black"),
+          axis.line.y = element_line(color = "black"),
+          strip.text.y = element_text(angle=0),
+          axis.line.y.right = element_blank()
+        ) +
+      geom_segment(aes(x=0.55, xend=1.45, y=-5, yend=-5), color="black", size=0.1) +
+      geom_segment(aes(x=0.55, xend=0.55, y=0, yend=-5), color="black", size=0.1) +
+      geom_segment(aes(x=1.45, xend=1.45, y=0, yend=-5), color="black", size=0.1) + 
+      geom_segment(aes(x=1.55, xend=2.45, y=-5, yend=-5), color="black", size=0.1) +
+      geom_segment(aes(x=1.55, xend=1.55, y=0, yend=-5), color="black", size=0.1) +
+      geom_segment(aes(x=2.45, xend=2.45, y=0, yend=-5), color="black", size=0.1)
+    if(use_all_age) {
+      plot <- plot + 
+        geom_segment(aes(x=2.55, xend=3.45, y=-5, yend=-5), color="black", size=0.1) +
+        geom_segment(aes(x=2.55, xend=2.55, y=0, yend=-5), color="black", size=0.1) +
+        geom_segment(aes(x=3.45, xend=3.45, y=0, yend=-5), color="black", size=0.1)
+    }
+      #guides(color="none")
+    print(plot)
+    #ggsave(paste("images/togo_sens_spec_analysis_bar_", descriptor, "_", vctr.ctrl, ".png", sep=""), plot, units="in", height=4, width=5.5, dpi=300)
+    ggsave(paste("images/togo_sens_spec_analysis_bar_", descriptor, "_v3.png", sep=""), plot, units="in", height=5, width=6, dpi=300)
+  #}
+}
+
+makePrefectureBarSensSpec(groupedVillageData, k3_100_mount_simulation_summary_combined_sens_spec_list, TRUE, "all_ages", k3_seroreversion_simulation_summary_combined_sens_spec_list)
+
+makePrefectureBarSensSpec(groupedVillageData, k3_100_mount_simulation_summary_combined_sens_spec_list, FALSE, "under10", k3_seroreversion_simulation_summary_combined_sens_spec_list)
+
+makePrefectureBarSensSpec(groupedVillageData, k3_seroreversion_simulation_summary_combined_sens_spec_list, TRUE, "all_ages_sero")
+
+makePrefectureBarSensSpec(groupedVillageData, k3_seroreversion_simulation_summary_combined_sens_spec_list, FALSE, "under10_sero")
+```
+
