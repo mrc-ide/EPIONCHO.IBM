@@ -46,7 +46,7 @@
 
 ep.equi.sim <- function(time.its,
                         ABR,
-                        N.in,
+                        N.in = 400,
                         treat.int,
                         treat.timing,
                         treat.prob,
@@ -69,7 +69,6 @@ ep.equi.sim <- function(time.its,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
                         OAE_equilibrium,
-                        N.in = 400,
                         calc_ov16=FALSE,
                         ov16_equilibrium=NA,
                         ov16_store_times = c(),
@@ -93,7 +92,7 @@ ep.equi.sim <- function(time.its,
   if(length(ov16_store_times) > 0) {
     ov16_store_times <- round(ov16_store_times / (DT))
   }
-  
+
   if(give.treat == 1)
   {
     treat.stop <- round(treat.stop / (DT))
@@ -364,7 +363,7 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_mating_any_mf <- rep(0, N)
 
       Ov16_Seropositive_serorevert <- rep(0, N)
-      Ov16_Seropositive_L3_serorevert <- 
+      Ov16_Seropositive_L3_serorevert <-
       Ov16_Seropositive_L4_serorevert <- rep(0, N)
       Ov16_Seropositive_mating_no_mf_serorevert <- rep(0, N)
       Ov16_Seropositive_mating_detectable_mf_serorevert <- rep(0, N)
