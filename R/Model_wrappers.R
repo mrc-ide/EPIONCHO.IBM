@@ -40,6 +40,8 @@
 #' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
 #' @param OAE_equilibrium OAE equilibrium input given to continue model
 #' @param OAE_infection OAE prevalence and incidence inputs at equilibrium
+#' @param correlated_compliance correlated compliance structure specified
+#' @param comp.correlation this is the probability associated with the compliance correlation (rho)
 #'
 #' @export
 
@@ -67,16 +69,23 @@ ep.equi.sim <- function(time.its,
                         equilibrium,
                         print_progress = TRUE,
                         epilepsy_module = "NO",
-                        OAE_equilibrium)
+                        OAE_equilibrium,
+                        correlated_compliance = "NO",
+                        comp.correlation,
+                        treat.switch = NA,
+                        treat.type = NA)
 
 
 {
   # ====================== #
   # Set-up time parameters #
 
-  DT <- 1/366
+  DT <- 1/366 # default timestep
+  #DT <- (1/366)/2 # half-day timestep required for MOX dynamics
+
   time.its <- round(time.its / (DT))
-  year_its <- seq(0, time.its, 366)
+  year_its <- seq(0, time.its, 1/DT)
+
   # if(give.treat == 1) #calculate timesteps at which treatment is given
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
   # else {times.of.treat.in <- 0}
@@ -139,10 +148,32 @@ ep.equi.sim <- function(time.its,
   mu.w1 = 0.09953; mu.w2 = 6.00569 #parameters controlling age-dependent mortality in adult worms (matt: these are y_l = y_w and d_l = d_w in equation S6/S7 & Table E)
   mu.mf1 = 1.089; mu.mf2 = 1.428 #parameters controlling age-dependent mortality in mf (matt: these are y_l = y_m and d_l = d_m in equation S6/S7 & Table E)
   fec.w.1 = 70; fec.w.2 = 0.72 #parameters controlling age-dependent fecundity in adult worms (matt: fec.w.1 = F and fec.w.2 = G in Supp table E)
+  #l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
   l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
-  lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
-  cum.infer= 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
-  up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
+
+
+  # Treatment parameters #
+
+  if(all(is.na(treat.switch)) & is.na(treat.type)){
+    #print("default pars")
+
+    lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
+    cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
+    up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
+
+  }
+
+  if(all(is.na(treat.switch)) & !is.na(treat.type)){
+    #print("default pars")
+
+    lam.m = 462; phi = 4.83 #effects of moxidectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
+    cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
+    up = 0.04; kap = 1.82 #effects of Moxidectin from Kura et al. 2023(matt: parameters u (up) and k (kap) define the microfilaricidal effect curve
+
+  }
+
+  # Exposure parameters #
+
   # gam.dis = 0.3 #individual level exposure heterogeneity (matt: shape par in gamma dist, K_E)
   gam.dis <- gam.dis.in # when specifying user input (K_E)
   E0 = 0; q = 0; m.exp = 1.08; f.exp = 0.9; age.exp.m = 0.007; age.exp.f = -0.023 #age-dependent exposure to fly bites age.exp.m or .f = alpha_m or alpha_f)
@@ -158,7 +189,9 @@ ep.equi.sim <- function(time.its,
     if(treat.stop > time.its) stop('not enough time for requested MDA duration')
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
-    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 367)/ 366)}
+
+    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - (1/DT)+((1/DT)*366)) * DT)} # # 1 day dt
+    #if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - 734)/ 732)} # 1/2 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
     else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
@@ -166,13 +199,25 @@ ep.equi.sim <- function(time.its,
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
     print('MDA given at')
-    print(paste(round(times.of.treat.in / 366, digits = 2), 'yrs', sep = ''))
+    print(paste(round(times.of.treat.in * DT, digits = 2), 'yrs', sep = '')) # 1 day dt
+    #print(paste(round(times.of.treat.in / 732, digits = 2), 'yrs', sep = '')) # 1/2 day dt
 
     print(times.of.treat.in)
 
-    print('Coverage at each round')
+    print('Target coverage at each round')
     if(all(!is.na(treat.prob.variable))) {print(paste(treat.prob.variable*100, "%", sep = ''))}
     else{print(paste(treat.prob*100, "%", sep = ''))}
+
+    print('Treatment to be given at each round')
+    if(all(is.na(treat.switch)) & is.na(treat.type)){
+      print("IVM only")
+    }
+    if(all(is.na(treat.switch)) & !is.na(treat.type)){
+      print("MOX only")
+    }
+    if(all(!is.na(treat.switch))){
+      print(treat.switch)
+    }
 
     print('ABR is')
     print(paste(ABR, 'bites person-1 yr-1 at endemic equilibria'))
@@ -285,9 +330,30 @@ ep.equi.sim <- function(time.its,
   out.comp[s.comp] <- 1
   all.mats.temp[,1] <- out.comp
 
+  # if(correlated_compliance == "YES"){
+  #
+  # # specify neever treat individuals
+  # compliance.mat <- matrix(nrow=N, ncol=4) # col 1 = age, col 2 = never_treat,
+  #                                          # col 3 = probability of treatment, col 4 = to be treated in this round
+  # compliance.mat[,1] = generateNeverTreat(N, probneverTreat) # never treat col (mat[,1])
+  #
+  # # individual probability of treatment values
+  # cov = coverage # whatever the coverage of this MDA is
+  # rho = correlation # whatever the correlation of this MDA is
+  # compliance.mat[,2] = initializePTreat(N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
+  #
+  # # previous coverage #
+  # prevCov = cov # set prevCov to coverage value used
+  # prevRho = rho # set prevRho to correlation value used
+  #
+  # }
+
   treat.vec.in <- rep(NA, N) #for time since treatment calculations
 
   prev <-  c()
+  pnc_values <- c()
+  has_been_treated <- rep(FALSE, N)
+  mfp_recorded_year_tracker <- c()
   mean.mf.per.snip <- c()
   L3_vec <- vector()
   ABR_recorded <- c()
@@ -425,15 +491,9 @@ ep.equi.sim <- function(time.its,
   while(i < time.its) #over time
 
   {
-    #print(paste(round(i * DT, digits = 2), 'yrs', sep = ' '))
 
-    # if(isTRUE(print_progress)) {print(paste(round(i * DT, digits = 2), 'yrs', sep=' '))}
-
-    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs', sep=' '))}
-    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i/time.its * 100, digits = 1), '%', sep=' '))}
-
-    if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
-                                                                   (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
+    # if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
+    #                                                                (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
 
     #stores mean L3 and adult worms from previous timesteps
 
@@ -448,14 +508,134 @@ ep.equi.sim <- function(time.its,
 
     }
 
+    # if IVM/MOX switch included, specify which treatment parameters to use if treatment iteration
+    if(all(!is.na(treat.switch))){
+
+      if(any(i == times.of.treat.in)) {
+        index.iter.treat <- match(i, times.of.treat.in) # find element where iteration number matches a time in times.of.treat vector
+        treat.type <- treat.switch[index.iter.treat] # index IVM or MOX value from treat.switch.in vector
+
+        if(treat.type == "IVM"){
+          lam.m = 32.4; phi = 19.6 # treatment induced embryostatic parameters
+          cum.infer= 0.345 # permanent infertility in worms
+          up = 0.0096; kap = 1.25 # microfilaricidal effect curve parameters
+          print("IVM parameters updated")
+        }
+
+        if(treat.type == "MOX"){
+          lam.m = 462; phi = 4.83 # treatment induced embryostatic parameters
+          cum.infer= 0.345 # permanent infertility in worms
+          up = 0.04; kap = 1.82 # microfilaricidal effect curve parameters
+          print("MOX parameters updated")
+        }
+
+        if(!(treat.type %in% c("MOX", "IVM"))){
+          print("ERROR - either IVM or MOX not specified in treatment switch vector at this iteration")
+        }
+
+      }
+
+    }
+
+
     # to track variable coverage
     if(i >= treat.start & i <= treat.stop & give.treat == 1){
       coverage.upd <- treat.prob
     } else
     {coverage.upd <- 0}
 
-    #which individuals will be treated if treatment is given
-    if(i >= treat.start & give.treat==1) {cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)}
+    # ========================= #
+    # old coverage              #
+
+    # which individuals will be treated if treatment is given (old compliance approach)
+    if(i >= treat.start & give.treat ==1 & correlated_compliance != "YES") {
+      cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)
+    }
+
+
+    # ============================= #
+    # for new compliance structure;
+    # initialize probability of treatment values (pTreat) for each individual if first round
+    # subsequent rounds: check to see if coverage or correlation par values have changed since last treatment,
+    # if so, need to edit pTreat values
+    # always check for zero values in pTreat for subsequent rounds
+
+    if(correlated_compliance == "YES" & any(i == times.of.treat.in)){
+
+      probneverTreat <- pnc
+      cov <- treat.prob
+
+        # first MDA round
+        if(i == times.of.treat.in[1]){
+
+          # specify neever treat individuals
+          compliance.mat <- matrix(nrow=N, ncol=6) # col 1 = age, col 2 = never_treat,
+                                                   # col 3 = probability of treatment, col 4 = to be treated in this round
+          compliance.mat[,2] = generateNeverTreat(N = N, probneverTreat) # never treat col (mat[,1])
+
+          # individual probability of treatment values
+          cov = treat.prob # whatever the coverage of this MDA is
+          rho = comp.correlation # whatever the correlation of this MDA is
+          compliance.mat[,3] = initializePTreat(N = N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
+
+          # record this value for previous coverage #
+          prevCov = cov # set prevCov to coverage value used
+          prevRho = rho # set prevRho to correlation value used
+        }
+
+        # subsequent MDA rounds
+
+        if (i %in% times.of.treat.in[-1]) {
+
+          if((prevCov != treat.prob) | (prevRho != comp.correlation)){
+
+            # 1) check and update/redraw any zero values introduced in pTreat for individuals since last MDA round
+            #compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,2], prevCov, prevRho)
+            compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,3], prevCov, prevRho)
+
+            # 2) assign everyone a new/updated pTreat value for the next MDA round if cov and/or rho have changed
+            cov = treat.prob
+            rho = comp.correlation
+
+            compliance.mat[,3] = editPTreat(pTreat = compliance.mat[,3], cov, rho)
+
+            prevCov = cov
+            prevRho = rho
+
+          }
+
+          # check for zero pTreat values since last MDA regardless of whether new cov/rho values
+          compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,3], prevCov, prevRho)
+        }
+
+      # specify if individuals are to be treated in this round in compliance.mat (column 6)
+      eligible_out <- check_eligibility(comp.mat = compliance.mat, all.dt = all.mats.cur, minAgeMDA = 5, maxAgeMDA = 80)
+
+      compliance.mat <- eligible_out[[1]] # extract updated compliance matrix
+
+      cov.in <- compliance.mat[,6] # this is vector of individuals to be treated from compliance mat, to feed into change.worm.per.ind.treat
+      has_been_treated <- has_been_treated | (cov.in == 1)
+
+      # Count the number of treated hosts
+      hostsEligibleAge <- compliance.mat[,4]
+      eligible_hosts <- eligible_out[[2]]
+      hostsTreated <- length(eligible_hosts)
+      CovEligibles = hostsTreated / hostsEligibleAge * 100
+      CovTotal = hostsTreated / N * 100
+
+    }
+
+    # ======================================================================================================= #
+    #         Update print output here with new coverage vals from compliance structure                       #
+
+
+    # update when no MDA round
+    if(isTRUE(print_progress) & (any(i == year_its)) & !any(i == times.of.treat.in))
+    {print(paste(round(i * DT, digits = 2), 'yrs;', (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
+
+    # # update when no MDA round
+    # if(isTRUE(print_progress) & (any(i == year_its + 1)) & any(i == times.of.treat.in))
+    # {print(paste(round(CovEligibles, digits = 3), '% coverage eligibles', paste(round(CovTotal, digits = 3), '% coverage total', sep=' ')))}
 
     #sex and age dependent exposure, mean exposure must be 1, so ABR is meaningful
 
@@ -567,9 +747,10 @@ ep.equi.sim <- function(time.its,
                                       time.each.comp = time.each.comp.worms, new.worms.m = new.worms.m, w.f.l.c = from.last,
                                       num.comps = num.comps.worm)
 
-       res.w.treat <- change.worm.per.ind.treat(give.treat = give.treat, iteration = i, treat.start = treat.start, times.of.treat = times.of.treat.in, treat.stop = treat.stop,
-                                      onchosim.cov = cov.in, treat.vec = treat.vec.in, DT = DT, cum.infer = cum.infer, lam.m = lam.m, phi = phi, N = res.w1[[3]],
-                                      mort.fems = res.w1[[2]], lambda.zero.in = res.w1[[1]])
+       res.w.treat <- change.worm.per.ind.treat(give.treat = give.treat, iteration = i, treat.start = treat.start,
+                                                times.of.treat = times.of.treat.in, treat.stop = treat.stop,
+                                                onchosim.cov = cov.in, treat.vec = treat.vec.in, DT = DT, cum.infer = cum.infer,
+                                                lam.m = lam.m, phi = phi, N = res.w1[[3]], mort.fems = res.w1[[2]], lambda.zero.in = res.w1[[1]])
 
        res.w2 <- change.worm.per.ind2(DT = DT, time.each.comp = time.each.comp.worms, compartment = k, new.worms.nf.fo = new.worms.nf, w.f.l.c = from.last,
                                       N = res.w1[[3]], cur.Wm.nf = res.w1[[4]], mort.fems = res.w.treat[[3]], cur.Wm.f = res.w1[[5]], omeg = res.w1[[7]],
@@ -685,7 +866,9 @@ ep.equi.sim <- function(time.its,
     temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                 mf.start, mf.end, pop.size = N, kM.const.toggle)
 
+    mfp_recorded_year_tracker <- c(mfp_recorded_year_tracker, i / (1/time.its))
     prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
+    pnc_values <- c(pnc_values, (1 - mean(has_been_treated, na.rm=TRUE)))
 
 
     mean.mf.per.snip <- c(mean.mf.per.snip, mean(temp.mf[[2]][which(all.mats.temp[,2] >= min.mont.age)]))
@@ -713,6 +896,11 @@ ep.equi.sim <- function(time.its,
 
       all.mats.temp[to.die, cols.to.zero] <- 0 #set age, sex and parasites to 0 (includes L1, but not L2 L3)
       all.mats.temp[to.die, 3] <- rbinom(length(to.die), 1, 0.5) #draw sex
+      has_been_treated[to.die] <- FALSE
+
+      if(correlated_compliance == "YES" & any(i > times.of.treat.in)){
+      compliance.mat[to.die, 3] <- 0
+      } # if individual dies update pTreat to 0 in compliance matrix
 
       if(epilepsy_module == "YES"){
 
@@ -781,19 +969,20 @@ ep.equi.sim <- function(time.its,
     #enough outputs to restart sims
     if(isTRUE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded)
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded')
+      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded, mfp_recorded_year_tracker, pnc_values)
+      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded', 'year', 'pnc')
       return(outp)
     }
 
     #assuming output will not be used for further sims
     if(isFALSE(run_equilibrium))
     {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
-      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
+      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded, mfp_recorded_year_tracker, pnc_values)
+      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded', 'year', 'pnc')
       return(outp)
     }
   }
 
 
 }
+
