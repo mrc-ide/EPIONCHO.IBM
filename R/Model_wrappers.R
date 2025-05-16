@@ -60,10 +60,10 @@ ep.equi.sim <- function(time.its,
                         vector.control.strt,
                         vector.control.duration,
                         vector.control.efficacy,
-                        delta.hz.in, # these inputs are new (matt) for testing DD
-                        delta.hinf.in,
-                        c.h.in,
-                        gam.dis.in,
+                        delta.hz.in=0.186, # these inputs are new (matt) for testing DD
+                        delta.hinf.in=0.003,
+                        c.h.in=0.005,
+                        gam.dis.in=0.3,
                         kM.const.toggle = FALSE,
                         run_equilibrium,
                         equilibrium,
@@ -89,6 +89,20 @@ ep.equi.sim <- function(time.its,
   # if(give.treat == 1) #calculate timesteps at which treatment is given
   # {times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)}
   # else {times.of.treat.in <- 0}
+
+  if (gam.dis.in == 0.2) {
+    delta.hz.in =  0.385
+    delta.hinf.in = 0.003
+    c.h.in = 0.008
+  } else if (gam.dis.in == 0.3) {
+    delta.hz.in =  0.186
+    delta.hinf.in = 0.003
+    c.h.in = 0.005
+  } else if (gam.dis.in == 0.4) {
+    delta.hz.in = 0.118
+    delta.hinf.in = 0.002
+    c.h.in = 0.004
+  }
 
   if(give.treat == 1)
   {
