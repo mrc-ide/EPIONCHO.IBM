@@ -47,7 +47,7 @@
 
 ep.equi.sim <- function(time.its,
                         ABR,
-                        N.in,
+                        N.in=440,
                         treat.int,
                         treat.timing,
                         treat.prob,
@@ -141,7 +141,7 @@ ep.equi.sim <- function(time.its,
   g = 0.0096
   a.v = 0.39
   real.max.age = 80 #no humans live longer than 80 years
-  N = 440 #human population size
+  N = N.in #human population size
   mean.age = 50 #mean human age (before truncation)
   int.L3 = 0.03; int.L2 = 0.03; int.L1 = 0.03
   lambda.zero = 0.33 # (matt:) per-capita rate that female worms lose their fertility (W_FF) & return to non-fertile state (W_FN)
