@@ -1,7 +1,7 @@
 library(dplyr)
-processRCSFiles <- function (files='/rds/general/user/ar722/home/ov16_test/ov16_output/', verbose=TRUE, onlyCalcMFP=FALSE, useSerorevert=FALSE, onlyCalcOv16Trends=FALSE) {
+processRCSFiles <- function (files='/', verbose=TRUE, onlyCalcMFP=FALSE, useSerorevert=FALSE, onlyCalcOv16Trends=FALSE) {
   allOutputs <- data.frame()
-  fileToUse <- files#paste("data/", files, sep="")
+  fileToUse <- files
 
   i <- 1
   mda_vals <- c()
@@ -9,7 +9,7 @@ processRCSFiles <- function (files='/rds/general/user/ar722/home/ov16_test/ov16_
   mf_prev_vals <- c()
   total_files <- length(list.files(fileToUse))
   start_time <- Sys.time() 
-  mf_prev_df <- matrix(ncol=4, nrow=0)#data.frame()
+  mf_prev_df <- matrix(ncol=4, nrow=0)
   ov16_trend_df <- matrix(ncol=4, nrow=0)
   for (file in list.files(fileToUse)) {
     if(verbose) {
@@ -32,15 +32,25 @@ processRCSFiles <- function (files='/rds/general/user/ar722/home/ov16_test/ov16_
     abr_vals <- c(abr_vals, tmpRDSData$ABR)
     if(onlyCalcOv16Trends) {
       sero_prev_vals <- tmpRDSData$ov16_seroprevalence[c(1,seq(from=183, to=length(tmpRDSData$ov16_seroprevalence), by=183))]
+      serorev_prev_vals <- tmpRDSData$ov16_seroprevalence_sero[c(1,seq(from=183, to=length(tmpRDSData$ov16_seroprevalence_sero), by=183))]
       total_sero_vals <- length(sero_prev_vals)
       if(i == 1) {
-        ov16_trend_df <- matrix(ncol=4, nrow=total_files*length(sero_prev_vals))
-        colnames(ov16_trend_df) <- c("ABR", "Ke", "run_num", "ov16_vals")
+        ov16_trend_df <- matrix(ncol=5, nrow=total_files*total_sero_vals)
+        colnames(ov16_trend_df) <- c("ABR", "vctr.ctrl.eff", "Ke", "run_num", "ov16_vals")
+        ov16_serorevert_trend_df <- matrix(ncol=5, nrow=total_files*total_sero_vals)
+        colnames(ov16_serorevert_trend_df) <- c("ABR", "vctr.ctrl.eff", "Ke", "run_num", "ov16_vals")
       }
       ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),1] <- rep(tmpRDSData$ABR, total_sero_vals)
-      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),2] <- rep(tmpRDSData$Ke, total_sero_vals)
-      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),3] <- rep(i,total_sero_vals)
-      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),4] <- sero_prev_vals
+      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),2] <- rep(vctr.ctrl.val, total_sero_vals)
+      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),3] <- rep(tmpRDSData$Ke, total_sero_vals)
+      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),4] <- rep(run_num, total_sero_vals)
+      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),5] <- sero_prev_vals
+
+      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),1] <- rep(tmpRDSData$ABR, total_sero_vals)
+      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),2] <- rep(vctr.ctrl.val, total_sero_vals)
+      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),3] <- rep(tmpRDSData$Ke, total_sero_vals)
+      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),4] <- rep(run_num, total_sero_vals)
+      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),5] <- serorev_prev_vals
       i <- i + 1
       next
     }
@@ -102,8 +112,8 @@ processRCSFiles <- function (files='/rds/general/user/ar722/home/ov16_test/ov16_
   print(paste("Avg MDA Years:", mean(mda_vals)))
 
   if(onlyCalcOv16Trends) {
-    ov16Return <- list(ov16_trend_df)
-    names(ov16Return) <- c("ov16_trend_df")
+    ov16Return <- list(ov16_trend_df, ov16_serorevert_trend_df)
+    names(ov16Return) <- c("ov16_trend_df", "ov16_serorevert_trend_df")
     return(ov16Return)
   }
 
@@ -112,9 +122,6 @@ processRCSFiles <- function (files='/rds/general/user/ar722/home/ov16_test/ov16_
     names(mfpReturn) <- c("mf_prev_df", 'mf_prev', 'mda_vals', 'abr_vals')
     return(mfpReturn)
   }
-
-  #abr_vs_mf_prev <- ggplot() + geom_boxplot(aes(x=factor(abr_vals), y=mf_prev_vals)) +
-  #  scale_y_continuous(breaks=seq(0, 0.3, 0.05), limits = c(0, 0.3))
 
   allOutputs <- allOutputs %>% mutate(age_groups_old = case_when(
                                                 age <= 30 ~ ceiling(age/1)*1,
@@ -131,15 +138,15 @@ processRCSFiles <- function (files='/rds/general/user/ar722/home/ov16_test/ov16_
                                                 TRUE ~ 80
                                               )
                                       )
-  returnVal <- list(allOutputs, mf_prev_vals, abr_vals, mda_vals)#, abr_vs_mf_prev)
-  names(returnVal) <- c("allOutputs", "mf_prev", "abr_vals", "mda_vals")#, "abr_vs_mf_prev")
+  returnVal <- list(allOutputs, mf_prev_vals, abr_vals, mda_vals)
+  names(returnVal) <- c("allOutputs", "mf_prev", "abr_vals", "mda_vals")
   return(returnVal)
 }
 
-saveRDS(processRCSFiles(onlyCalcMFP = TRUE), "/rds/general/user/ar722/home/ov16_test/gabon_agg_data/gabon_mfp_abr_all_age_data.RDS")#gabon_mfp_data.RDS")
+saveRDS(processRCSFiles(onlyCalcMFP = TRUE), "ov16_test/gabon_agg_data/gabon_mfp_abr_all_age_data.RDS")
 
-#saveRDS(processRCSFiles(onlyCalcOv16Trends=TRUE), "/rds/general/user/ar722/home/ov16_test/gabon_agg_data/gabon_ov16_trends.RDS")
+saveRDS(processRCSFiles(onlyCalcOv16Trends=TRUE), "ov16_test/gabon_agg_data/gabon_ov16_trends.RDS")
 
-#saveRDS(processRCSFiles(), "/rds/general/user/ar722/home/ov16_test/gabon_agg_data/gabon_mfp_abr_data.RDS")#gabon_100_mount_data.RDS")
+saveRDS(processRCSFiles(), "ov16_test/gabon_agg_data/gabon_mfp_abr_data.RDS")
 
-#saveRDS(processRCSFiles(useSerorevert=TRUE), "/rds/general/user/ar722/home/ov16_test/gabon_agg_data/gabon_seroreversion_data.RDS")
+saveRDS(processRCSFiles(useSerorevert=TRUE), "gabon_agg_data/gabon_seroreversion_data.RDS")

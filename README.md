@@ -76,3 +76,11 @@ remotes::install_github("mrc-ide/EPIONCHO.IBM")
 For a detailed practical guide please see the [Installing and Running
 EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM.Rmd)
 vignette
+
+## Ov16 Extension
+
+EPIONCHO-IBM has been extended to output Ov16 seroprevalence. The seroprevalence outputed was determined by testing hypotheses for
+seroconversion (ranging from prepatent to patent) and seroreversion (ranging from instant seroreversion to lifelong immunity), as defined in [TBD].
+The model outputs the two best fit hypotheses. While both hypotheses assume seroconversion occurs in the presence of a mating worm pair and the production of any microfilariea, they differ in their seroreversion assumptions, one with lifelong immunity, and the other with finite immunity (seroreversion in the absence of infection, defined as the absence of worms and larvae in a host).
+
+A practical guide/demo can be found in the [Running Ov16 in EPIONCHO-IBM vignette](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM_Ov16.Rmd) vignette. The code and a [vignette to run the model with all tested hypotheses](https://github.com/mrc-ide/EPIONCHO.IBM/blob/ov16/vignettes/Running_EPIONCHO_IBM_Ov16.Rmd) can be found in the Ov16 branch.

@@ -1287,6 +1287,7 @@ ep.equi.sim <- function(time.its,
       matrix_index <- 1
 
       prev_Ov16 <- 0
+      prev_Ov16_sero <- 0
 
       # 80% of pop is able to mount Antibody response to Ov16
       all.mats.temp[,num.cols+ov16.col] <- 1#sample(rep(c(1,1,1,1,1,1,1,1,0,0), N*0.1), N)
@@ -1410,6 +1411,7 @@ ep.equi.sim <- function(time.its,
       matrix_index <- 1
 
       prev_Ov16 <- sum(Ov16_Seropositive_mating_any_mf_serorevert)/N
+      prev_Ov16_sero <- c(prev_Ov16_sero, sum(Ov16_Seropositive_mating_any_mf_serorevert)/N)
     }
 
   }
@@ -1744,6 +1746,7 @@ ep.equi.sim <- function(time.its,
 
       mf_indv_prev <- as.integer(temp.mf[[2]] > 0)
       prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive_mating_any_mf_serorevert)/N)
+      prev_Ov16_sero <- c(prev_Ov16_sero, sum(Ov16_Seropositive_mating_any_mf_serorevert)/N)
     }
 
     if(!is.na(vector.control.strt)) {
@@ -1881,8 +1884,8 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded)
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_seropos_outputs <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
-        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
+        ov16_seropos_outputs <- list(prev_Ov16, prev_Ov16_sero, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'ov16_seroprevalence_sero', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         ov16_equilibrium_outputs <- list(ov16_seropos_outputs, mf_indv_prev)
         names(ov16_equilibrium_outputs) <- c('ov16_seropos_outputs', 'mf_indv_prev')
         ov16_output <- list(ov16_equilibrium_outputs)
@@ -1898,8 +1901,8 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
       names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_output <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
-        names(ov16_output) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
+        ov16_output <- list(prev_Ov16, prev_Ov16_sero, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_output) <- c('ov16_seroprevalence', 'ov16_seroprevalence_sero', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         outp <- append(outp, ov16_output)
       }
       return(outp)
@@ -1915,21 +1918,13 @@ ep.equi.sim <- function(time.its,
 library(dplyr)
 
 iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
-#tmp_iters_to_use = c(820, 821, 822, 823, 3542)
-#iter = tmp_iters_to_use[tmp_iter]
-print(iter)
 set.seed(iter + (iter*3758))
 
 DT.in <- 1/366
 
-# 3000
 kEs = c(rep(0.2, 3000), rep(0.3, 3000))
-#kEs = c(rep(0.2, 1500), rep(0.3, 2000))
 seroreversions = rep(c(rep("no_infection", 1500), rep("absence_of_trigger", 1500)), 2)
 
-
-#### Current file: runModelRCS.R
-#iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 
 DT.in <- 1/366
 
@@ -1952,11 +1947,11 @@ if(kE == 0.2) {
 # Gabon Elisa Dataset
 if (kE == 0.2) {
   #abrs <- rep(rep(seq(70, 77, 1), 500), 2)
-  ABR.in <- 76 #abrs[iter]# 72
+  ABR.in <- 76 #abrs[iter]
   mda.val <- 0
 } else {
   #abrs <- rep(rep(seq(170, 177, 1), 500), 2)
-  ABR.in <- 179 #abrs[iter] # 173
+  ABR.in <- 179 #abrs[iter]
   mda.val <- 0
 }
 

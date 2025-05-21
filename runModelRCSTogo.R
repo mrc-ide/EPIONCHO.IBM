@@ -2,10 +2,8 @@ iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 set.seed(iter + (iter*3758))
 
 kEs = c(rep(0.3, 4500), rep(0.4, 4500))
-seroreversions = rep("no_infection", 9000)
 
 kE = kEs[iter]
-sero_val <- seroreversions[iter]
 
 DT.in <- 1/366
 
@@ -103,8 +101,7 @@ output <- ep.equi.sim(time.its = timesteps,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
                       no_prev_run=TRUE,
-                      custom_treat_params=cstm_treat_params,
-                      seroreversion=sero_val)
+                      custom_treat_params=cstm_treat_params)
 
 params <- list(mda.val, ABR.in, kE, sero_val, vctr.control.efficacy)
 names(params) <- c('MDA', 'ABR', 'Ke', "sero_type", "vctr.ctrl.eff")

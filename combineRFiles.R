@@ -1,4 +1,4 @@
-combineRFiles <- function(folderName="R/", outputFileName="all_funcs_combined.R", modelRunFileName="runModelRCS.R") {
+combineRFiles <- function(folderName="R/", outputFileName="all_funcs_combined_new.R", modelRunFileName="runModelRCS.R") {
   sink(outputFileName)
 
 

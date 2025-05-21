@@ -5,14 +5,10 @@ set.seed(iter + (iter*3758))
 DT.in <- 1/366
 
 kEs = c(rep(0.2, 3000), rep(0.3, 3000))
-seroreversions = rep(c(rep("no_infection", 1500), rep("absence_of_trigger", 1500)), 2)
-
-iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 
 DT.in <- 1/366
 
 kE <- kEs[iter]
-sero_val <- seroreversions[iter]
 
 if(kE == 0.2) {
   delta.hz.in.val =  0.385
@@ -63,8 +59,7 @@ output <- ep.equi.sim(time.its = timesteps,
                       run_equilibrium = FALSE,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
-                      no_prev_run=TRUE,
-                      seroreversion=sero_val)
+                      no_prev_run=TRUE)
 
 params <- list(mda.val, ABR.in, kE)
 names(params) <- c('MDA', 'ABR', 'Ke')
