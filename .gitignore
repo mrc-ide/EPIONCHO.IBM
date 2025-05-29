@@ -1,1 +1,7 @@
+# R related files
 .Rproj.user
+.Rhistory
+
+
+# OS Related Files
+.DS_Store

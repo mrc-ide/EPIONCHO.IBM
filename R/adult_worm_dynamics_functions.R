@@ -67,7 +67,7 @@ weibull.mortality <- function(DT, par1, par2, age.cats)
 #' @description
 #' Extracting key columns from overall matrix & evaluating different worm categories (for a specific age class of worms in each individual population).
 #' These vectors are important for the next functions to calculate change in number of adults in one adult worm age class for all people.
-#' @param treat.vec vector of treatment values (1 or 0) for each individual in the population
+#' @param treat.vec vector of treatment values (1 or 0) for each individual in the population - only zeros (just used to specify length of pop?)
 #' @param lambda.zero per-capita rate that female worms lose their fertility (W_FF) & return to non-fertile state (W_FN); default value of 0.33 year-1
 #' @param DT timestep
 #' @param omeg per-capita rate that female worms progress from non-fertile (W_FN) to fertile (W_FF); default is 0.59 year-1
@@ -165,7 +165,7 @@ change.worm.per.ind.treat <- function(give.treat, iteration, treat.start, times.
     {
       #print('TREATMENT GIVEN')
 
-      inds.to.treat <- which(onchosim.cov == 1) #which individuals will received treatment
+      inds.to.treat <- which(onchosim.cov == 1) #which individuals will receive treatment
 
       treat.vec[inds.to.treat]  <-  (iteration-1) * DT #alter time since treatment
       #cum.infer is the proportion of female worms made permanently infertile, killed for simplicity
