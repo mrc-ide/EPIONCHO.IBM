@@ -1,0 +1,32 @@
+column, heading
+-, BlindnessCountdown
+-, BlindnessPending
+1, Age
+2, Sex
+3, Compliance
+4, TrueMFCount
+5, ObservedMFCount
+6, AgeToSampleEyeDist
+7, ToTestBlindness
+8, BlindnessProb
+9, BlindnessStatus
+
+19, AtrophySampleAges
+20, HangingGroinSampleAges
+21, DepigSampleAges
+22, Day3SevereItchStatus
+23, Day3RSDStatus
+
+30. ToTestSevereItch
+
+34, ToTestRSD
+35, ToTestAtrophy
+36, ToTestHG
+37, ToTestDepig
+
+46, SevereItchStatus
+
+50, RSDStatus
+51, AtrophyStatus
+52, HGStatus
+53, DepigStatus
