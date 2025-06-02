@@ -851,27 +851,29 @@ ep.equi.sim <- function(time.its,
 
     all.mats.cur <- all.mats.temp
 
-    # extract element from treat.prob.variable depending on specific treatment round (iteration in times.of.treat.in) #
-    if(all(!is.na(treat.prob.variable))){
-      if(any(i == times.of.treat.in)) {
-        index.iter.treat <- match(i, times.of.treat.in) # find element where iteration number matches a time in times.of.treat vector
+    if(any(i == times.of.treat.in)) {
+      index.iter.treat <- match(i, times.of.treat.in) # find element where iteration number matches a time in times.of.treat vector
+
+      # extract element from treat.prob.variable depending on specific treatment round (iteration in times.of.treat.in)
+      if(all(!is.na(treat.prob.variable))){
         treat.prob <- treat.prob.variable[index.iter.treat] # index prob value from treat.prob.variable vector
-        # if IVM/MOX switch included, specify which treatment parameters to use if treatment iteration
-        if(all(!is.na(treat.switch))){
-          treat.type <- treat.switch[index.iter.treat] # index IVM or MOX value from treat.switch.in vector
-          if(treat.type == "IVM") {
-            lam.m = 32.4; phi = 19.6 # treatment induced embryostatic parameters
-            cum.infer= 0.345 # permanent infertility in worms
-            up = 0.0096; kap = 1.25 # microfilaricidal effect curve parameters
-            print("IVM parameters updated")
-          } else if (treat.type == "MOX") {
-            lam.m = 462; phi = 4.83 # treatment induced embryostatic parameters
-            cum.infer= 0.345 # permanent infertility in worms
-            up = 0.04; kap = 1.82 # microfilaricidal effect curve parameters
-            print("MOX parameters updated")
-          } else {
-            print("ERROR - either IVM or MOX not specified in treatment switch vector at this iteration")
-          }
+      }
+
+      # if IVM/MOX switch included, specify which treatment parameters to use if treatment iteration
+      if(all(!is.na(treat.switch))){
+        treat.type <- treat.switch[index.iter.treat] # index IVM or MOX value from treat.switch.in vector
+        if(treat.type == "IVM") {
+          lam.m = 32.4; phi = 19.6 # treatment induced embryostatic parameters
+          cum.infer= 0.345 # permanent infertility in worms
+          up = 0.0096; kap = 1.25 # microfilaricidal effect curve parameters
+          print("IVM parameters updated")
+        } else if (treat.type == "MOX") {
+          lam.m = 462; phi = 4.83 # treatment induced embryostatic parameters
+          cum.infer= 0.345 # permanent infertility in worms
+          up = 0.04; kap = 1.82 # microfilaricidal effect curve parameters
+          print("MOX parameters updated")
+        } else {
+          print("ERROR - either IVM or MOX not specified in treatment switch vector at this iteration")
         }
       }
     }
@@ -880,8 +882,7 @@ ep.equi.sim <- function(time.its,
     # to track variable coverage
     if(i >= treat.start & i <= treat.stop & give.treat == 1) {
       coverage.upd <- treat.prob
-    } else
-    {
+    } else {
       coverage.upd <- 0
     }
 
