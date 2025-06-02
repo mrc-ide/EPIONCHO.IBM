@@ -847,6 +847,119 @@ ep.equi.sim <- function(time.its,
     if(isTRUE(print_progress) & (any(i == year_its))) {print(paste(round(i * DT, digits = 2), 'yrs;',
                                                                    (paste(round(i/time.its * 100, digits = 1), '%', sep=' '))))}
 
+    #stores mean L3 and adult worms from previous timesteps
+
+    all.mats.cur <- all.mats.temp
+
+    # extract element from treat.prob.variable depending on specific treatment round (iteration in times.of.treat.in) #
+    if(all(!is.na(treat.prob.variable))){
+      if(any(i == times.of.treat.in)) {
+        index.iter.treat <- match(i, times.of.treat.in) # find element where iteration number matches a time in times.of.treat vector
+        treat.prob <- treat.prob.variable[index.iter.treat] # index prob value from treat.prob.variable vector
+        # if IVM/MOX switch included, specify which treatment parameters to use if treatment iteration
+        if(all(!is.na(treat.switch))){
+          treat.type <- treat.switch[index.iter.treat] # index IVM or MOX value from treat.switch.in vector
+          if(treat.type == "IVM") {
+            lam.m = 32.4; phi = 19.6 # treatment induced embryostatic parameters
+            cum.infer= 0.345 # permanent infertility in worms
+            up = 0.0096; kap = 1.25 # microfilaricidal effect curve parameters
+            print("IVM parameters updated")
+          } else if (treat.type == "MOX") {
+            lam.m = 462; phi = 4.83 # treatment induced embryostatic parameters
+            cum.infer= 0.345 # permanent infertility in worms
+            up = 0.04; kap = 1.82 # microfilaricidal effect curve parameters
+            print("MOX parameters updated")
+          } else {
+            print("ERROR - either IVM or MOX not specified in treatment switch vector at this iteration")
+          }
+        }
+      }
+    }
+
+
+    # to track variable coverage
+    if(i >= treat.start & i <= treat.stop & give.treat == 1) {
+      coverage.upd <- treat.prob
+    } else
+    {
+      coverage.upd <- 0
+    }
+
+    # which individuals will be treated if treatment is given (old compliance approach)
+    if(i >= treat.start & give.treat == 1 & correlated_compliance != "YES") {
+      cov.in <- os.cov(all.dt = all.mats.cur, pncomp = pnc, covrg = treat.prob, N = N)
+    }
+
+
+    # ============================= #
+    # for new compliance structure;
+    # initialize probability of treatment values (pTreat) for each individual if first round
+    # subsequent rounds: check to see if coverage or correlation par values have changed since last treatment,
+    # if so, need to edit pTreat values
+    # always check for zero values in pTreat for subsequent rounds
+    if(correlated_compliance == "YES" & any(i == times.of.treat.in)){
+      probneverTreat <- pnc
+      cov <- treat.prob
+
+        # first MDA round
+        if(i == times.of.treat.in[1]){
+
+          # specify neever treat individuals
+          compliance.mat <- matrix(nrow=N, ncol=6) # col 1 = age, col 2 = never_treat,
+                                                   # col 3 = probability of treatment, col 4 = to be treated in this round
+          compliance.mat[,2] = generateNeverTreat(N = N, probneverTreat) # never treat col (mat[,1])
+
+          # individual probability of treatment values
+          cov = treat.prob # whatever the coverage of this MDA is
+          rho = comp.correlation # whatever the correlation of this MDA is
+          compliance.mat[,3] = initializePTreat(N = N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
+
+          # record this value for previous coverage #
+          prevCov = cov # set prevCov to coverage value used
+          prevRho = rho # set prevRho to correlation value used
+        }
+
+        # subsequent MDA rounds
+
+        if (i %in% times.of.treat.in[-1]) {
+          if((prevCov != treat.prob) | (prevRho != comp.correlation)){
+            # 1) check and update/redraw any zero values introduced in pTreat for individuals since last MDA round
+            #compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,2], prevCov, prevRho)
+            compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,3], prevCov, prevRho)
+
+            # 2) assign everyone a new/updated pTreat value for the next MDA round if cov and/or rho have changed
+            cov = treat.prob
+            rho = comp.correlation
+
+            compliance.mat[,3] = editPTreat(pTreat = compliance.mat[,3], cov, rho)
+
+            prevCov = cov
+            prevRho = rho
+
+          }
+
+          # check for zero pTreat values since last MDA regardless of whether new cov/rho values
+          compliance.mat[,3] = checkForZeroPTreat(pTreat = compliance.mat[,3], prevCov, prevRho)
+        }
+
+      # specify if individuals are to be treated in this round in compliance.mat (column 6)
+      eligible_out <- check_eligibility(comp.mat = compliance.mat, all.dt = all.mats.cur, minAgeMDA = 5, maxAgeMDA = 80)
+
+      compliance.mat <- eligible_out[[1]] # extract updated compliance matrix
+
+      cov.in <- compliance.mat[,6] # this is vector of individuals to be treated from compliance mat, to feed into change.worm.per.ind.treat
+      has_been_treated <- has_been_treated | (cov.in == 1)
+
+      # Count the number of treated hosts
+      hostsEligibleAge <- compliance.mat[,4]
+      eligible_hosts <- eligible_out[[2]]
+      hostsTreated <- length(eligible_hosts)
+      CovEligibles = hostsTreated / hostsEligibleAge * 100
+      CovTotal = hostsTreated / N * 100
+
+    }
+    #         TODO: Update print output here with new coverage vals from compliance structure                       #
+
     # # update when no MDA round
     # if(isTRUE(print_progress) & (any(i == year_its + 1)) & any(i == times.of.treat.in))
     # {print(paste(round(CovEligibles, digits = 3), '% coverage eligibles', paste(round(CovTotal, digits = 3), '% coverage total', sep=' ')))}
