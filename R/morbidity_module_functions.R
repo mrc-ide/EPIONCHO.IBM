@@ -192,7 +192,25 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
 
 }
 
+#' @title
+#' disease prevalence calculator
+#'
+#' @description
+#' this is a helper function that takes in a dataframe, age range and the morbidity name, and outputs the prevalence
+#'
+#' @param data dataframe containing all individuals for a given morbidity name, along with their age
+#' @param morbidity_name morbidity name
+#' @param age_min minimum age (inclusive)
+#' @param age_max maximum age (exclusive)
+#'
+#' @returns output values for >5 and age-groups for all morbidities, in the order they are passed into the morbidities variable (i.e SI 5-80 + age groups, RSD 5=80 + age groups, etc.)
 
+morbidity_prev_calculator <- function(data, morbidity_name, age_min, age_max = 81) {
+  return(
+    length(which(data[[morbidity_name]] == 1 & data$Age >= age_min & data$Age < age_max)) /
+      length(which(data$Age >= age_min & data$Age < age_max))
+  )
+}
 
 #' @title
 #' disease prevalences
@@ -200,171 +218,53 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
 #' @description
 #' calculates disease prevalence for each disease state (including age-stratified disease prevalence's)
 #'
-#' @param morb.mat.tmp updated dataframe highlighting individuals to test
+#' @param non_blindness_morb_dat updated dataframe highlighting individuals to test for morbidities that are not related to blindness
+#' @param blidness_dat updated dataframe highlighting individuals to test for morbidities related to blindness
 #' @param N human pop size
-#' @param SI_prev prevalence vector for severe itch to update
-#' @param RSD_prev prevalence vector for RSD to update
-#' @param Atrp_prev prevalence vector for atrophy to update
-#' @param Hg_prev prevalence vector for hanging groin to update
-#' @param depigm_prev prevalence vector for depigmentation to update
-#' @param SI_prev0_1 prevalence vector for SI (0 - 1 age group) to update
-#' @param SI_prev2_4 prevalence vector for SI (2 - 4 age group) to update
-#' @param SI_prev5_9 prevalence vector for SI (5 - 9 age group) to update
-#' @param SI_prev10_19 prevalence vector for SI (10 - 19 age group) to update
-#' @param SI_prev20_29 prevalence vector for SI (20 - 29 age group) to update
-#' @param SI_prev30_49 prevalence vector for SI (30 - 49 age group) to update
-#' @param SI_prev50_80 prevalence vector for SI (50 - 80 age group) to update
-#' @param RSD_prev10_19 prevalence vector for RSD (0 - 1 age group) to update
 #'
-#' @returns updated matrix with disease status updated
-morbidity_prev_func <- function(morb.mat.tmp, N, SI_prev, RSD_prev, Atrp_prev, HG_prev, depigm_prev,
-                                SI_prev0_1, SI_prev2_4, SI_prev5_9, SI_prev10_19, SI_prev20_29, SI_prev30_49, SI_prev50_80,
-                                RSD_prev0_1, RSD_prev2_4, RSD_prev5_9, RSD_prev10_19,RSD_prev20_29, RSD_prev30_49, RSD_prev50_80,
-                                Atrp_prev0_1, Atrp_prev2_4, Atrp_prev5_9, Atrp_prev10_19, Atrp_prev20_29, Atrp_prev30_49, Atrp_prev50_80,
-                                HG_prev0_1, HG_prev2_4, HG_prev5_9, HG_prev10_19, HG_prev20_29, HG_prev30_49, HG_prev50_80,
-                                depigm_prev0_1, depigm_prev2_4, depigm_prev5_9, depigm_prev10_19, depigm_prev20_29, depigm_prev30_49, depigm_prev50_80)
-{
+#' @returns output values for >5 and age-groups for all morbidities, in the order they are passed into the morbidities variable (i.e SI 5-80 + age groups, RSD 5=80 + age groups, etc.)
+morbidity_prev_func <- function(
+  non_blindness_morb_dat, blidness_dat, oae_status, N, age_groups,
+  morbidities = c("SevereItchStatus", "RSDStatus", "AtrophyStatus", "HGStatus", "DepigStatus", "BlindnessStatus", "VisualImpairment", "OAEStatus")
+) {
+  if (nrow(non_blindness_morb_dat) == length(oae_status)) {
+    non_blindness_morb_dat[, "OAEStatus"] <- oae_status
+  } else {
+    warning(
+      "OAE Status population is more than morbidity population. Unable to calculate prevalence."
+    )
+  }
   # calculate current time-step skin disease state prevalence #
   # 2nd attempt : > 5 yr olds (to match Murdoch et al. 2017 prevs only sampling > 5 yr olds)
+  output_vals <- rep(NA, length(morbidities) * length(age_groups))
 
-  #SI_prev_temp <- sum(morb.mat.tmp$SevereItchStatus)/N  # severe itch
-  SI_prev_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
-  #RSD_prev_temp <- sum(morb.mat.tmp$RSDStatus)/N # reactive skin disease
-  RSD_prev_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
-  #Atrp_prev_temp <- sum(morb.mat.tmp$AtrophyStatus)/N # skin atrophy
-  Atrp_prev_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
-  #HG_prev_temp <- sum(morb.mat.tmp$HGStatus)/N # hanging groin
-  HG_prev_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
-  #depigm_prev_temp <- sum(morb.mat.tmp$DepigStatus)/N # depigmentation
-  depigm_prev_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
-
-
-  # update prevalence vectors
-  SI_prev <- c(SI_prev, SI_prev_temp)
-  RSD_prev <- c(RSD_prev, RSD_prev_temp)
-  Atrp_prev <- c(Atrp_prev, Atrp_prev_temp)
-  HG_prev <- c(HG_prev, HG_prev_temp)
-  depigm_prev <- c(depigm_prev, depigm_prev_temp)
-
-  # update age-prevalence vectors
-
-  # severe itch age age-prev #
-  SI_prev0_1_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
-  SI_prev0_1 <- c(SI_prev0_1, SI_prev0_1_temp)
-
-  SI_prev2_4_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
-  SI_prev2_4 <- c(SI_prev2_4, SI_prev2_4_temp)
-
-  SI_prev5_9_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
-  SI_prev5_9 <- c(SI_prev5_9, SI_prev5_9_temp)
-
-  SI_prev10_19_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
-  SI_prev10_19 <- c(SI_prev10_19, SI_prev10_19_temp)
-
-  SI_prev20_29_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
-  SI_prev20_29 <- c(SI_prev20_29, SI_prev20_29_temp)
-
-  SI_prev30_49_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
-  SI_prev30_49 <- c(SI_prev30_49, SI_prev30_49_temp)
-
-  SI_prev50_80_temp <- length(which(morb.mat.tmp$SevereItchStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
-  SI_prev50_80 <- c(SI_prev50_80, SI_prev50_80_temp)
-
-  # RSD age age-prev #
-  RSD_prev0_1_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
-  RSD_prev0_1 <- c(RSD_prev0_1, RSD_prev0_1_temp)
-
-  RSD_prev2_4_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
-  RSD_prev2_4 <- c(RSD_prev2_4, RSD_prev2_4_temp)
-
-  RSD_prev5_9_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
-  RSD_prev5_9 <- c(RSD_prev5_9, RSD_prev5_9_temp)
-
-  RSD_prev10_19_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
-  RSD_prev10_19 <- c(RSD_prev10_19, RSD_prev10_19_temp)
-
-  RSD_prev20_29_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
-  RSD_prev20_29 <- c(RSD_prev20_29, RSD_prev20_29_temp)
-
-  RSD_prev30_49_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
-  RSD_prev30_49 <- c(RSD_prev30_49, RSD_prev30_49_temp)
-
-  RSD_prev50_80_temp <- length(which(morb.mat.tmp$RSDStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
-  RSD_prev50_80 <- c(RSD_prev50_80, RSD_prev50_80_temp)
-
-  # Atrophy age age-prev #
-  Atrp_prev0_1_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
-  Atrp_prev0_1 <- c(Atrp_prev0_1, Atrp_prev0_1_temp)
-
-  Atrp_prev2_4_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
-  Atrp_prev2_4 <- c(Atrp_prev2_4, Atrp_prev2_4_temp)
-
-  Atrp_prev5_9_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
-  Atrp_prev5_9 <- c(Atrp_prev5_9, Atrp_prev5_9_temp)
-
-  Atrp_prev10_19_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
-  Atrp_prev10_19 <- c(Atrp_prev10_19, Atrp_prev10_19_temp)
-
-  Atrp_prev20_29_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
-  Atrp_prev20_29 <- c(Atrp_prev20_29, Atrp_prev20_29_temp)
-
-  Atrp_prev30_49_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
-  Atrp_prev30_49 <- c(Atrp_prev30_49, Atrp_prev30_49_temp)
-
-  Atrp_prev50_80_temp <- length(which(morb.mat.tmp$AtrophyStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
-  Atrp_prev50_80 <- c(Atrp_prev50_80, Atrp_prev50_80_temp)
-
-  # Hanging groin age age-prev #
-  HG_prev0_1_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
-  HG_prev0_1 <- c(HG_prev0_1, HG_prev0_1_temp)
-
-  HG_prev2_4_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
-  HG_prev2_4 <- c(HG_prev2_4, HG_prev2_4_temp)
-
-  HG_prev5_9_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
-  HG_prev5_9 <- c(HG_prev5_9, HG_prev5_9_temp)
-
-  HG_prev10_19_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
-  HG_prev10_19 <- c(HG_prev10_19, HG_prev10_19_temp)
-
-  HG_prev20_29_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
-  HG_prev20_29 <- c(HG_prev20_29, HG_prev20_29_temp)
-
-  HG_prev30_49_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
-  HG_prev30_49 <- c(HG_prev30_49, HG_prev30_49_temp)
-
-  HG_prev50_80_temp <- length(which(morb.mat.tmp$HGStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
-  HG_prev50_80 <- c(HG_prev50_80, HG_prev50_80_temp)
-
-  # depigmentation age age-prev #
-  depigm_prev0_1_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
-  depigm_prev0_1 <- c(depigm_prev0_1, depigm_prev0_1_temp)
-
-  depigm_prev2_4_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
-  depigm_prev2_4 <- c(depigm_prev2_4, depigm_prev2_4_temp)
-
-  depigm_prev5_9_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
-  depigm_prev5_9 <- c(depigm_prev5_9, depigm_prev5_9_temp)
-
-  depigm_prev10_19_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
-  depigm_prev10_19 <- c(depigm_prev10_19, depigm_prev10_19_temp)
-
-  depigm_prev20_29_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
-  depigm_prev20_29 <- c(depigm_prev20_29, depigm_prev20_29_temp)
-
-  depigm_prev30_49_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
-  depigm_prev30_49 <- c(depigm_prev30_49, depigm_prev30_49_temp)
-
-  depigm_prev50_80_temp <- length(which(morb.mat.tmp$DepigStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
-  depigm_prev50_80 <- c(depigm_prev50_80, depigm_prev50_80_temp)
-
-  return(list(SI_prev, RSD_prev, Atrp_prev, HG_prev, depigm_prev,
-              SI_prev0_1, SI_prev2_4, SI_prev5_9, SI_prev10_19, SI_prev20_29, SI_prev30_49, SI_prev50_80,
-              RSD_prev0_1, RSD_prev2_4, RSD_prev5_9, RSD_prev10_19,RSD_prev20_29, RSD_prev30_49, RSD_prev50_80,
-              Atrp_prev0_1, Atrp_prev2_4, Atrp_prev5_9, Atrp_prev10_19, Atrp_prev20_29, Atrp_prev30_49, Atrp_prev50_80,
-              HG_prev0_1, HG_prev2_4, HG_prev5_9, HG_prev10_19, HG_prev20_29, HG_prev30_49, HG_prev50_80,
-              depigm_prev0_1, depigm_prev2_4, depigm_prev5_9, depigm_prev10_19, depigm_prev20_29, depigm_prev30_49, depigm_prev50_80))
-
+  for (morb_index in 1:length(morbidities)) {
+    morbidity_to_use <- morbidities[morb_index]
+    for (age_group_index in 1:length(age_groups)) {
+      if (morbidity_to_use == "VisualImpairment" || morbidity_to_use == "BlindnessStatus") {
+        multiplier <- 1
+        if (morbidity_to_use == "VisualImpairment") {
+          multiplier <- 1.78
+        }
+        output_vals[
+          (morb_index - 1) * length(age_groups) + age_group_index
+        ] <- morbidity_prev_calculator(
+          blidness_dat, "BlindnessStatus",
+          age_min = age_groups[[age_group_index]][1],
+          age_max = age_groups[[age_group_index]][2]
+        ) * multiplier
+      } else {
+        output_vals[
+          (morb_index - 1) * length(age_groups) + age_group_index
+        ] <- morbidity_prev_calculator(
+          non_blindness_morb_dat, morbidity_to_use,
+          age_min = age_groups[[age_group_index]][1],
+          age_max = age_groups[[age_group_index]][2]
+        )
+      }
+    }
+  }
+  return(output_vals)
 }
 
 
@@ -450,102 +350,3 @@ new_cases_morbidity_func2 <- function(morb.mat.tmp, temp.mf, blind.probs){
 
 
 }
-
-#' @title
-#' eye disease prevalence
-#'
-#' @description
-#' calculates disease prevalence for each disease state (including age-stratified disease prevalence's)
-#'
-#' @param N human pop size
-#' @param morb.mat.tmp updated dataframe highlighting individuals to test
-#' @param blind_prev prevalence vector for blindness to update
-#' @param visual_imp_prev prevalence vector for visual impairment to update
-#' @param blind_prev0_1 prevalence vector for blindness (0 - 1 age group) to update
-#' @param blind_prev2_4 prevalence vector for blindness (2 - 4 age group) to update
-#' @param blind_prev5_9 prevalence vector for blindness (5 - 9 age group) to update
-#' @param blind_prev10_19 prevalence vector for blindness (10 - 19 age group) to update
-#' @param blind_prev20_29 prevalence vector for blindness (20 - 29 age group) to update
-#' @param blind_prev30_49 prevalence vector for blindness (30 - 49 age group) to update
-#' @param blind_prev50_80 prevalence vector for blindness (50 - 80 age group) to update
-#' @param visual_imp_prev0_1 prevalence vector for visual impairment (0 - 1 age group) to update
-#' @param visual_imp_prev2_4 prevalence vector for visual impairment (2 - 4 age group) to update
-#' @param visual_imp_prev5_9 prevalence vector for visual impairment (5 - 9 age group) to update
-#' @param visual_imp_prev10_19 prevalence vector for visual impairment (10 - 19 age group) to update
-#' @param visual_imp_prev20_29 prevalence vector for visual impairment (20 - 29 age group) to update
-#' @param visual_imp_prev30_49 prevalence vector for visual impairment (30 - 49 age group) to update
-#' @param visual_imp_prev50_80 prevalence vector for visual impairment (50 - 80 age group) to update
-#'
-#' @returns updated matrix with disease status updated
-eye.disease.prev.func <- function(N, morb.mat.tmp,
-                                  blind_prev, visual_imp_prev,
-                                  blind_prev0_1, blind_prev2_4, blind_prev5_9, blind_prev10_19,
-                                  blind_prev20_29, blind_prev30_49, blind_prev50_80,
-                                  visual_imp_prev0_1, visual_imp_prev2_4, visual_imp_prev5_9,
-                                  visual_imp_prev10_19, visual_imp_prev20_29, visual_imp_prev30_49,
-                                  visual_imp_prev50_80)
-{
-
-  # ========================================================================================================= #
-  # Approach: based on age and updated blindness status #
-
-  blind_prev_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 5)) /  length(which(morb.mat.tmp$Age >= 5)) # prev in > 5yrs
-  visual_imp_prev_temp <- blind_prev_temp * 1.78
-
-  # update prevalence vectors
-  blind_prev <- c(blind_prev, blind_prev_temp)
-  visual_imp_prev <- c(visual_imp_prev, visual_imp_prev_temp)
-
-  # blind age age-prev #
-  blind_prev0_1_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2)) /  length(which(morb.mat.tmp$Age >= 0 & morb.mat.tmp$Age < 2))# 0 - 1 age
-  blind_prev0_1 <- c(blind_prev0_1, blind_prev0_1_temp)
-
-  blind_prev2_4_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5)) /  length(which(morb.mat.tmp$Age >= 2 & morb.mat.tmp$Age < 5))# 2 - 4 age
-  blind_prev2_4 <- c(blind_prev2_4, blind_prev2_4_temp)
-
-  blind_prev5_9_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10)) /  length(which(morb.mat.tmp$Age >= 5 & morb.mat.tmp$Age < 10))
-  blind_prev5_9 <- c(blind_prev5_9, blind_prev5_9_temp)
-
-  blind_prev10_19_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20)) /  length(which(morb.mat.tmp$Age >= 10 & morb.mat.tmp$Age < 20))
-  blind_prev10_19 <- c(blind_prev10_19, blind_prev10_19_temp)
-
-  blind_prev20_29_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30)) /  length(which(morb.mat.tmp$Age >= 20 & morb.mat.tmp$Age < 30))
-  blind_prev20_29 <- c(blind_prev20_29, blind_prev20_29_temp)
-
-  blind_prev30_49_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50)) /  length(which(morb.mat.tmp$Age >= 30 & morb.mat.tmp$Age < 50))
-  blind_prev30_49 <- c(blind_prev30_49, blind_prev30_49_temp)
-
-  blind_prev50_80_temp <- length(which(morb.mat.tmp$BlindnessStatus == 1 & morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age <= 80)) /  length(which(morb.mat.tmp$Age >= 50 & morb.mat.tmp$Age < 80))
-  blind_prev50_80 <- c(blind_prev50_80, blind_prev50_80_temp)
-
-  # visual impairement age age-prev #
-  visual_imp_prev0_1_temp <- blind_prev0_1_temp * 1.78 # 0 - 1 age
-  visual_imp_prev0_1 <- c(visual_imp_prev0_1, visual_imp_prev0_1_temp)
-
-  visual_imp_prev2_4_temp <- blind_prev2_4_temp * 1.78 # 2 - 4 age
-  visual_imp_prev2_4 <- c(visual_imp_prev2_4, visual_imp_prev2_4_temp)
-
-  visual_imp_prev5_9_temp <- blind_prev5_9_temp * 1.78
-  visual_imp_prev5_9 <- c(visual_imp_prev5_9, visual_imp_prev5_9_temp)
-
-  visual_imp_prev10_19_temp <- blind_prev10_19_temp * 1.78
-  visual_imp_prev10_19 <- c(visual_imp_prev10_19, visual_imp_prev10_19_temp)
-
-  visual_imp_prev20_29_temp <- blind_prev20_29_temp * 1.78
-  visual_imp_prev20_29 <- c(visual_imp_prev20_29, visual_imp_prev20_29_temp)
-
-  visual_imp_prev30_49_temp <- blind_prev30_49_temp * 1.78
-  visual_imp_prev30_49 <- c(visual_imp_prev30_49, visual_imp_prev30_49_temp)
-
-  visual_imp_prev50_80_temp <- blind_prev50_80_temp * 1.78
-  visual_imp_prev50_80 <- c(visual_imp_prev50_80, visual_imp_prev50_80_temp)
-
-
-  return(list(blind_prev, visual_imp_prev,
-              blind_prev0_1, blind_prev2_4, blind_prev5_9, blind_prev10_19, blind_prev20_29,
-              blind_prev30_49, blind_prev50_80,
-              visual_imp_prev0_1, visual_imp_prev2_4, visual_imp_prev5_9, visual_imp_prev10_19,
-              visual_imp_prev20_29, visual_imp_prev30_49, visual_imp_prev50_80))
-
-}
-

@@ -227,25 +227,6 @@ mf.per.skin.snip <- function(ss.wt, num.ss, slope.kmf, int.kMf, data, nfw.start,
 }
 
 #' @title
-#' mf prevalence
-#' @description
-#' calculates mf prevalence in people based on a skin snip
-#' @param age minimum age for giving a skin snip (therefore age from which prevalence calculated)
-#' @param ss.in takes mf per skin snip count object for each individual to convert to binary variable for prevalence
-#' @param main.dat main matrix contain age of each individual (to ensure only calculate prevalence based o age from which skin snips are taken)
-#'
-#' @returns value for prevalence
-prevalence.for.age <- function(age, ss.in, main.dat)
-
-{
-  inds <- which(main.dat[,2] >= age)
-
-  out <- length(which(ss.in[[2]][inds] > 0)) / length(inds)
-
-  return(out)
-}
-
-#' @title
 #' mf prevalence by strata
 #' @description
 #' calculates mf prevalence in people based on a skin snip for different population strata (age strata, lower & upper ages)
@@ -255,15 +236,10 @@ prevalence.for.age <- function(age, ss.in, main.dat)
 #' @param upr.age lower age to measure prevalence to
 #'
 #' @returns value for prevalence
-prevalence.for.age2 <- function(ss.in, main.dat, lwr.age, upr.age)
+prevalence.for.age <- function(ss.in, main.dat, lwr.age=5, upr.age=81)
 
 {
-
-  if(upr.age == 80){
-    inds <- which(main.dat[,2] >= lwr.age & main.dat[,2] <= upr.age)
-  }else{
-    inds <- which(main.dat[,2] >= lwr.age & main.dat[,2] < upr.age)
-    }
+  inds <- which(main.dat[,2] >= lwr.age & main.dat[,2] < upr.age)
 
   out <- length(which(ss.in[[2]][inds] > 0)) / length(inds)
 
@@ -327,5 +303,26 @@ prevalence.for.age_sex_compl.strata <- function(ss.in, main.dat, lwr_age, upr_ag
   return(out)
 }
 
-
-
+calculate_mf_stats_across_age_groups <- function(stat_type, temp_mf, main_dat, age_groups) {
+  output_mf_data <- rep(NA, length(age_groups))
+  if (stat_type == "prevalence") {
+    for (age_group_index in 1:length(age_groups)) {
+      age_group <- age_groups[[age_group_index]]
+      output_mf_data[age_group_index] <- prevalence.for.age(
+        ss.in = temp_mf,
+        main.dat = main_dat,
+        lwr.age = age_group[1], upr.age = age_group[2]
+      )
+    }
+  } else if (stat_type == "intensity") {
+    for (age_group_index in 1:length(age_groups)) {
+      age_group <- age_groups[[age_group_index]]
+      output_mf_data[age_group_index] <- mean(
+        temp_mf[[2]][which(
+          main_dat[, 2] >= age_group[1] & main_dat[, 2] < age_group[2]
+        )]
+      )
+    }
+  }
+  return(output_mf_data)
+}

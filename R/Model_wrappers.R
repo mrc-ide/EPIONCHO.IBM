@@ -37,15 +37,13 @@
 #' @param run_equilibrium specify whether to run to equilibrium first
 #' @param equilibrium equilibrium input given to continue model
 #' @param print_progess print the current status of the model run
-#' @param epilepsy_module this element determines whether the epilepsy model is turned on ("YES" will activate this)
-#' @param OAE_equilibrium OAE equilibrium input given to continue model
-#' @param OAE_infection OAE prevalence and incidence inputs at equilibrium
 #' @param correlated_compliance correlated compliance structure specified
 #' @param comp.correlation this is the probability associated with the compliance correlation (rho)
 #'
 #' @export
 
 ep.equi.sim <- function(time.its,
+                        DT.in = 1 / 366,
                         ABR,
                         N.in=440,
                         treat.int,
@@ -65,29 +63,31 @@ ep.equi.sim <- function(time.its,
                         c.h.in=0.005,
                         gam.dis.in=0.3,
                         kM.const.toggle = FALSE,
+                        output_age_groups = list(c(0, 5), c(5, 10), c(10, 15), c(15, 20), c(20, 30), c(30, 50), c(50, 81)),
                         run_equilibrium,
                         equilibrium,
                         print_progress = TRUE,
-                        epilepsy_module = "NO",
-                        OAE_equilibrium,
                         morbidity_module = "NO",
-                        morbidity_eq,
-                        morbidity_ageprev_eq,
-                        morbidity_prev_eq,
-                        mf_ageprev_eq,
-                        mf_agintens_eq,
+                        morbidities = c("SevereItch", "RSD", "Atrophy", "HG", "Depig", "Blindness", "VI", "OAE"),
                         correlated_compliance = "NO",
                         comp.correlation,
                         treat.switch = NA,
-                        treat.type = NA)
+                        treat.type = NA) {
 
-
-{
+  output_age_groups_as_strings <- rep("", length(output_age_groups))
+  for (output_age_group_index in 1:length(output_age_groups)) {
+    output_age_groups_as_strings[output_age_group_index] <- paste(
+      output_age_groups[[output_age_group_index]], collapse = "_"
+    )
+  }
   # ====================== #
   # Set-up time parameters #
 
-  DT <- 1/366 # default timestep
-  #DT <- (1/366)/2 # half-day timestep required for MOX dynamics
+  DT <- DT.in # default timestep
+  if (is.na(treat.type) || treat.type == "MOX") {
+    # half-day timestep required for MOX dynamics
+    DT <- min(DT.in / 2, (1 / 366) / 2)
+  }
 
   time.its <- round(time.its / (DT))
   year_its <- seq(0, time.its, 1/DT)
@@ -277,351 +277,228 @@ ep.equi.sim <- function(time.its,
 
   # ========================================================================================================== #
   # create inital age distribution and simulate stable age distribution (where equilibrium input not provided) #
-  if(isTRUE(run_equilibrium)){
-  cur.age <- rep(0, N)
+  if (isTRUE(run_equilibrium)) {
+    cur.age <- rep(0, N)
 
-  #(the approach below must be used, drawing human lifespans from an exponential distribution eventually leads to a non-exponential distribution)
-  for(i in 1 : 75000) #if at equilibrium you saved the age at which inds die and simulated further, you should get an exponential distribution
-  {
-    cur.age <- cur.age + DT
+    #(the approach below must be used, drawing human lifespans from an exponential distribution eventually leads to a non-exponential distribution)
+    for(i in 1 : 75000) #if at equilibrium you saved the age at which inds die and simulated further, you should get an exponential distribution
+    {
+      cur.age <- cur.age + DT
 
-    death.vec <- rbinom(N, 1, (1/mean.age) * DT) # Matt: human mortality (constant with age) - no. of deaths at time step t is a random variable drawn from binomial distribution (N = human pop size?)
+      death.vec <- rbinom(N, 1, (1/mean.age) * DT) # Matt: human mortality (constant with age) - no. of deaths at time step t is a random variable drawn from binomial distribution (N = human pop size?)
 
-    cur.age[which(death.vec == 1)] <- 0 #set individuals which die to age 0
-    cur.age[which(cur.age >= real.max.age)] <- 0 #all individuals >= maximum imposed age die (matt: distribution truncated to prevent excessively long life spans - a_max)
-  }
+      cur.age[which(death.vec == 1)] <- 0 #set individuals which die to age 0
+      cur.age[which(cur.age >= real.max.age)] <- 0 #all individuals >= maximum imposed age die (matt: distribution truncated to prevent excessively long life spans - a_max)
+    }
 
 
-  ex.vec <- rgamma(N, gam.dis, gam.dis) #individual level exposure to fly bites (matt: individual-specific exposure factor assigned at birth - drawn from gamma dist, with shape par (K_E = gam.dis, and rate par set to this))
+    ex.vec <- rgamma(N, gam.dis, gam.dis) #individual level exposure to fly bites (matt: individual-specific exposure factor assigned at birth - drawn from gamma dist, with shape par (K_E = gam.dis, and rate par set to this))
 
-  ###############################################
-  #matrix for delay in L3 establishment in humans
-  num.delay.cols <- l3.delay * (28 / dt.days)
-  l.extras <- matrix(0, ncol= num.delay.cols, nrow= N)
-  inds.l.mat <- seq(2,(length(l.extras[1,]))) #for moving columns along with time
+    ###############################################
+    #matrix for delay in L3 establishment in humans
+    num.delay.cols <- l3.delay * (28 / dt.days)
+    l.extras <- matrix(0, ncol= num.delay.cols, nrow= N)
+    inds.l.mat <- seq(2,(length(l.extras[1,]))) #for moving columns along with time
 
-  ################################################
-  #L1 delay in flies
-  l1.delay <- rep(int.L1, N)
+    ################################################
+    #L1 delay in flies
+    l1.delay <- rep(int.L1, N)
 
-  ###############################################
-  #matrix for tracking mf for L1 delay
-  num.mfd.cols <- 4 / dt.days
-  mf.delay <- matrix(int.mf, ncol= num.mfd.cols, nrow= N)
-  inds.mfd.mats <- seq(2,(length(mf.delay[1,])))
+    ###############################################
+    #matrix for tracking mf for L1 delay
+    num.mfd.cols <- 4 / dt.days
+    mf.delay <- matrix(int.mf, ncol= num.mfd.cols, nrow= N)
+    inds.mfd.mats <- seq(2,(length(mf.delay[1,])))
 
-  ###############################################
-  #matrix for exposure (to fly bites) for L1 delay
-  num.exp.cols <- 4 / dt.days
-  exposure.delay <- matrix(ex.vec, ncol= num.exp.cols, nrow= N)
-  inds.exp.mats <- seq(2,(length(exposure.delay[1,])))
+    ###############################################
+    #matrix for exposure (to fly bites) for L1 delay
+    num.exp.cols <- 4 / dt.days
+    exposure.delay <- matrix(ex.vec, ncol= num.exp.cols, nrow= N)
+    inds.exp.mats <- seq(2,(length(exposure.delay[1,])))
 
-  #matrix for first timestep, contains all parasite values, human age, sex and compliance
+    #matrix for first timestep, contains all parasite values, human age, sex and compliance
 
-  all.mats.temp <- matrix(nrow=N, ncol=num.cols)
+    all.mats.temp <- matrix(nrow=N, ncol=num.cols)
 
-  all.mats.temp[,  (worms.start) : num.cols] <- int.worms
+    all.mats.temp[,  (worms.start) : num.cols] <- int.worms
 
-  all.mats.temp[, 4] <- int.L1
+    all.mats.temp[, 4] <- int.L1
 
-  all.mats.temp[, 5] <- int.L2
+    all.mats.temp[, 5] <- int.L2
 
-  all.mats.temp[, 6] <- int.L3
+    all.mats.temp[, 6] <- int.L3
 
-  all.mats.temp[, 7 : (7 + (num.mf.comps-1))] <- int.mf
+    all.mats.temp[, 7 : (7 + (num.mf.comps-1))] <- int.mf
 
-  all.mats.temp[,1] <- rep(0, N) #column used during treatment
-  all.mats.temp[,2] <- cur.age
+    all.mats.temp[,1] <- rep(0, N) #column used during treatment
+    all.mats.temp[,2] <- cur.age
 
-  #assign sex to humans
+    #assign sex to humans
 
-  sex <- rbinom(N, 1, sex.rat) # matt: randomly assigned (binomal dist) with equal probability (e.g., psi_F = 0.5, psi_m = 0.5)
+    sex <- rbinom(N, 1, sex.rat) # matt: randomly assigned (binomal dist) with equal probability (e.g., psi_F = 0.5, psi_m = 0.5)
 
-  all.mats.temp[,3] <- sex
+    all.mats.temp[,3] <- sex
 
-  #non-compliant people
-  non.comp <- ceiling(N * pnc)
-  out.comp <- rep(0, N)
-  s.comp <- sample(N, non.comp)
-  out.comp[s.comp] <- 1
-  all.mats.temp[,1] <- out.comp
+    #non-compliant people
+    non.comp <- ceiling(N * pnc)
+    out.comp <- rep(0, N)
+    s.comp <- sample(N, non.comp)
+    out.comp[s.comp] <- 1
+    all.mats.temp[,1] <- out.comp
 
-  # if(correlated_compliance == "YES"){
-  #
-  # # specify neever treat individuals
-  # compliance.mat <- matrix(nrow=N, ncol=4) # col 1 = age, col 2 = never_treat,
-  #                                          # col 3 = probability of treatment, col 4 = to be treated in this round
-  # compliance.mat[,1] = generateNeverTreat(N, probneverTreat) # never treat col (mat[,1])
-  #
-  # # individual probability of treatment values
-  # cov = coverage # whatever the coverage of this MDA is
-  # rho = correlation # whatever the correlation of this MDA is
-  # compliance.mat[,2] = initializePTreat(N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
-  #
-  # # previous coverage #
-  # prevCov = cov # set prevCov to coverage value used
-  # prevRho = rho # set prevRho to correlation value used
-  #
-  # }
+    # if(correlated_compliance == "YES"){
+    #
+    # # specify neever treat individuals
+    # compliance.mat <- matrix(nrow=N, ncol=4) # col 1 = age, col 2 = never_treat,
+    #                                          # col 3 = probability of treatment, col 4 = to be treated in this round
+    # compliance.mat[,1] = generateNeverTreat(N, probneverTreat) # never treat col (mat[,1])
+    #
+    # # individual probability of treatment values
+    # cov = coverage # whatever the coverage of this MDA is
+    # rho = correlation # whatever the correlation of this MDA is
+    # compliance.mat[,2] = initializePTreat(N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
+    #
+    # # previous coverage #
+    # prevCov = cov # set prevCov to coverage value used
+    # prevRho = rho # set prevRho to correlation value used
+    #
+    # }
 
-  treat.vec.in <- rep(NA, N) #for time since treatment calculations
+    treat.vec.in <- rep(NA, N) #for time since treatment calculations
 
-  prev <-  c()
-  prev0_1 <-  c()
-  prev2_4 <-  c()
-  prev5_9 <-  c()
-  prev10_19 <-  c()
-  prev20_29 <-  c()
-  prev30_49 <-  c()
-  prev50_80 <-  c()
+    mf_prevalence_outputs <- matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
+    colnames(mf_prevalence_outputs) <- c("prev", paste0("prev_", output_age_groups_as_strings))
 
-  pnc_values <- c()
-  has_been_treated <- rep(FALSE, N)
-  mfp_recorded_year_tracker <- c()
+    never_treated_values <- rep(NA, time.its)
+    has_been_treated <- rep(FALSE, N)
+    mfp_recorded_year_tracker <- rep(NA, time.its)
 
-  mean.mf.per.snip <- c()
-  mean.mf.per.snip0_1 <- c()
-  mean.mf.per.snip2_4 <- c()
-  mean.mf.per.snip5_9 <- c()
-  mean.mf.per.snip10_19 <- c()
-  mean.mf.per.snip20_29 <- c()
-  mean.mf.per.snip30_49 <- c()
-  mean.mf.per.snip50_80 <- c()
-
-  L3_vec <- vector()
-  ABR_recorded <- c()
-  coverage.recorded <- c()
-
-  # i <- 1
-
-  if(epilepsy_module == "YES"){
-
-    # new inputs required #
-    infected_at_all <- rep(1, N)
-    #age_to_samp <- runif(N, min = 3, max = 10)
-    age_to_samp <- sample(seq(3, 15, DT), size = N, replace = TRUE)
-    OAE <- rep(1, N)
-    prev_OAE <- 1
-    tested_OAE <- rep(0, N)
-    check_ind <- c()
-    OAE_incidence_DT <- c()
-    OAE_incidence_DT_under_5 <- c()
-    OAE_incidence_DT_5_10 <- c()
-    OAE_incidence_DT_11_15 <- c()
-    OAE_incidence_DT_M <- c()
-    OAE_incidence_DT_F <- c()
-
-    # data and function to obtain OAE probability for a given mf count
-    Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
-                               mf = c(0, 3, 13, 36, 76, 151, 200))
-
-    OAE_probs <- OAE_mfcount_prob_func(dat = Chesnais_dat)
-  }
-
- if(morbidity_module == "YES"){
-
-    # ========================= #
-    # Skin disease (OSD) set-up #
-
-    num.cols.morb2 <- 53 # 4 cols for age, sex, compliance, mf count; 8 cols for whether undergo trial for each condition; 8 cols disease state 1/0
-
-    # define Morbidity dataframe #
-    all.morb.temp <- data.frame(
-      Age = cur.age,
-      Sex = sex,
-      TrueMFCount = 0,
-      ObservedMFCount = 0,
-      AtrophySampleAges = 0,
-      HangingGroinSampleAges = 0,
-      DepigSampleAges = 0,
-      Day3SevereItchStatus = 0,
-      Day3RSDStatus = 0,
-      ToTestSevereItch = 0,
-      ToTestRSD = 0,
-      ToTestAtrophy = 0,
-      ToTestHG = 0,
-      ToTestDepig = 0,
-      SevereItchStatus = 0,
-      RSDStatus = 0,
-      AtrophyStatus = 0,
-      HGStatus = 0,
-      DepigStatus = 0
+    mf_intensity_outputs <- matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
+    colnames(mf_intensity_outputs) <- c(
+      "mean.mf.per.snip",
+      paste0("mean.mf.per.snip", output_age_groups_as_strings)
     )
 
+    L3_vec <- rep(NA, time.its)
+    ABR_recorded <- rep(NA, time.its)
+    coverage.recorded <- rep(NA, time.its)
 
-    # # set age_to_samp cols (for conditions where only sample once in age range) #
-    # all.morb.temp[,6] <- sample(seq(5, 80, DT), size = N, replace = TRUE) # severe itch (any age between 0 - 80 yrs)
-    # all.morb.temp[,7] <- sample(seq(5, 80, DT), size = N, replace = TRUE) # APOD (any age between 0 - 80 yrs)
-    # all.morb.temp[,8] <- sample(seq(5, 80, DT), size = N, replace = TRUE) # CPOD (any age between 0 - 80 yrs)
-    # all.morb.temp[,9] <- sample(seq(5, 80, DT), size = N, replace = TRUE) # LOD (any age between 0 - 80 yrs)
-    # all.morb.temp[,10] <- sample(seq(5, 80, DT), size = N, replace = TRUE) # RSD - grouped APOD, CPOD, LOD (any age between 0 - 80 yrs)
-    # all.morb.temp[,11] <- sample(seq(20, 80, DT), size = N, replace = TRUE) # Atrophy - (age- restricted; age of onset from 20 yrs - Murdoch et al. 2017 data)
-    # all.morb.temp[,12] <- sample(seq(20, 80, DT), size = N, replace = TRUE) # hanging groin - (age- restricted: age of onset from 20 or 30 yrs - Murdoch et al. 2017 data)
-    # all.morb.temp[,13] <- sample(seq(20, 80, DT), size = N, replace = TRUE) # depigmentation - (age- restricted: age of onset from 20 years - Murdoch et al. 2017 data)
+    if (morbidity_module == "YES") {
 
-    # new : 1 year of age to sample vector (for testing once per year for each individual)
-    # age_to_samp_vec_reversible <- seq(5.01,79.01,1) # between 5 and 80, sample once year year of age
-    # age_to_samp_vec_nonreversible <- seq(20.01,79.01,1) # between 5 and 80, sample once year year of age
+      # OAE set-up #
+      infected_at_all <- rep(1, N)
+      age_to_samp <- sample(seq(3, 15, DT), size = N, replace = TRUE)
+      OAE <- rep(1, N)
+      tested_OAE <- rep(0, N)
+      check_ind <- c()
 
-    age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
-    age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
+      oae_outputs_dt <- matrix(NA, nrow = time.its, ncol = 7)
+      colnames(oae_outputs_dt) <- c(
+        "prev_OAE", "OAE_incidence_DT", "OAE_incidence_DT_under_5",
+        "OAE_incidence_DT-5_10", "OAE_incidence_DT-11_15",
+        "OAE_incidence_DT_M", "OAE_incidence_DT_F"
+      )
+      for (name in colnames(oae_outputs_dt)) {
+        if (grepl("prev", name)) {
+          oae_outputs_dt[1, name] <- 1
+        } else {
+          oae_outputs_dt[1, name] <- 0
+        }
+      }
 
-    # ============================================================================== #
-    # extract probabilities for each condition (if required can unhash this section) #
+      # data and function to obtain OAE probability for a given mf count
+      Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
+                                  mf = c(0, 3, 13, 36, 76, 151, 200))
 
-    #skin.disease.probs <- readRDS("~/EPIONCHO-IBM/data/skin_disease_probabilties_updated2.rds")
+      OAE_probs <- OAE_mfcount_prob_func(dat = Chesnais_dat)
 
-    # SI_probs_df <- subset(skin.disease.probs, sequela == "severe itching")
-    # SI_probs <- SI_probs_df$fit
-    #
-    # RSD_probs_df <- subset(skin.disease.probs, sequela == "reactive skin disease")
-    # RSD_probs <- RSD_probs_df$fit
-    #
-    # ## no longer needed as relating non-reversible conditions to whether individual infected only ##
-    # Atrp_probs_df <- subset(skin.disease.probs, sequela == "atrophy")
-    # Atrp_probs <- Atrp_probs_df$fit
-    #
-    # Hg_probs_df <- subset(skin.disease.probs, sequela == "hanging groin")
-    # Hg_probs <- Hg_probs_df$fit
-    #
-    # Depigm_probs_df <- subset(skin.disease.probs, sequela == "depigmentation")
-    # Depigm_probs <- Depigm_probs_df$fit
+      # ========================= #
+      # Skin disease (OSD) set-up #
 
+      num.cols.morb2 <- 53 # 4 cols for age, sex, compliance, mf count; 8 cols for whether undergo trial for each condition; 8 cols disease state 1/0
 
-    # set up reversible sequela (SI and RSD) 3-day delay matrix #
-    num.days.cols <- 3 + 1 # day 0 to day 3 (so 4)
-    sequela.postive.mat <- matrix(0, ncol = num.days.cols, nrow = N)
-    inds.sequela.mat <- seq(2,(length(sequela.postive.mat[1,]))) # for moving columns along with time
+      # define Morbidity dataframe #
+      all.morb.temp <- data.frame(
+        Age = cur.age,
+        Sex = sex,
+        TrueMFCount = 0,
+        ObservedMFCount = 0,
+        AtrophySampleAges = 0,
+        HangingGroinSampleAges = 0,
+        DepigSampleAges = 0,
+        Day3SevereItchStatus = 0,
+        Day3RSDStatus = 0,
+        ToTestSevereItch = 0,
+        ToTestRSD = 0,
+        ToTestAtrophy = 0,
+        ToTestHG = 0,
+        ToTestDepig = 0,
+        SevereItchStatus = 0,
+        RSDStatus = 0,
+        AtrophyStatus = 0,
+        HGStatus = 0,
+        DepigStatus = 0
+      )
 
-    sequela.postive.mat1 <- sequela.postive.mat # for severe itch
-    sequela.postive.mat2 <- sequela.postive.mat # for RSD
-
-    # assign prevalence vectors (set to 1 or 0) #
-    SI_prev <- 0
-    RSD_prev <- 0
-    Atrp_prev <- 0
-    HG_prev <- 0
-    depigm_prev <- 0
-
-    # assign age-prev vectors 0
-    SI_prev0_1 <- 0
-    SI_prev2_4 <- 0
-    SI_prev5_9 <- 0
-    SI_prev10_19 <- 0
-    SI_prev20_29 <- 0
-    SI_prev30_49 <- 0
-    SI_prev50_80 <- 0
-
-    RSD_prev0_1 <- 0
-    RSD_prev2_4 <- 0
-    RSD_prev5_9 <- 0
-    RSD_prev10_19 <- 0
-    RSD_prev20_29 <- 0
-    RSD_prev30_49 <- 0
-    RSD_prev50_80 <- 0
-
-    Atrp_prev0_1 <- 0
-    Atrp_prev2_4 <- 0
-    Atrp_prev5_9 <- 0
-    Atrp_prev10_19 <- 0
-    Atrp_prev20_29 <- 0
-    Atrp_prev30_49 <- 0
-    Atrp_prev50_80 <- 0
-
-    HG_prev0_1 <- 0
-    HG_prev2_4 <- 0
-    HG_prev5_9 <- 0
-    HG_prev10_19 <- 0
-    HG_prev20_29 <- 0
-    HG_prev30_49 <- 0
-    HG_prev50_80 <- 0
-
-    depigm_prev0_1 <- 0
-    depigm_prev2_4 <- 0
-    depigm_prev5_9 <- 0
-    depigm_prev10_19 <- 0
-    depigm_prev20_29 <- 0
-    depigm_prev30_49 <- 0
-    depigm_prev50_80 <- 0
-
-    # ========================= #
-    # Eye disease set-up        #
-
-    num.cols.blindness <- 12 # 9 + 2 for lagged age + 1 for updated blindness status
-
-    # define Morbidity matrix #
-    # set other cols to 0 at i = 1
-    all.blind.temp <- data.frame(
-      Age = cur.age,
-      Sex = sex,
-      TrueMFCount = 0,
-      ObservedMFCount = 0,
-      BlindnessProb = 0,
-      BlindnessStatus = 0,
-      BlindnessPending = 0,
-      BlindnessCountdown = 730
-    )
-
-    # extract probabilities for each condition
-    eye.disease.probs <- readRDS("~/EPIONCHO-IBM/data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
-    #eye.disease.probs <- readRDS("/rds/general/user/mad206/home/morbidity/eye_disease_probabilties_updated.rds")
+      age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
+      age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
 
 
-    eye.dis.probs <- eye.disease.probs$fit
+      # set up reversible sequela (SI and RSD) 3-day delay matrix #
+      num.days.cols <- 3 + 1 # day 0 to day 3 (so 4)
+      sequela.postive.mat <- matrix(0, ncol = num.days.cols, nrow = N)
+      inds.sequela.mat <- seq(2,(length(sequela.postive.mat[1,]))) # for moving columns along with time
 
-    # assign prevalence vectors (set to 1 or 0) #
-    blind_prev <- 0
-    visual_imp_prev <- 0
+      sequela.postive.mat1 <- sequela.postive.mat # for severe itch
+      sequela.postive.mat2 <- sequela.postive.mat # for RSD
 
-    # assign age-prev vectors 0
-    blind_prev0_1 <- 0
-    blind_prev2_4 <- 0
-    blind_prev5_9 <- 0
-    blind_prev10_19 <- 0
-    blind_prev20_29 <- 0
-    blind_prev30_49 <- 0
-    blind_prev50_80 <- 0
+      morbidity_prevalence_outputs <- matrix(
+        NA, nrow = time.its, ncol = length(morbidities) * (length(output_age_groups) + 1)
+      )
 
-    # assign age-prev vectors 0
-    visual_imp_prev0_1 <- 0
-    visual_imp_prev2_4 <- 0
-    visual_imp_prev5_9 <- 0
-    visual_imp_prev10_19 <- 0
-    visual_imp_prev20_29 <- 0
-    visual_imp_prev30_49 <- 0
-    visual_imp_prev50_80 <- 0
+      morbidity_column_names <- c()
+      for (morbidity in morbidities) {
+        morbidity_column_names <- c(
+          morbidity_column_names,
+          paste0(morbidity, "_prev"),
+          paste0(morbidity, "_prev", output_age_groups_as_strings)
+        )
+      }
+      colnames(morbidity_prevalence_outputs) <- morbidity_column_names
 
-    # =============================================================================== #
-    #   lagged vector for blindness / visual impairment (start filling from 2 years)  #
+      # assign first index of vectors to 0
+      for (name in colnames(morbidity_prevalence_outputs)) {
+        morbidity_prevalence_outputs[1, name] <- 0
+      }
 
-    length_req_2yrs <- length(seq(0, 2 - 1/366, by = 1/366)) # length of 0's required for lag (2 years)
-    lag_seq <- rep(0, times = length_req_2yrs)
+      # ========================= #
+      # Eye disease set-up        #
 
-    # assign prevalence vectors (set to 1 or 0) #
-    blind_prev <- lag_seq
-    visual_imp_prev <- lag_seq
+      num.cols.blindness <- 12 # 9 + 2 for lagged age + 1 for updated blindness status
 
-    # assign age-prev vectors 0
-    blind_prev0_1 <- lag_seq
-    blind_prev2_4 <- lag_seq
-    blind_prev5_9 <- lag_seq
-    blind_prev10_19 <- lag_seq
-    blind_prev20_29 <- lag_seq
-    blind_prev30_49 <- lag_seq
-    blind_prev50_80 <- lag_seq
+      # define Morbidity matrix #
+      # set other cols to 0 at i = 1
+      all.blind.temp <- data.frame(
+        Age = cur.age,
+        Sex = sex,
+        TrueMFCount = 0,
+        ObservedMFCount = 0,
+        BlindnessProb = 0,
+        BlindnessStatus = 0,
+        BlindnessPending = 0,
+        BlindnessCountdown = 730
+      )
 
-    # assign age-prev vectors 0
-    visual_imp_prev0_1 <- lag_seq
-    visual_imp_prev2_4 <- lag_seq
-    visual_imp_prev5_9 <- lag_seq
-    visual_imp_prev10_19 <- lag_seq
-    visual_imp_prev20_29 <- lag_seq
-    visual_imp_prev30_49 <- lag_seq
-    visual_imp_prev50_80 <- lag_seq
+      # extract probabilities for each condition
+      eye.disease.probs <- readRDS("data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
 
 
-  }
+      eye.dis.probs <- eye.disease.probs$fit
 
+      # TODO? #
+      #   lagged vector for blindness / visual impairment (start filling from 2 years)  #
+    }
+    output_index <- 1
   }
 
 
@@ -631,7 +508,6 @@ ep.equi.sim <- function(time.its,
 
   {
     if(is.list(equilibrium) == FALSE) stop('equilibrium condition not in correct format')
-    # if(epilepsy_module == "YES") stop(' cannot run epilepsy model unless model run at/to equilibrium first')
 
     ex.vec <- equilibrium[[2]] #exposure
 
@@ -665,77 +541,35 @@ ep.equi.sim <- function(time.its,
                              mf.start, mf.end, pop.size = N, kM.const.toggle)
 
 
-    prev <-  prevalence.for.age(age = 5, ss.in = temp, main.dat = all.mats.temp)
-    prev0_1 <- mf_ageprev_eq[[1]]
-    prev2_4 <-  mf_ageprev_eq[[2]]
-    prev5_9 <-  mf_ageprev_eq[[3]]
-    prev10_19 <-  mf_ageprev_eq[[4]]
-    prev20_29 <-  mf_ageprev_eq[[5]]
-    prev30_49 <-  mf_ageprev_eq[[6]]
-    prev50_80 <-  mf_ageprev_eq[[7]]
+    mf_prevalence_outputs <- rbind(
+      mf_prev_eq, matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
+    )
 
-    mean.mf.per.snip <- mean(temp[[2]][which(all.mats.temp[,2] >= 5)])
-    mean.mf.per.snip0_1 <- mf_agintens_eq[[1]]
-    mean.mf.per.snip2_4 <- mf_agintens_eq[[2]]
-    mean.mf.per.snip5_9 <- mf_agintens_eq[[3]]
-    mean.mf.per.snip10_19 <- mf_agintens_eq[[4]]
-    mean.mf.per.snip20_29 <- mf_agintens_eq[[5]]
-    mean.mf.per.snip30_49 <- mf_agintens_eq[[6]]
-    mean.mf.per.snip50_80 <- mf_agintens_eq[[7]]
+    mf_intensity_outputs <- rbind(
+      mf_intens_eq, matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
+    )
 
-
-    L3_vec <- mean(all.mats.temp[, 6])
+    L3_vec <- c(mean(all.mats.temp[, 6]), rep(NA, time.its))
 
     treat.vec.in <- equilibrium[[3]]
 
-    ABR_recorded <- c()
-    coverage.recorded <- c()
-
-    if(epilepsy_module == "YES"){
-
-      OAE <- OAE_equilibrium[[1]]
-      age_to_samp <- OAE_equilibrium[[2]]
-      tested_OAE <- OAE_equilibrium[[3]]
-      infected_at_all <- OAE_equilibrium[[4]]
-      check_ind <- OAE_equilibrium[[5]]
-      tot_ind_ep_samp <- OAE_equilibrium[[6]]
-      OAE_probs <- OAE_equilibrium[[7]]
-
-      prev_OAE <- mean(OAE) # calculate & update prevalence of OAE
-
-      new_inc <- length(which(OAE[tot_ind_ep_samp] == 1)) # how many infections (finds total new infected/OAE in all OAE)
-
-      OAE_incidence_DT <- new_inc # record + update number of new OAE cases
-
-
-      new_inc_under_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 3 & all.mats.temp[tot_ind_ep_samp ,2]< 5 )) # new cases in 3 to 5 age group
-      new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 5 & all.mats.temp[tot_ind_ep_samp ,2]<= 10 )) # new cases in 5 to 10 age group
-      new_inc_11_15 <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,2] >= 10 & all.mats.temp[tot_ind_ep_samp ,2]<= 15 )) # new cases in 10 to 15 age group
-
-      new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 1)) # new cases in males
-      new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & all.mats.temp[tot_ind_ep_samp ,3] == 0)) # new cases in females
-
-      OAE_incidence_DT_under_5 <- new_inc_under_5 # record & update incidence in 3 to 5 age group
-      OAE_incidence_DT_5_10 <- new_inc_5_10 # record & update incidence in 5 to 10 age group
-      OAE_incidence_DT_11_15 <- new_inc_11_15 # record & update incidence in 10 to 15 age group
-
-      OAE_incidence_DT_M <- new_inc_M # record & update incidence in males
-      OAE_incidence_DT_F <- new_inc_F # record & update incidence in females
-
-      # # if taking straight from eq input
-      # prev_OAE <- OAE_infection[[1]] # calculate & update prevalence of OAE
-      #
-      # OAE_incidence_DT <- OAE_infection[[2]] # record + update number of new OAE cases
-      #
-      # OAE_incidence_DT_3_5 <- OAE_infection[[3]] # record & update incidence in 3 to 5 age group
-      # OAE_incidence_DT_5_10 <- OAE_infection[[4]] # record & update incidence in 5 to 10 age group
-      #
-      # OAE_incidence_DT_M <- OAE_infection[[5]] # record & update incidence in males
-      # OAE_incidence_DT_F <- OAE_infection[[6]] # record & update incidence in females
-
-    }
+    ABR_recorded <- rep(NA, time.its)
+    coverage.recorded <- rep(NA, time.its)
 
     if(morbidity_module == "YES"){
+      OAE <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$OAE
+      age_to_samp <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$age_to_samp
+      tested_OAE <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$tested_OAE
+      infected_at_all <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$infected_at_all
+      check_ind <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$check_ind
+      tot_ind_ep_samp <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$tot_ind_ep_samp
+      OAE_probs <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$OAE_probs
+
+      oae_outputs_dt <- rbind(
+        equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$oae_incidence_outputs,
+        matrix(NA, nrow = time.its, ncol = 7)
+      )
+
 
       # extract probabilities for each condition
       #skin.disease.probs <- readRDS("~/EPIONCHO-IBM/data/skin_disease_probabilties_updated2.rds")
@@ -747,88 +581,29 @@ ep.equi.sim <- function(time.its,
       # RSD_probs <- RSD_probs_df$fit
 
       #==================#
+      all.morb.temp <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$all.morb.updated
 
-      all.morb.temp <- data.frame(
-        Age = morbidity_eq[[1]][,1],
-        Sex = morbidity_eq[[1]][,2],
-        TrueMFCount = morbidity_eq[[1]][,4],
-        ObservedMFCount = morbidity_eq[[1]][,5],
-        AtrophySampleAges = morbidity_eq[[1]][,19],
-        HangingGroinSampleAges = morbidity_eq[[1]][,20],
-        DepigSampleAges = morbidity_eq[[1]][,21],
-        Day3SevereItchStatus = morbidity_eq[[1]][,22],
-        Day3RSDStatus = morbidity_eq[[1]][,23],
-        ToTestSevereItch = morbidity_eq[[1]][,30],
-        ToTestRSD = morbidity_eq[[1]][,34],
-        ToTestAtrophy = morbidity_eq[[1]][,35],
-        ToTestHG = morbidity_eq[[1]][,36],
-        ToTestDepig = morbidity_eq[[1]][,37],
-        SevereItchStatus = morbidity_eq[[1]][,46],
-        RSDStatus = morbidity_eq[[1]][,50],
-        AtrophyStatus = morbidity_eq[[1]][,51],
-        HGStatus = morbidity_eq[[1]][,52],
-        DepigStatus = morbidity_eq[[1]][,53]
-      )
+      all.blind.temp <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$all.blind.updated
 
       age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
       age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
 
-      sequela.postive.mat1 <- morbidity_eq[[2]] # 3-day delay sequelae matrix (SI)
-      sequela.postive.mat2 <- morbidity_eq[[3]] # 3-day delay sequelae matrix (RSD)
+      sequela.postive.mat1 <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$sequela.postive.mat1 # 3-day delay sequelae matrix (SI)
+      sequela.postive.mat2 <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$sequela.postive.mat2 # 3-day delay sequelae matrix (RSD)
 
       inds.sequela.mat <- seq(2,(length(sequela.postive.mat1[1,]))) # for moving columns along with time
 
       # assign prevalence vectors from equilibrium ouput
-      SI_prev <-  morbidity_prev_eq[[1]]
-      RSD_prev <-  morbidity_prev_eq[[2]]
-      Atrp_prev <-  morbidity_prev_eq[[3]]
-      HG_prev <-  morbidity_prev_eq[[4]]
-      depigm_prev <-  morbidity_prev_eq[[5]]
-
-      # assign age-prev from equilibrium ouput
-      SI_prev0_1 <-  morbidity_ageprev_eq[[1]]
-      SI_prev2_4 <-  morbidity_ageprev_eq[[2]]
-      SI_prev5_9 <-  morbidity_ageprev_eq[[3]]
-      SI_prev10_19 <-  morbidity_ageprev_eq[[4]]
-      SI_prev20_29 <-  morbidity_ageprev_eq[[5]]
-      SI_prev30_49 <-  morbidity_ageprev_eq[[6]]
-      SI_prev50_80 <-  morbidity_ageprev_eq[[7]]
-
-      RSD_prev0_1 <-  morbidity_ageprev_eq[[8]]
-      RSD_prev2_4 <-  morbidity_ageprev_eq[[9]]
-      RSD_prev5_9 <-  morbidity_ageprev_eq[[10]]
-      RSD_prev10_19 <-  morbidity_ageprev_eq[[11]]
-      RSD_prev20_29 <-  morbidity_ageprev_eq[[12]]
-      RSD_prev30_49 <-  morbidity_ageprev_eq[[13]]
-      RSD_prev50_80 <-  morbidity_ageprev_eq[[14]]
-
-      Atrp_prev0_1 <-  morbidity_ageprev_eq[[15]]
-      Atrp_prev2_4 <-  morbidity_ageprev_eq[[16]]
-      Atrp_prev5_9 <-  morbidity_ageprev_eq[[17]]
-      Atrp_prev10_19 <-  morbidity_ageprev_eq[[18]]
-      Atrp_prev20_29 <-  morbidity_ageprev_eq[[19]]
-      Atrp_prev30_49 <-  morbidity_ageprev_eq[[20]]
-      Atrp_prev50_80 <-  morbidity_ageprev_eq[[21]]
-
-      HG_prev0_1 <-  morbidity_ageprev_eq[[22]]
-      HG_prev2_4 <-  morbidity_ageprev_eq[[23]]
-      HG_prev5_9 <-  morbidity_ageprev_eq[[24]]
-      HG_prev10_19 <-  morbidity_ageprev_eq[[25]]
-      HG_prev20_29 <-  morbidity_ageprev_eq[[26]]
-      HG_prev30_49 <-  morbidity_ageprev_eq[[27]]
-      HG_prev50_80 <-  morbidity_ageprev_eq[[28]]
-
-      depigm_prev0_1 <-  morbidity_ageprev_eq[[29]]
-      depigm_prev2_4 <-  morbidity_ageprev_eq[[30]]
-      depigm_prev5_9 <-  morbidity_ageprev_eq[[31]]
-      depigm_prev10_19 <-  morbidity_ageprev_eq[[32]]
-      depigm_prev20_29 <-  morbidity_ageprev_eq[[33]]
-      depigm_prev30_49 <-  morbidity_ageprev_eq[[34]]
-      depigm_prev50_80 <- morbidity_ageprev_eq[[35]]
+      morbidity_prevalence_outputs <- rbind(
+        equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$all_morbidity_prev_outputs,
+        matrix(NA, nrow = time.its, ncol = length(morbidities) * (length(output_age_groups) + 1))
+      )
     }
+    output_index <- nrow(
+      equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$all_morbidity_prev_outputs
+    ) + 1
 
   }
-
 
   i <- 1
 
@@ -1142,102 +917,38 @@ ep.equi.sim <- function(time.its,
     mf.delay[, 1] <- rowSums(all.mats.cur[, 7 : (6 + num.mf.comps)])
     exposure.delay[, 1] <- tot.ex.ai
 
-    #===========================#
-    #     OAE module funcs      #
-
-    if(epilepsy_module == "YES"){
-
-      if(i == 1){
-
-        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, nfw.start = nfw.start, fw.end = fw.end,
-                          infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE, check_ind = check_ind) # step 1
-
-        infected_at_all = OAE_out1[[2]] # updated (when i = 1)
-        check_ind = OAE_out1[[3]] # updated (when i = 1)
-
-        temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                                mf.start, mf.end, pop.size = N, kM.const.toggle)
-
-        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
-                                       OAE = OAE, tested_OAE = tested_OAE,
-                                       prev_OAE = prev_OAE, OAE_incidence_DT = OAE_incidence_DT,
-                                       OAE_incidence_DT_under_5 = OAE_incidence_DT_under_5, OAE_incidence_DT_5_10 = OAE_incidence_DT_5_10, OAE_incidence_DT_11_15 = OAE_incidence_DT_11_15,
-                                       OAE_incidence_DT_M = OAE_incidence_DT_M, OAE_incidence_DT_F = OAE_incidence_DT_F) # step 2
-
-        OAE = OAE_out2[[9]] # updated (when i = 1)
-        tested_OAE = OAE_out2[[10]] # updated (when i = 1)
-      }
-
-      if(i > 1){
-
-        OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, nfw.start = nfw.start, fw.end = fw.end,
-                                        infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE, check_ind = check_ind) # step 1
-
-        infected_at_all = OAE_out1[[2]] # updated (when i > 1)
-        check_ind = OAE_out1[[3]] # updated (when i > 1)
-
-        temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
-                                    mf.start, mf.end, pop.size = N, kM.const.toggle)
-
-        OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
-                                       OAE = OAE, tested_OAE = tested_OAE,
-                                       prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
-                                       OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
-                                       OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]]) # step 2
-
-        OAE = OAE_out2[[9]] # updated (when i > 1)
-        tested_OAE = OAE_out2[[10]] # updated (when i > 1)
-      }
-    }
-
-
-
     # ======================================== #
-    # skin disease & eye disease               #
+    # Morbidities                              #
     # ======================================== #
 
     if(morbidity_module == "YES"){
+      #===========================#
+      #     OAE module funcs      #
+
+      OAE_out1 <- find_indiv_OAE_func(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end, worms.start = worms.start, nfw.start = nfw.start, fw.end = fw.end,
+                  infected_at_all = infected_at_all, age_to_samp = age_to_samp, OAE = OAE, tested_OAE = tested_OAE, check_ind = check_ind) # step 1
+
+      infected_at_all = OAE_out1[[2]] # updated (when i = 1)
+      check_ind = OAE_out1[[3]] # updated (when i = 1)
+
+      temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
+                              mf.start, mf.end, pop.size = N, kM.const.toggle)
+
+      OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
+                                      OAE = OAE, tested_OAE = tested_OAE, age_groups = output_age_groups) # step 2
+
+      oae_outputs_dt[output_index,] <- OAE_out2$output_vals
+      OAE = OAE_out2[[3]]
+      tested_OAE = OAE_out2[[4]]
+
 
       # ============ #
-      # Skin disease #
+      # Skin disease and blindness #
 
-      if(i == 1){
-
+      if(i == 1) {
         all.morb.updated <- all.morb.temp
-
-        morbidity_prev_out <- morbidity_prev_func(morb.mat.tmp = all.morb.updated, N = N,
-                                                  SI_prev = SI_prev, RSD_prev = RSD_prev, Atrp_prev = Atrp_prev, HG_prev = HG_prev, depigm_prev = depigm_prev,
-                                                  SI_prev0_1 = SI_prev0_1, SI_prev2_4 = SI_prev2_4, SI_prev5_9 = SI_prev5_9,
-                                                  SI_prev10_19 = SI_prev10_19,SI_prev20_29 = SI_prev20_29, SI_prev30_49 = SI_prev30_49, SI_prev50_80 = SI_prev50_80,
-                                                  RSD_prev0_1 = RSD_prev0_1, RSD_prev2_4 = RSD_prev2_4, RSD_prev5_9 = RSD_prev5_9, RSD_prev10_19 = RSD_prev10_19,
-                                                  RSD_prev20_29 = RSD_prev20_29, RSD_prev30_49 = RSD_prev30_49, RSD_prev50_80 = RSD_prev50_80,
-                                                  Atrp_prev0_1 = Atrp_prev0_1, Atrp_prev2_4 = Atrp_prev2_4, Atrp_prev5_9 = Atrp_prev5_9, Atrp_prev10_19 = Atrp_prev10_19,
-                                                  Atrp_prev20_29 = Atrp_prev20_29, Atrp_prev30_49 = Atrp_prev30_49, Atrp_prev50_80 = Atrp_prev50_80,
-                                                  HG_prev0_1 = HG_prev0_1, HG_prev2_4 = HG_prev2_4, HG_prev5_9 = HG_prev5_9, HG_prev10_19 = HG_prev10_19,
-                                                  HG_prev20_29 = HG_prev20_29, HG_prev30_49 = HG_prev30_49, HG_prev50_80 = HG_prev50_80,
-                                                  depigm_prev0_1 = depigm_prev0_1, depigm_prev2_4 = depigm_prev2_4, depigm_prev5_9 = depigm_prev5_9,
-                                                  depigm_prev10_19 = depigm_prev10_19, depigm_prev20_29 = depigm_prev20_29, depigm_prev30_49 = depigm_prev30_49,
-                                                  depigm_prev50_80 = depigm_prev50_80)
-
-        # ============ #
-        # eye disease  #
-
         all.blind.updated <- all.blind.temp
-
-        eye.dis.prev.out <- eye.disease.prev.func(N = N,morb.mat.tmp = all.blind.updated,
-                                                  blind_prev = blind_prev, visual_imp_prev = visual_imp_prev,
-                                                  blind_prev0_1 = blind_prev0_1, blind_prev2_4 = blind_prev2_4,
-                                                  blind_prev5_9 = blind_prev5_9, blind_prev10_19 = blind_prev10_19,
-                                                  blind_prev20_29 = blind_prev20_29, blind_prev30_49 = blind_prev30_49,
-                                                  blind_prev50_80 = blind_prev50_80,
-                                                  visual_imp_prev0_1 = visual_imp_prev0_1, visual_imp_prev2_4 = visual_imp_prev2_4,
-                                                  visual_imp_prev5_9 = visual_imp_prev5_9, visual_imp_prev10_19 = visual_imp_prev10_19,
-                                                  visual_imp_prev20_29 = visual_imp_prev20_29, visual_imp_prev30_49 = visual_imp_prev30_49,
-                                                  visual_imp_prev50_80 = visual_imp_prev50_80)
-
-      }
-
-      if(i > 1){
+      } else if (i > 1) {
 
         # =================== #
         #     Skin disease    #
@@ -1272,26 +983,6 @@ ep.equi.sim <- function(time.its,
         sequela.postive.mat2 <- reversible.morb.updated[[2]] # updated RSD 7-day delay matrix
         all.morb.updated <- reversible.morb.updated[[3]] # updated morb.mat
 
-
-        morbidity_prev_out <- morbidity_prev_func(morb.mat.tmp = all.morb.updated, N = N,
-                                                  SI_prev = morbidity_prev_out[[1]], RSD_prev = morbidity_prev_out[[2]], Atrp_prev = morbidity_prev_out[[3]],
-                                                  HG_prev = morbidity_prev_out[[4]], depigm_prev = morbidity_prev_out[[5]],
-                                                  SI_prev0_1 = morbidity_prev_out[[6]], SI_prev2_4 = morbidity_prev_out[[7]], SI_prev5_9 = morbidity_prev_out[[8]],
-                                                  SI_prev10_19 = morbidity_prev_out[[9]], SI_prev20_29 = morbidity_prev_out[[10]], SI_prev30_49 = morbidity_prev_out[[11]],
-                                                  SI_prev50_80 =  morbidity_prev_out[[12]],
-                                                  RSD_prev0_1 =  morbidity_prev_out[[13]], RSD_prev2_4 =  morbidity_prev_out[[14]], RSD_prev5_9 =  morbidity_prev_out[[15]],
-                                                  RSD_prev10_19 =  morbidity_prev_out[[16]], RSD_prev20_29 =  morbidity_prev_out[[17]], RSD_prev30_49 =  morbidity_prev_out[[18]],
-                                                  RSD_prev50_80 =  morbidity_prev_out[[19]],
-                                                  Atrp_prev0_1 =  morbidity_prev_out[[20]], Atrp_prev2_4 =  morbidity_prev_out[[21]], Atrp_prev5_9 =  morbidity_prev_out[[22]],
-                                                  Atrp_prev10_19 =  morbidity_prev_out[[23]], Atrp_prev20_29 =  morbidity_prev_out[[24]], Atrp_prev30_49 =  morbidity_prev_out[[25]],
-                                                  Atrp_prev50_80 =  morbidity_prev_out[[26]],
-                                                  HG_prev0_1 =  morbidity_prev_out[[27]], HG_prev2_4 =  morbidity_prev_out[[28]], HG_prev5_9 =  morbidity_prev_out[[29]],
-                                                  HG_prev10_19 =  morbidity_prev_out[[30]], HG_prev20_29 =  morbidity_prev_out[[31]], HG_prev30_49 =  morbidity_prev_out[[32]],
-                                                  HG_prev50_80 =  morbidity_prev_out[[33]],
-                                                  depigm_prev0_1 =  morbidity_prev_out[[34]], depigm_prev2_4 =  morbidity_prev_out[[35]], depigm_prev5_9 =  morbidity_prev_out[[36]],
-                                                  depigm_prev10_19 =  morbidity_prev_out[[37]], depigm_prev20_29 =  morbidity_prev_out[[38]], depigm_prev30_49 =  morbidity_prev_out[[39]],
-                                                  depigm_prev50_80 =  morbidity_prev_out[[40]])
-
         # ============ #
         # eye disease  #
         all.blind.updated <- find_indiv_totest_func2(dat = all.mats.temp, mf.start = mf.start, mf.end = mf.end,
@@ -1300,55 +991,46 @@ ep.equi.sim <- function(time.its,
 
         all.blind.updated <- new_cases_morbidity_func2(morb.mat.tmp = all.blind.updated, temp.mf = temp.mf,
                                                          blind.probs = eye.dis.probs)
-
-
-        eye.dis.prev.out <- eye.disease.prev.func(N = N, morb.mat.tmp = all.blind.updated,
-                                                  blind_prev = eye.dis.prev.out[[1]], visual_imp_prev = eye.dis.prev.out[[2]],
-                                                  blind_prev0_1 = eye.dis.prev.out[[3]], blind_prev2_4 = eye.dis.prev.out[[4]],
-                                                  blind_prev5_9 = eye.dis.prev.out[[5]], blind_prev10_19 = eye.dis.prev.out[[6]],
-                                                  blind_prev20_29 = eye.dis.prev.out[[7]], blind_prev30_49 = eye.dis.prev.out[[8]],
-                                                  blind_prev50_80 = eye.dis.prev.out[[9]],
-                                                  visual_imp_prev0_1 = eye.dis.prev.out[[10]], visual_imp_prev2_4 = eye.dis.prev.out[[11]],
-                                                  visual_imp_prev5_9 = eye.dis.prev.out[[12]], visual_imp_prev10_19 = eye.dis.prev.out[[13]],
-                                                  visual_imp_prev20_29 = eye.dis.prev.out[[14]], visual_imp_prev30_49 = eye.dis.prev.out[[15]],
-                                                  visual_imp_prev50_80 = eye.dis.prev.out[[16]])
-
       }
 
+      morbidity_prevalence_outputs[output_index,] <- morbidity_prev_func(
+        non_blindness_morb_dat = all.morb.updated,
+        blidness_dat = all.blind.updated,
+        oae_status = OAE,
+        N = N,
+        age_groups = append(list(c(5, 81)), output_age_groups)
+      )
     }
 
     #save prevalence at current timestep
     temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                 mf.start, mf.end, pop.size = N, kM.const.toggle)
 
-    mfp_recorded_year_tracker <- c(mfp_recorded_year_tracker, i / (1/time.its))
-    prev <-  c(prev, prevalence.for.age(age = min.mont.age, ss.in = temp.mf, main.dat = all.mats.temp))
-    prev0_1 <-  c(prev0_1, prevalence.for.age2(ss.in = temp.mf, main.dat = all.mats.temp, lwr.age = 0, upr.age = 2))
-    prev2_4 <-  c(prev2_4, prevalence.for.age2(ss.in = temp.mf, main.dat = all.mats.temp, lwr.age = 2, upr.age = 5))
-    prev5_9 <-  c(prev5_9, prevalence.for.age2(ss.in = temp.mf, main.dat = all.mats.temp, lwr.age = 5, upr.age = 10))
-    prev10_19 <-  c(prev10_19, prevalence.for.age2(ss.in = temp.mf, main.dat = all.mats.temp, lwr.age = 10, upr.age = 20))
-    prev20_29 <-  c(prev20_29, prevalence.for.age2(ss.in = temp.mf, main.dat = all.mats.temp, lwr.age = 20, upr.age = 30))
-    prev30_49 <-  c(prev30_49, prevalence.for.age2(ss.in = temp.mf, main.dat = all.mats.temp, lwr.age = 30, upr.age = 50))
-    prev50_80 <-  c(prev50_80, prevalence.for.age2(ss.in = temp.mf, main.dat = all.mats.temp, lwr.age = 50, upr.age = 80))
-    
-    pnc_values <- c(pnc_values, (1 - mean(has_been_treated, na.rm=TRUE)))
+    mfp_recorded_year_tracker[output_index] <- i / (1/time.its)
 
-    mean.mf.per.snip <- c(mean.mf.per.snip, mean(temp.mf[[2]][which(all.mats.temp[,2] >= min.mont.age)]))
-    mean.mf.per.snip0_1 <- c(mean.mf.per.snip0_1, mean(temp.mf[[2]][which(all.mats.temp[,2] >= 0 & all.mats.temp[,2] < 2)]))
-    mean.mf.per.snip2_4 <- c(mean.mf.per.snip2_4, mean(temp.mf[[2]][which(all.mats.temp[,2] >= 2 & all.mats.temp[,2] < 5)]))
-    mean.mf.per.snip5_9 <- c(mean.mf.per.snip5_9, mean(temp.mf[[2]][which(all.mats.temp[,2] >= 5 & all.mats.temp[,2] < 10)]))
-    mean.mf.per.snip10_19 <- c(mean.mf.per.snip10_19, mean(temp.mf[[2]][which(all.mats.temp[,2] >= 10 & all.mats.temp[,2] < 20)]))
-    mean.mf.per.snip20_29 <- c(mean.mf.per.snip20_29, mean(temp.mf[[2]][which(all.mats.temp[,2] >= 20 & all.mats.temp[,2] < 30)]))
-    mean.mf.per.snip30_49 <- c(mean.mf.per.snip30_49, mean(temp.mf[[2]][which(all.mats.temp[,2] >= 30 & all.mats.temp[,2] < 50)]))
-    mean.mf.per.snip50_80 <- c(mean.mf.per.snip50_80, mean(temp.mf[[2]][which(all.mats.temp[,2] >= 50 & all.mats.temp[,2] <= 80)]))
+    mf_prevalence_outputs[output_index, ] <- calculate_mf_stats_across_age_groups(
+      "prevalence", 
+      temp_mf = temp.mf,
+      main_dat = all.mats.temp,
+      age_groups=append(list(c(min.mont.age, 81)), output_age_groups)
+    )
+
+    never_treated_values <- c(never_treated_values, (1 - mean(has_been_treated, na.rm=TRUE)))
+
+    mf_intensity_outputs[output_index, ] <- calculate_mf_stats_across_age_groups(
+      "intensity", 
+      temp_mf = temp.mf,
+      main_dat = all.mats.temp,
+      age_groups=append(list(c(min.mont.age, 81)), output_age_groups)
+    )
 
     mf.per.skin.snp.out <- temp.mf[[2]] #to extract out mf per skin snip for each individual?
 
-    L3_vec <- c(L3_vec, mean(all.mats.temp[, 6]))
+    L3_vec[output_index] <- mean(all.mats.temp[, 6])
 
-    ABR_recorded <- c(ABR_recorded, ABR_upd) # tracking changing ABR
+    ABR_recorded[output_index] <- ABR_upd # tracking changing ABR
 
-    coverage.recorded <- c(coverage.recorded, coverage.upd) # track changing coverage if specified
+    coverage.recorded[output_index] <- coverage.upd # track changing coverage if specified
 
     # ======================================================================================== #
     # new individual exposure for newborns, clear rows for new borns & update various matrices #
@@ -1373,8 +1055,8 @@ ep.equi.sim <- function(time.its,
         compliance.mat[to.die, 3] <- 0
       } # if individual dies update pTreat to 0 in compliance matrix
 
-      if(epilepsy_module == "YES"){
-
+     if(morbidity_module == "YES"){
+        # OAE #
         infected_at_all[to.die] <- 0 # index those individuals to die as no longer ever infected
 
         age_to_samp[to.die] <- sample(seq(3, 15, DT), size = length(to.die), replace = TRUE) # for those individuals set to die, resample
@@ -1382,10 +1064,6 @@ ep.equi.sim <- function(time.its,
         OAE[to.die] <-  0 # index those individuals to die as no longer with OAE
 
         tested_OAE[to.die] <-  0 # index those individuals to die as no longer tested
-
-      }
-
-     if(morbidity_module == "YES"){
 
         # ==================== #
         #    Skin disease      #
@@ -1411,190 +1089,60 @@ ep.equi.sim <- function(time.its,
     # update sequela matrix if any individual has reached 3rd day with SI/RSD (4th column) - reversible OSD only #
 
     if(morbidity_module == "YES"){
-
-    # SI 3-day matrix #
-    current_day3_SI <- which(sequela.postive.mat1[,4] == 1)
-
-    if(length(current_day3_SI) > 0) {
-
-      sequela.postive.mat1[current_day3_SI, ] <- 0
-
+      # SI 3-day matrix #
+      current_day3_SI <- which(sequela.postive.mat1[,4] == 1)
+      if(length(current_day3_SI) > 0) {
+        sequela.postive.mat1[current_day3_SI, ] <- 0
       }
 
-    # RSD 3-day matrix #
-    current_day3_RSD <- which(sequela.postive.mat2[,4] == 1)
-
-    if(length(current_day3_RSD) > 0) {
-
-      sequela.postive.mat2[current_day3_RSD, ] <- 0
-
+      # RSD 3-day matrix #
+      current_day3_RSD <- which(sequela.postive.mat2[,4] == 1)
+      if(length(current_day3_RSD) > 0) {
+        sequela.postive.mat2[current_day3_RSD, ] <- 0
       }
-
     }
-
 
     i <- i + 1
-
-  }
-
-  if(epilepsy_module == "YES" & morbidity_module == "NO"){
-
-    if(isTRUE(run_equilibrium)){
-      outp <- (list(prev, mean.mf.per.snip, L3_vec,
-                    list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
-                    prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
-                    OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
-                    OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
-                    list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
-                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs),
-                    ABR_recorded, coverage.recorded))
-
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
-                     'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
-                     'OAE_incidence_males','OAE_incidence_females','all_OAE_equilibirum_ouputs',
-                     'ABR_recorded', 'coverage.recorded')
-    return(outp)
-    }
-
-    if(isFALSE(run_equilibrium))
-    {
-      outp <- (list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp,
-                    prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
-                    OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
-                    OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
-                    list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
-                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs),
-                    ABR_recorded, coverage.recorded))
-
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'ABR','all_equilibrium_outputs', 'OAE_prev','OAE_incidence',
-                       'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
-                       'OAE_incidence_males','OAE_incidence_females','all_OAE_equilibirum_ouputs',
-                       'ABR_recorded', 'coverage.recorded')
-      return(outp)
-    }
-
-  } else if (morbidity_module == "YES" & epilepsy_module == "YES"){
-    if(isTRUE(run_equilibrium) || isFALSE(run_equilibrium)){
-      outp <- (list(prev, mean.mf.per.snip, L3_vec,
-                    list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
-                    prev_OAE = OAE_out2[[1]], OAE_incidence_DT = OAE_out2[[2]],
-                    OAE_incidence_DT_under_5 = OAE_out2[[3]], OAE_incidence_DT_5_10 = OAE_out2[[4]], OAE_incidence_DT_11_15 = OAE_out2[[5]],
-                    OAE_incidence_DT_M = OAE_out2[[6]], OAE_incidence_DT_F = OAE_out2[[7]],
-                    list(OAE = OAE, age_to_samp = age_to_samp, tested_OAE = tested_OAE, infected_at_all = infected_at_all,
-                         check_ind = OAE_out1[[3]], tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs),
-                    SI_prev = morbidity_prev_out[[1]], RSD_prev = morbidity_prev_out[[2]], Atrp_prev = morbidity_prev_out[[3]],
-                    HG_prev = morbidity_prev_out[[4]], depigm_prev = morbidity_prev_out[[5]],
-                    blind_prev = eye.dis.prev.out[[1]], visual_imp_prev = eye.dis.prev.out[[2]],
-                    list(SI_prev0_1 = morbidity_prev_out[[6]], SI_prev2_4 = morbidity_prev_out[[7]], SI_prev5_9 = morbidity_prev_out[[8]],
-                          SI_prev10_19 = morbidity_prev_out[[9]], SI_prev20_29 = morbidity_prev_out[[10]], SI_prev30_49 = morbidity_prev_out[[11]],
-                          SI_prev50_80 =  morbidity_prev_out[[12]],
-                          RSD_prev0_1 =  morbidity_prev_out[[13]], RSD_prev2_4 =  morbidity_prev_out[[14]], RSD_prev5_9 =  morbidity_prev_out[[15]],
-                          RSD_prev10_19 =  morbidity_prev_out[[16]], RSD_prev20_29 =  morbidity_prev_out[[17]], RSD_prev30_49 =  morbidity_prev_out[[18]],
-                          RSD_prev50_80 =  morbidity_prev_out[[19]],
-                          Atrp_prev0_1 =  morbidity_prev_out[[20]], Atrp_prev2_4 =  morbidity_prev_out[[21]], Atrp_prev5_9 =  morbidity_prev_out[[22]],
-                          Atrp_prev10_19 =  morbidity_prev_out[[23]], Atrp_prev20_29 =  morbidity_prev_out[[24]], Atrp_prev30_49 =  morbidity_prev_out[[25]],
-                          Atrp_prev50_80 =  morbidity_prev_out[[26]],
-                          HG_prev0_1 =  morbidity_prev_out[[27]], HG_prev2_4 =  morbidity_prev_out[[28]], HG_prev5_9 =  morbidity_prev_out[[29]],
-                          HG_prev10_19 =  morbidity_prev_out[[30]], HG_prev20_29 =  morbidity_prev_out[[31]], HG_prev30_49 =  morbidity_prev_out[[32]],
-                          HG_prev50_80 =  morbidity_prev_out[[33]],
-                          depigm_prev0_1 =  morbidity_prev_out[[34]], depigm_prev2_4 =  morbidity_prev_out[[35]], depigm_prev5_9 =  morbidity_prev_out[[36]],
-                          depigm_prev10_19 =  morbidity_prev_out[[37]], depigm_prev20_29 =  morbidity_prev_out[[38]], depigm_prev30_49 =  morbidity_prev_out[[39]],
-                          depigm_prev50_80 =  morbidity_prev_out[[40]]),
-                    list(blind_prev0_1 = eye.dis.prev.out[[3]], blind_prev2_4 = eye.dis.prev.out[[4]],
-                          blind_prev5_9 = eye.dis.prev.out[[5]], blind_prev10_19 = eye.dis.prev.out[[6]],
-                          blind_prev20_29 = eye.dis.prev.out[[7]], blind_prev30_49 = eye.dis.prev.out[[8]],
-                          blind_prev50_80 = eye.dis.prev.out[[9]],
-                          visual_imp_prev0_1 = eye.dis.prev.out[[10]], visual_imp_prev2_4 = eye.dis.prev.out[[11]],
-                          visual_imp_prev5_9 = eye.dis.prev.out[[12]], visual_imp_prev10_19 = eye.dis.prev.out[[13]],
-                          visual_imp_prev20_29 = eye.dis.prev.out[[14]], visual_imp_prev30_49 = eye.dis.prev.out[[15]],
-                          visual_imp_prev50_80 = eye.dis.prev.out[[16]]),
-                    ABR_recorded, coverage.recorded, list(all.morb.updated, sequela.postive.mat1, sequela.postive.mat2),
-                    list(mfprev0_1 = prev0_1, mfprev2_4 = prev2_4, mfprev5_9 = prev5_9, mfprev10_19 = prev10_19,
-                         mfprev20_29 = prev20_29, mfprev30_49 = prev30_49, mfprev50_80 = prev50_80),
-                    list(mf_intens0_1 = mean.mf.per.snip0_1, mf_intens2_4 = mean.mf.per.snip2_4, mf_intens5_9 = mean.mf.per.snip5_9,
-                         mf_intens10_19 = mean.mf.per.snip10_19, mf_intens20_29 = mean.mf.per.snip20_29,
-                         mf_intens30_49 = mean.mf.per.snip30_49, mf_intens50_80 = mean.mf.per.snip50_80)))
-
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs',
-                       'OAE_prev','OAE_incidence',
-                       'OAE_incidence_under_5yrs','OAE_incidence_5_10yrs','OAE_incidence_10_15yrs',
-                       'OAE_incidence_males','OAE_incidence_females','all_OAE_equilibirum_ouputs',
-                       'severe_itch_prev', 'RSD_prev', 'atrophy_prev','hanging_groin_prev', 'depigmentation_prev',
-                       'blindness_prev', 'visual_impairment_prev',
-                       'morbidity_ageprev_out','eye_morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs',
-                       'mf_ageprev_out', 'mf_agintens_out')
-      return(outp)
-    }
-
-
-  } else if (epilepsy_module == "NO" & morbidity_module == "YES"){
-    if(isTRUE(run_equilibrium) || isFALSE(run_equilibrium)){
-      outp <- (list(prev, mean.mf.per.snip, L3_vec,
-                    list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay),
-                    SI_prev = morbidity_prev_out[[1]], RSD_prev = morbidity_prev_out[[2]], Atrp_prev = morbidity_prev_out[[3]],
-                    HG_prev = morbidity_prev_out[[4]], depigm_prev = morbidity_prev_out[[5]],
-                    blind_prev = eye.dis.prev.out[[1]], visual_imp_prev = eye.dis.prev.out[[2]],
-                    list(SI_prev0_1 = morbidity_prev_out[[6]], SI_prev2_4 = morbidity_prev_out[[7]], SI_prev5_9 = morbidity_prev_out[[8]],
-                         SI_prev10_19 = morbidity_prev_out[[9]], SI_prev20_29 = morbidity_prev_out[[10]], SI_prev30_49 = morbidity_prev_out[[11]],
-                         SI_prev50_80 =  morbidity_prev_out[[12]],
-                         RSD_prev0_1 =  morbidity_prev_out[[13]], RSD_prev2_4 =  morbidity_prev_out[[14]], RSD_prev5_9 =  morbidity_prev_out[[15]],
-                         RSD_prev10_19 =  morbidity_prev_out[[16]], RSD_prev20_29 =  morbidity_prev_out[[17]], RSD_prev30_49 =  morbidity_prev_out[[18]],
-                         RSD_prev50_80 =  morbidity_prev_out[[19]],
-                         Atrp_prev0_1 =  morbidity_prev_out[[20]], Atrp_prev2_4 =  morbidity_prev_out[[21]], Atrp_prev5_9 =  morbidity_prev_out[[22]],
-                         Atrp_prev10_19 =  morbidity_prev_out[[23]], Atrp_prev20_29 =  morbidity_prev_out[[24]], Atrp_prev30_49 =  morbidity_prev_out[[25]],
-                         Atrp_prev50_80 =  morbidity_prev_out[[26]],
-                         HG_prev0_1 =  morbidity_prev_out[[27]], HG_prev2_4 =  morbidity_prev_out[[28]], HG_prev5_9 =  morbidity_prev_out[[29]],
-                         HG_prev10_19 =  morbidity_prev_out[[30]], HG_prev20_29 =  morbidity_prev_out[[31]], HG_prev30_49 =  morbidity_prev_out[[32]],
-                         HG_prev50_80 =  morbidity_prev_out[[33]],
-                         depigm_prev0_1 =  morbidity_prev_out[[34]], depigm_prev2_4 =  morbidity_prev_out[[35]], depigm_prev5_9 =  morbidity_prev_out[[36]],
-                         depigm_prev10_19 =  morbidity_prev_out[[37]], depigm_prev20_29 =  morbidity_prev_out[[38]], depigm_prev30_49 =  morbidity_prev_out[[39]],
-                         depigm_prev50_80 =  morbidity_prev_out[[40]]),
-                    list(blind_prev0_1 = eye.dis.prev.out[[3]], blind_prev2_4 = eye.dis.prev.out[[4]],
-                         blind_prev5_9 = eye.dis.prev.out[[5]], blind_prev10_19 = eye.dis.prev.out[[6]],
-                         blind_prev20_29 = eye.dis.prev.out[[7]], blind_prev30_49 = eye.dis.prev.out[[8]],
-                         blind_prev50_80 = eye.dis.prev.out[[9]],
-                         visual_imp_prev0_1 = eye.dis.prev.out[[10]], visual_imp_prev2_4 = eye.dis.prev.out[[11]],
-                         visual_imp_prev5_9 = eye.dis.prev.out[[12]], visual_imp_prev10_19 = eye.dis.prev.out[[13]],
-                         visual_imp_prev20_29 = eye.dis.prev.out[[14]], visual_imp_prev30_49 = eye.dis.prev.out[[15]],
-                         visual_imp_prev50_80 = eye.dis.prev.out[[16]]),
-                    ABR_recorded, coverage.recorded, list(all.morb.updated, sequela.postive.mat1, sequela.postive.mat2),
-                    list(mfprev0_1 = prev0_1, mfprev2_4 = prev2_4, mfprev5_9 = prev5_9, mfprev10_19 = prev10_19,
-                         mfprev20_29 = prev20_29, mfprev30_49 = prev30_49, mfprev50_80 = prev50_80),
-                    list(mf_intens0_1 = mean.mf.per.snip0_1, mf_intens2_4 = mean.mf.per.snip2_4, mf_intens5_9 = mean.mf.per.snip5_9,
-                         mf_intens10_19 = mean.mf.per.snip10_19, mf_intens20_29 = mean.mf.per.snip20_29,
-                         mf_intens30_49 = mean.mf.per.snip30_49, mf_intens50_80 = mean.mf.per.snip50_80)))
-
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs',
-                       'severe_itch_prev', 'RSD_prev', 'atrophy_prev','hanging_groin_prev', 'depigmentation_prev',
-                       'blindness_prev', 'visual_impairment_prev',
-                       'morbidity_ageprev_out','eye_morbidity_ageprev_out','ABR_recorded', 'coverage.recorded', 'morbidity.outputs',
-                       'mf_ageprev_out', 'mf_agintens_out')
-      return(outp)
-      }
-
-  } else {
-
-    # =====================================================#
-    #  When epilepsy  or other morbidity module not called #
-
-    #enough outputs to restart sims
-    if(isTRUE(run_equilibrium))
-    {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded, mfp_recorded_year_tracker, pnc_values)
-      names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded', 'year', 'pnc')
-      return(outp)
-    }
-
-    #assuming output will not be used for further sims
-    if(isFALSE(run_equilibrium))
-    {
-      outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded, mfp_recorded_year_tracker, pnc_values)
-      names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded', 'year', 'pnc')
-      return(outp)
-    }
   }
 
 
+  general_outputs <- list(
+    'mf_prev' = mf_prevalence_outputs['prev'], 'mf_intens' = mf_intensity_outputs['mean.mf.per.snip'],
+    'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp,
+    'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
+    'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ABR_recorded' = ABR_recorded,
+    'coverage.recorded' = coverage.recorded, 'percent_never_treated' = never_treated_values
+  )
+
+  if (morbidity_module == "YES"){
+    morbidity_outputs <- list(
+      'oae_incidence_outputs' = oae_outputs_dt,
+      'all_morbidity_prevalence_outputs' = morbidity_prevalence_outputs
+    )
+    general_outputs <- c(general_outputs, morbidity_outputs)
+  }
+
+  # add outputs needed to restart sims
+  if(isTRUE(run_equilibrium))
+  {
+    equilibrium_outputs <- list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay)
+    if (morbidity_module == "YES") {
+      equilibrium_outputs[["morbidity_equilibrium_outputs"]] <- list(
+        "all_OAE_equilibrium_outputs" = list(
+          'OAE' = OAE, 'age_to_samp' = age_to_samp, 'tested_OAE' = tested_OAE, 'infected_at_all' = infected_at_all,
+          'check_ind' = OAE_out1[[3]], 'tot_ind_ep_samp' = OAE_out1[[1]], 'OAE_probs' = OAE_probs,
+          'oae_incidence_outputs' = oae_outputs_dt
+        ),
+        "other_morbidity_equilibrium_outputs" = list(
+          'all.morb.updated' = all.morb.updated, 'all.blind.updated' = all.blind.updated,
+          'sequela_pos_mat_1' = sequela.postive.mat1, 'sequela_pos_mat_2' = sequela.postive.mat2,
+          'all_morbidity_prev_outputs' = morbidity_prevalence_outputs
+        )
+      )
+    }
+    return(c(general_outputs, equilibrium_outputs))
+  }
+  return(general_outputs)
 }
 
 
