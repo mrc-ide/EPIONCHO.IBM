@@ -1102,12 +1102,13 @@ ep.equi.sim <- function(time.its,
       }
     }
 
+    output_index <- output_index + 1
     i <- i + 1
   }
 
 
   general_outputs <- list(
-    'mf_prev' = mf_prevalence_outputs['prev'], 'mf_intens' = mf_intensity_outputs['mean.mf.per.snip'],
+    'mf_prev' = mf_prevalence_outputs[,'prev'], 'mf_intens' = mf_intensity_outputs[,'mean.mf.per.snip'],
     'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp,
     'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ABR_recorded' = ABR_recorded,
