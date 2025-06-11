@@ -84,7 +84,7 @@ ep.equi.sim <- function(time.its,
   # Set-up time parameters #
 
   DT <- DT.in # default timestep
-  if (is.na(treat.type) || treat.type == "MOX") {
+  if (!is.na(treat.type) && treat.type == "MOX") {
     # half-day timestep required for MOX dynamics
     DT <- min(DT.in / 2, (1 / 366) / 2)
   }
