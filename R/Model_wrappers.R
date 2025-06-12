@@ -275,6 +275,49 @@ ep.equi.sim <- function(time.its,
   #DT not relevent here because RK4 is used to calculate change in mf
   mort.rates.mf <- weibull.mortality(DT = 1, par1 = mu.mf1, par2 = mu.mf2, age.cats = age.cats.mf)
 
+
+  # create output variables
+  mf_prevalence_outputs <- matrix(NA, nrow = time.its - 1, ncol = length(output_age_groups) + 1)
+  colnames(mf_prevalence_outputs) <- c("prev", paste0("prev_", output_age_groups_as_strings))
+
+  never_treated_values <- rep(NA, time.its - 1)
+  has_been_treated <- rep(FALSE, N)
+  mfp_recorded_year_tracker <- rep(NA, time.its - 1)
+
+  mf_intensity_outputs <- matrix(NA, nrow = time.its - 1, ncol = length(output_age_groups) + 1)
+  colnames(mf_intensity_outputs) <- c(
+    "mean.mf.per.snip",
+    paste0("mean.mf.per.snip", output_age_groups_as_strings)
+  )
+
+  L3_vec <- rep(NA, time.its - 1)
+  ABR_recorded <- rep(NA, time.its - 1)
+  coverage.recorded <- rep(NA, time.its - 1)
+  if (morbidity_module == "YES") {
+    oae_outputs_dt <- matrix(NA, nrow = time.its - 1, ncol = 7)
+    colnames(oae_outputs_dt) <- c(
+      "prev_OAE", "OAE_incidence", "OAE_incidence_under_5",
+      "OAE_incidence-5_10", "OAE_incidence-11_15",
+      "OAE_incidence_M", "OAE_incidence_F"
+    )
+    morbidity_prevalence_outputs <- matrix(
+      NA, nrow = time.its - 1, ncol = length(morbidities) * (length(output_age_groups) + 1)
+    )
+    morbidity_column_names <- c()
+    for (morbidity in morbidities) {
+      morbidity_column_names <- c(
+        morbidity_column_names,
+        paste0(morbidity, "_prev"),
+        paste0(morbidity, "_prev", output_age_groups_as_strings)
+      )
+    }
+    colnames(morbidity_prevalence_outputs) <- morbidity_column_names
+    
+    # extract probabilities for each condition
+    eye.disease.probs <- readRDS("data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye.dis.probs <- eye.disease.probs$fit
+  }
+
   # ========================================================================================================== #
   # create inital age distribution and simulate stable age distribution (where equilibrium input not provided) #
   if (isTRUE(run_equilibrium)) {
@@ -366,23 +409,6 @@ ep.equi.sim <- function(time.its,
 
     treat.vec.in <- rep(NA, N) #for time since treatment calculations
 
-    mf_prevalence_outputs <- matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
-    colnames(mf_prevalence_outputs) <- c("prev", paste0("prev_", output_age_groups_as_strings))
-
-    never_treated_values <- rep(NA, time.its)
-    has_been_treated <- rep(FALSE, N)
-    mfp_recorded_year_tracker <- rep(NA, time.its)
-
-    mf_intensity_outputs <- matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
-    colnames(mf_intensity_outputs) <- c(
-      "mean.mf.per.snip",
-      paste0("mean.mf.per.snip", output_age_groups_as_strings)
-    )
-
-    L3_vec <- rep(NA, time.its)
-    ABR_recorded <- rep(NA, time.its)
-    coverage.recorded <- rep(NA, time.its)
-
     if (morbidity_module == "YES") {
 
       # OAE set-up #
@@ -391,20 +417,6 @@ ep.equi.sim <- function(time.its,
       OAE <- rep(1, N)
       tested_OAE <- rep(0, N)
       check_ind <- c()
-
-      oae_outputs_dt <- matrix(NA, nrow = time.its, ncol = 7)
-      colnames(oae_outputs_dt) <- c(
-        "prev_OAE", "OAE_incidence_DT", "OAE_incidence_DT_under_5",
-        "OAE_incidence_DT-5_10", "OAE_incidence_DT-11_15",
-        "OAE_incidence_DT_M", "OAE_incidence_DT_F"
-      )
-      for (name in colnames(oae_outputs_dt)) {
-        if (grepl("prev", name)) {
-          oae_outputs_dt[1, name] <- 1
-        } else {
-          oae_outputs_dt[1, name] <- 0
-        }
-      }
 
       # data and function to obtain OAE probability for a given mf count
       Chesnais_dat <- data.frame(prob = c(0.0061, 0.0439, 0.0720, 0.0849, 0.1341, 0.1538, 0.20),
@@ -452,25 +464,6 @@ ep.equi.sim <- function(time.its,
       sequela.postive.mat1 <- sequela.postive.mat # for severe itch
       sequela.postive.mat2 <- sequela.postive.mat # for RSD
 
-      morbidity_prevalence_outputs <- matrix(
-        NA, nrow = time.its, ncol = length(morbidities) * (length(output_age_groups) + 1)
-      )
-
-      morbidity_column_names <- c()
-      for (morbidity in morbidities) {
-        morbidity_column_names <- c(
-          morbidity_column_names,
-          paste0(morbidity, "_prev"),
-          paste0(morbidity, "_prev", output_age_groups_as_strings)
-        )
-      }
-      colnames(morbidity_prevalence_outputs) <- morbidity_column_names
-
-      # assign first index of vectors to 0
-      for (name in colnames(morbidity_prevalence_outputs)) {
-        morbidity_prevalence_outputs[1, name] <- 0
-      }
-
       # ========================= #
       # Eye disease set-up        #
 
@@ -488,17 +481,9 @@ ep.equi.sim <- function(time.its,
         BlindnessPending = 0,
         BlindnessCountdown = 730
       )
-
-      # extract probabilities for each condition
-      eye.disease.probs <- readRDS("data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
-
-
-      eye.dis.probs <- eye.disease.probs$fit
-
       # TODO? #
       #   lagged vector for blindness / visual impairment (start filling from 2 years)  #
     }
-    output_index <- 1
   }
 
 
@@ -508,7 +493,6 @@ ep.equi.sim <- function(time.its,
 
   {
     if(is.list(equilibrium) == FALSE) stop('equilibrium condition not in correct format')
-
     ex.vec <- equilibrium[[2]] #exposure
 
     ###############################################
@@ -540,21 +524,8 @@ ep.equi.sim <- function(time.its,
     temp <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                              mf.start, mf.end, pop.size = N, kM.const.toggle)
 
-
-    mf_prevalence_outputs <- rbind(
-      mf_prev_eq, matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
-    )
-
-    mf_intensity_outputs <- rbind(
-      mf_intens_eq, matrix(NA, nrow = time.its, ncol = length(output_age_groups) + 1)
-    )
-
-    L3_vec <- c(mean(all.mats.temp[, 6]), rep(NA, time.its))
-
     treat.vec.in <- equilibrium[[3]]
-
-    ABR_recorded <- rep(NA, time.its)
-    coverage.recorded <- rep(NA, time.its)
+    has_been_treated <- equilibrium[[9]]
 
     if(morbidity_module == "YES"){
       OAE <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$OAE
@@ -564,11 +535,6 @@ ep.equi.sim <- function(time.its,
       check_ind <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$check_ind
       tot_ind_ep_samp <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$tot_ind_ep_samp
       OAE_probs <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$OAE_probs
-
-      oae_outputs_dt <- rbind(
-        equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$oae_incidence_outputs,
-        matrix(NA, nrow = time.its, ncol = 7)
-      )
 
 
       # extract probabilities for each condition
@@ -588,21 +554,11 @@ ep.equi.sim <- function(time.its,
       age_to_samp_vec_reversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
       age_to_samp_vec_nonreversible <- seq(0+1/366, 79+1/366, 1) # between 5 and 80, sample once year year of age
 
-      sequela.postive.mat1 <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$sequela.postive.mat1 # 3-day delay sequelae matrix (SI)
-      sequela.postive.mat2 <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$sequela.postive.mat2 # 3-day delay sequelae matrix (RSD)
+      sequela.postive.mat1 <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$sequela_pos_mat_1 # 3-day delay sequelae matrix (SI)
+      sequela.postive.mat2 <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$sequela_pos_mat_2 # 3-day delay sequelae matrix (RSD)
 
       inds.sequela.mat <- seq(2,(length(sequela.postive.mat1[1,]))) # for moving columns along with time
-
-      # assign prevalence vectors from equilibrium ouput
-      morbidity_prevalence_outputs <- rbind(
-        equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$all_morbidity_prev_outputs,
-        matrix(NA, nrow = time.its, ncol = length(morbidities) * (length(output_age_groups) + 1))
-      )
     }
-    output_index <- nrow(
-      equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$all_morbidity_prev_outputs
-    ) + 1
-
   }
 
   i <- 1
@@ -937,7 +893,7 @@ ep.equi.sim <- function(time.its,
       OAE_out2 <- new_OAE_cases_func(temp.mf = temp.mf, tot_ind_ep_samp = OAE_out1[[1]], OAE_probs = OAE_probs, dat = all.mats.temp,
                                       OAE = OAE, tested_OAE = tested_OAE, age_groups = output_age_groups) # step 2
 
-      oae_outputs_dt[output_index,] <- OAE_out2$output_vals
+      oae_outputs_dt[i,] <- OAE_out2$output_vals
       OAE = OAE_out2[[3]]
       tested_OAE = OAE_out2[[4]]
 
@@ -993,7 +949,7 @@ ep.equi.sim <- function(time.its,
                                                          blind.probs = eye.dis.probs)
       }
 
-      morbidity_prevalence_outputs[output_index,] <- morbidity_prev_func(
+      morbidity_prevalence_outputs[i,] <- morbidity_prev_func(
         non_blindness_morb_dat = all.morb.updated,
         blidness_dat = all.blind.updated,
         oae_status = OAE,
@@ -1006,9 +962,9 @@ ep.equi.sim <- function(time.its,
     temp.mf <- mf.per.skin.snip(ss.wt = 2, num.ss = 2, slope.kmf = 0.0478, int.kMf = 0.313, data = all.mats.temp, nfw.start, fw.end,
                                 mf.start, mf.end, pop.size = N, kM.const.toggle)
 
-    mfp_recorded_year_tracker[output_index] <- i / (1/time.its)
+    mfp_recorded_year_tracker[i] <- i * DT
 
-    mf_prevalence_outputs[output_index, ] <- calculate_mf_stats_across_age_groups(
+    mf_prevalence_outputs[i, ] <- calculate_mf_stats_across_age_groups(
       "prevalence",
       temp_mf = temp.mf,
       main_dat = all.mats.temp,
@@ -1017,7 +973,7 @@ ep.equi.sim <- function(time.its,
 
     never_treated_values <- c(never_treated_values, (1 - mean(has_been_treated, na.rm=TRUE)))
 
-    mf_intensity_outputs[output_index, ] <- calculate_mf_stats_across_age_groups(
+    mf_intensity_outputs[i, ] <- calculate_mf_stats_across_age_groups(
       "intensity",
       temp_mf = temp.mf,
       main_dat = all.mats.temp,
@@ -1026,11 +982,11 @@ ep.equi.sim <- function(time.its,
 
     mf.per.skin.snp.out <- temp.mf[[2]] #to extract out mf per skin snip for each individual?
 
-    L3_vec[output_index] <- mean(all.mats.temp[, 6])
+    L3_vec[i] <- mean(all.mats.temp[, 6])
 
-    ABR_recorded[output_index] <- ABR_upd # tracking changing ABR
+    ABR_recorded[i] <- ABR_upd # tracking changing ABR
 
-    coverage.recorded[output_index] <- coverage.upd # track changing coverage if specified
+    coverage.recorded[i] <- coverage.upd # track changing coverage if specified
 
     # ======================================================================================== #
     # new individual exposure for newborns, clear rows for new borns & update various matrices #
@@ -1102,7 +1058,6 @@ ep.equi.sim <- function(time.its,
       }
     }
 
-    output_index <- output_index + 1
     i <- i + 1
   }
 
@@ -1126,7 +1081,7 @@ ep.equi.sim <- function(time.its,
   # add outputs needed to restart sims
   if(isTRUE(run_equilibrium))
   {
-    equilibrium_outputs <- list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay)
+    equilibrium_outputs <- list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay, has_been_treated)
     if (morbidity_module == "YES") {
       equilibrium_outputs[["morbidity_equilibrium_outputs"]] <- list(
         "all_OAE_equilibrium_outputs" = list(
