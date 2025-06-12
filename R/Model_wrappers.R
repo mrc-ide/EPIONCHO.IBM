@@ -1009,7 +1009,7 @@ ep.equi.sim <- function(time.its,
     mfp_recorded_year_tracker[output_index] <- i / (1/time.its)
 
     mf_prevalence_outputs[output_index, ] <- calculate_mf_stats_across_age_groups(
-      "prevalence", 
+      "prevalence",
       temp_mf = temp.mf,
       main_dat = all.mats.temp,
       age_groups=append(list(c(min.mont.age, 81)), output_age_groups)
@@ -1018,7 +1018,7 @@ ep.equi.sim <- function(time.its,
     never_treated_values <- c(never_treated_values, (1 - mean(has_been_treated, na.rm=TRUE)))
 
     mf_intensity_outputs[output_index, ] <- calculate_mf_stats_across_age_groups(
-      "intensity", 
+      "intensity",
       temp_mf = temp.mf,
       main_dat = all.mats.temp,
       age_groups=append(list(c(min.mont.age, 81)), output_age_groups)
@@ -1141,7 +1141,7 @@ ep.equi.sim <- function(time.its,
         )
       )
     }
-    return(c(general_outputs, equilibrium_outputs))
+    general_outputs[["all_equilibrium_outputs"]] = equilibrium_outputs
   }
   return(general_outputs)
 }
