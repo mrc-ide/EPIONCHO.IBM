@@ -680,7 +680,6 @@ ep.equi.sim <- function(time.its,
       compliance.mat <- eligible_out[[1]] # extract updated compliance matrix
 
       cov.in <- compliance.mat[,6] # this is vector of individuals to be treated from compliance mat, to feed into change.worm.per.ind.treat
-      has_been_treated <- has_been_treated | (cov.in == 1)
 
       # Count the number of treated hosts
       hostsEligibleAge <- compliance.mat[,4]
@@ -689,6 +688,9 @@ ep.equi.sim <- function(time.its,
       CovEligibles = hostsTreated / hostsEligibleAge * 100
       CovTotal = hostsTreated / N * 100
 
+    }
+    if (i >= treat.start & give.treat == 1 ) {
+      has_been_treated <- has_been_treated | (cov.in == 1)
     }
     #         TODO: Update print output here with new coverage vals from compliance structure                       #
 
@@ -971,7 +973,7 @@ ep.equi.sim <- function(time.its,
       age_groups=append(list(c(min.mont.age, 81)), output_age_groups)
     )
 
-    never_treated_values <- c(never_treated_values, (1 - mean(has_been_treated, na.rm=TRUE)))
+    never_treated_values[i] <- 1 - mean(has_been_treated, na.rm=TRUE)
 
     mf_intensity_outputs[i, ] <- calculate_mf_stats_across_age_groups(
       "intensity",
