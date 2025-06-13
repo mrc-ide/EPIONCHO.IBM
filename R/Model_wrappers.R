@@ -70,7 +70,7 @@ ep.equi.sim <- function(time.its,
                         morbidity_module = "NO",
                         morbidities = c("SevereItch", "RSD", "Atrophy", "HG", "Depig", "Blindness", "VI", "OAE"),
                         correlated_compliance = "NO",
-                        comp.correlation,
+                        comp.correlation = 0,
                         treat.switch = NA,
                         treat.type = NA) {
 
@@ -84,7 +84,7 @@ ep.equi.sim <- function(time.its,
   # Set-up time parameters #
 
   DT <- DT.in # default timestep
-  if (!is.na(treat.type) && treat.type == "MOX") {
+  if ((!is.na(treat.type) && treat.type == "MOX") || (all(!is.na(treat.switch)) && "MOX" %in% treat.switch)) {
     # half-day timestep required for MOX dynamics
     DT <- min(DT.in / 2, (1 / 366) / 2)
   }
@@ -168,12 +168,12 @@ ep.equi.sim <- function(time.its,
   mu.w1 = 0.09953; mu.w2 = 6.00569 #parameters controlling age-dependent mortality in adult worms (matt: these are y_l = y_w and d_l = d_w in equation S6/S7 & Table E)
   mu.mf1 = 1.089; mu.mf2 = 1.428 #parameters controlling age-dependent mortality in mf (matt: these are y_l = y_m and d_l = d_m in equation S6/S7 & Table E)
   fec.w.1 = 70; fec.w.2 = 0.72 #parameters controlling age-dependent fecundity in adult worms (matt: fec.w.1 = F and fec.w.2 = G in Supp table E)
-  l3.delay = 10; dt.days = DT*366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
+  l3.delay = 10; dt.days = 1/DT #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
 
 
   # Treatment parameters #
 
-  if(all(is.na(treat.switch)) & is.na(treat.type)){
+  if(all(is.na(treat.switch)) && (is.na(treat.type) || treat.type == "IVM")){
     #print("default pars")
 
     lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
@@ -182,7 +182,7 @@ ep.equi.sim <- function(time.its,
 
   }
 
-  if(all(is.na(treat.switch)) & !is.na(treat.type)){
+  if(all(is.na(treat.switch)) && !is.na(treat.type) && treat.type == "MOX"){
     #print("default pars")
 
     lam.m = 462; phi = 4.83 #effects of moxidectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
@@ -226,10 +226,10 @@ ep.equi.sim <- function(time.its,
     else{print(paste(treat.prob*100, "%", sep = ''))}
 
     print('Treatment to be given at each round')
-    if(all(is.na(treat.switch)) & is.na(treat.type)){
+    if(all(is.na(treat.switch)) && (is.na(treat.type) || treat.type == "IVM")){
       print("IVM only")
     }
-    if(all(is.na(treat.switch)) & !is.na(treat.type)){
+    if(all(is.na(treat.switch)) && !is.na(treat.type) && treat.type == "MOX"){
       print("MOX only")
     }
     if(all(!is.na(treat.switch))){
@@ -312,7 +312,7 @@ ep.equi.sim <- function(time.its,
       )
     }
     colnames(morbidity_prevalence_outputs) <- morbidity_column_names
-    
+
     # extract probabilities for each condition
     eye.disease.probs <- readRDS("data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
     eye.dis.probs <- eye.disease.probs$fit
