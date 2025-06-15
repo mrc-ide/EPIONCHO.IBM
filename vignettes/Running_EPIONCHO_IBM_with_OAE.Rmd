@@ -75,7 +75,6 @@ trt.int = 1
 
 #annual biting rate, which determines infection prevalence (As parameterised to Chesnais et al., 2018)
 ABR.in = 41922
-
 output_equilibrium_OAE <- ep.equi.sim(time.its = timesteps,
                                   ABR = ABR.in,
                                   N.in = 400,
@@ -87,20 +86,17 @@ output_equilibrium_OAE <- ep.equi.sim(time.its = timesteps,
                                   pnc = 0.05,
                                   min.mont.age = 5,
                                   vector.control.strt = NA,
-                                  delta.hz.in = 0.186,
-                                  delta.hinf.in = 0.003,
-                                  c.h.in = 0.005,
                                   gam.dis.in = 0.3,
                                   run_equilibrium = TRUE,
-                                  epilepsy_module = "YES",
-                                  equilibrium,
+                                  morbidity_module = "YES",
+                                  equilibrium = NA,
                                   print_progress = TRUE)
 ```
 
 To stop the printing of the time as the model runs, set ```print_progress = FALSE```. Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed.
 If ```run_equilibrium = TRUE``` then no input is expected for ```equilibrium```, which is where a previously simulated endemic equilibrium can be entered. This will be discussed later in section 3.3. Above, no MDA is not requested by setting ```gv.trt = 0```. Note that values must be entered for treatment start, stop and interval (1 is annual, 0.5 is biannual), e.g ```treat.strt = 0; treat.stp = 16; trt.int = 1```, even if ```gv.trt = 0```. 
 
-It is also possible to manually change the density-dependent parameters relating to the establishment of the adult *Onchocerca volvulus* (```delta.hz.in```, ```delta.hinf.in``` and ```c.h.in```) and individual exposure heterogeneity in humans (```gam.dis.in```), in the function calling the model (above). This feature enables the user to modify these parameters to capture the combinations of  exposure heterogeneity parameter values and fitted density-dependent parameters in [Hamley et al. 2019](https://journals.plos.org/plosntds/article?id=10.1371/journal.pntd.0007557).
+It is also possible to manually change the density-dependent parameters relating to the establishment of the adult *Onchocerca volvulus* (```delta.hz.in```, ```delta.hinf.in``` and ```c.h.in```) and individual exposure heterogeneity in humans (```gam.dis.in```), in the function calling the model (above). However, if you use a individual exposure heterogeneity of 0.2, 0.3, or 0.4, the density dependent parameters will be set automatically, to their respectively fitted density-dependent parameters in [Hamley et al. 2019](https://journals.plos.org/plosntds/article?id=10.1371/journal.pntd.0007557). 
 
 ## 3.2 Visualising microfilarial infection and OAE prevalence through time
 
@@ -110,10 +106,10 @@ The output from run_EPIONCHO_IBM_with_OAE is a list with 14 elements.
 names(output_equilibrium_OAE)
 ```
 
-The first three elements contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5) and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
+The first three elements (`mf_prev`, `mf_intens`, and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5) and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
 
 ```{r}
-tme <- seq(1, 200*366-1)/366
+tme <- seq(1, 200*366)/366
 
 plot(tme, output_equilibrium_OAE$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
@@ -121,25 +117,32 @@ plot(tme, output_equilibrium_OAE$mf_intens, type = 'l', xlab = 'time (years)', y
 
 plot(tme, output_equilibrium_OAE$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
 ```
+The `ABR` attribute lets you know what the input ABR used was. 
+The `all_infection_burdens` attribute is a matrix that contains the detailed infection burden of each individual at the final timestep.
+The `years` attribute lets you know what the timestep is in terms of years from timepoint 0.
+The `ABR_recorded` attribute is a temporal output showing the ABR at every year/timestep.
+The `coverage.recorded` attribute is a temporal output showing the MDA coverage at every year/timestep. It will have NA values if no treatment was given.
+The `percent_never_treated` attribute is a temporal output, showing how many individuals at a given timestep had never been treated. Without MDA, this will be all NA values.
+The last element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
 
-The fourth element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
-
-The fifth through eleventh elements contain the temporal dynamics (at 1 day increments) for the OAE prevalence (all individuals), the OAE incidence (all individuals) with the succeeding elements giving OAE incidence for: individuals aged 5 years and under, aged 5-10 years, aged 10-15 years, all males and all females, respectively. To plot these over time use:
+The `all_mf_prevalence_age_grouped`, `all_mf_intensity_age_grouped`, `oae_incidence_outputs`, and `all_morbidity_prevalence_outputs` elements contain the temporal dynamics (at 1 day increments) for multiple age groups for mf prevalence, intensity, OAE incidence, and morbidity prevalence (including the OAE prevalence) respectively.
+The prevalence outputs are grouped by [5, 80], [0-5), [0-5), [5-10), [10-15), [15-20), [20-30), [30-50), [50-80].
+Other than 5-80, the rest of the age groups can be customized by editing the `output_age_groups` input parameter.
+The incidence outputs are grouped by  [5, 80], [0-5), [5-10], [11-15], Males, and Females. These cannot be customized. 
+To plot the OAE outputs over time use:
 
 ```{r}
 tme2 <- seq(1, 200*366)/366
-plot(tme2, output_equilibrium_OAE$OAE_prev, type = 'l', xlab = 'time (years)', ylab = 'OAE prevalence', ylim = c(0, 1))
-plot(tme, output_equilibrium_OAE$OAE_incidence, type = 'l', xlab = 'time (years)', ylab = 'OAE incidence', ylim = c(0, 1))
-plot(tme, output_equilibrium_OAE$OAE_incidence_under_5yrs, type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - under 5yrs', ylim = c(0, 1))
-plot(tme, output_equilibrium_OAE$OAE_incidence_5_10yrs, type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - 5-10yrs', ylim = c(0, 1))
-plot(tme, output_equilibrium_OAE$OAE_incidence_10_15yrs, type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - 10-15yrs', ylim = c(0, 1))
-plot(tme, output_equilibrium_OAE$OAE_incidence_males, type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - males', ylim = c(0, 1))
-plot(tme, output_equilibrium_OAE$OAE_incidence_females, type = 'l', xlab = 'time (years)', ylab = 'OAE incidence -females', ylim = c(0, 1))
+plot(tme2, output_equilibrium_OAE$all_morbidity_prevalence_outputs[,"OAE_prev"], type = 'l', xlab = 'time (years)', ylab = 'OAE prevalence', ylim = c(0, 1))
+plot(tme, output_equilibrium_OAE$oae_incidence_outputs[, 'OAE_incidence_DT'], type = 'l', xlab = 'time (years)', ylab = 'OAE incidence', ylim = c(0, 1))
+plot(tme, output_equilibrium_OAE$oae_incidence_outputs[, 'OAE_incidence_DT_under_5'], type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - under 5yrs', ylim = c(0, 1))
+plot(tme, output_equilibrium_OAE$oae_incidence_outputs[, 'OAE_incidence_DT-5_10'], type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - 5-10yrs', ylim = c(0, 1))
+plot(tme, output_equilibrium_OAE$oae_incidence_outputs[, 'OAE_incidence_DT-11_15'], type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - 10-15yrs', ylim = c(0, 1))
+plot(tme, output_equilibrium_OAE$oae_incidence_outputs[, 'OAE_incidence_DT_M'], type = 'l', xlab = 'time (years)', ylab = 'OAE incidence - males', ylim = c(0, 1))
+plot(tme, output_equilibrium_OAE$oae_incidence_outputs[, 'OAE_incidence_DT_F'], type = 'l', xlab = 'time (years)', ylab = 'OAE incidence -females', ylim = c(0, 1))
 ```
 
-The twelfth element, similarly to the fourth, is required to simulate MDA without having to run the model to endemic equilibrium
 
-The thirteenth and fourteenth elements let the user confirmed the ascribed ABR and coverage values used over time.
 
 
 ## 3.3 Simulating annual and biannual mass drug administration with ivermectin
@@ -148,8 +151,8 @@ The thirteenth and fourteenth elements let the user confirmed the ascribed ABR a
 Assuming you have already run the model and saved the output as described in section 3.1, you can simulate 15 years of annual mass drug administration with ivermectin by running:
 
 ```{r}
-timesteps = 200 
-treat.strt = 1; treat.stp = 151 #if treatment stops in year 151, the last round is at the beginning of year 150
+timesteps = 100
+treat.strt = 1; treat.stp = 51 #if treatment stops in year 51, the last round is at the beginning of year 50
 gv.trt = 1
 trt.int = 1
 
@@ -165,12 +168,9 @@ output_treat_annual_OAE <- ep.equi.sim(time.its = timesteps,
                                    pnc = 0.05,
                                    min.mont.age = 5,
                                    vector.control.strt = NA,
-                                   delta.hz.in = 0.186,
-                                   delta.hinf.in = 0.003,
-                                   c.h.in = 0.005,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = TRUE,
-                                   epilepsy_module = "YES",
+                                   morbidity_module = "YES",
                                    equilibrium = NA,
                                    print_progress = FALSE)
 
@@ -182,15 +182,15 @@ Note that ```timesteps``` is the total number of years for which the model is ru
 To visualise the infection dynamics through time during annual MDA, use:
 
 ```{r}
-tme <- seq(1, 200*366-1)/366
+tme <- seq(1, 100*366)/366
 
 plot(tme, output_treat_annual_OAE$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 150), col = 'grey', lwd = 0.1)
 
-tme2 <- seq(1, 200*366)/366
+tme2 <- seq(1, 100*366)/366
 
-plot(tme2, output_treat_annual_OAE$OAE_prev, type = 'l', xlab = 'time', ylab = 'OAE prevalence')
+plot(tme2, output_treat_annual_OAE$all_morbidity_prevalence_outputs[,"OAE_prev"], type = 'l', xlab = 'time', ylab = 'OAE prevalence')
 
 abline(v = seq(1, 150), col = 'grey', lwd = 0.1)
 ```
@@ -200,8 +200,8 @@ abline(v = seq(1, 150), col = 'grey', lwd = 0.1)
 Assuming you have run the model to the endemic equilibrium (as described in secton 3.1), temporal infection trends during biannual MDA can be obtained by running:
 
 ```{r}
-timesteps = 200
-treat.strt = 1; treat.stp = 76 #if treatment stops in year 76, the last round is at the beginning of year 75
+timesteps = 55
+treat.strt = 1; treat.stp = 51 #if treatment stops in year 51, the last round is at the beginning of year 50
 gv.trt = 1
 trt.int = 0.5
 
@@ -218,13 +218,10 @@ output_treat_biannual_OAE <- ep.equi.sim(time.its = timesteps,
                                    pnc = 0.05,
                                    min.mont.age = 5,
                                    vector.control.strt = NA,
-                                   delta.hz.in = 0.186,
-                                   delta.hinf.in = 0.003,
-                                   c.h.in = 0.005,
                                    gam.dis.in = 0.3,
-                                   run_equilibrium = TRUE,
-                                   epilepsy_module = "YES",
-                                   equilibrium = NA,
+                                   run_equilibrium = FALSE,
+                                   morbidity_module = "YES",
+                                   equilibrium = output_equilibrium_OAE$all_equilibrium_outputs,
                                    print_progress = TRUE)
 
 ```
@@ -232,22 +229,22 @@ output_treat_biannual_OAE <- ep.equi.sim(time.its = timesteps,
 Note than above ```trt.int = 0.5``` (rather than ```trt.int = 1```) to request biannual MDA. The output can be visualised using:
 
 ```{r}
-tme <- seq(1, 200*366-1)/366
+tme <- seq(1, 55*366)/366
 
 plot(tme, output_treat_biannual_OAE$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 75, 0.5), col = 'grey', lwd = 0.1)
 
-tme2 <- seq(1, 200*366)/366
+tme2 <- seq(1, 55*366)/366
 
-plot(tme2, output_treat_biannual_OAE$OAE_prev, type = 'l', xlab = 'time', ylab = 'OAE prevalence')
+plot(tme2, output_treat_biannual_OAE$all_morbidity_prevalence_outputs[,"OAE_prev"], type = 'l', xlab = 'time', ylab = 'OAE prevalence')
 
 abline(v = seq(1, 75, 0.5), col = 'grey', lwd = 0.1)
 ```
 
 ### 3.3.3 Coverage and non-compliance
 
-The population level coverage is a proportion and is entered via ```treat.prob```. Note that because children <5 do not receive treatment, coverage of 1 cannot be achieved. Additionally, there is the option to set the proportion of individuals who never take treatment (```pnc = 0.05```). 
+The population level coverage is a proportion and is entered via ```treat.prob```. Note that because children <5 do not receive treatment, coverage of 1 cannot be achieved. Additionally, there is the option to set the proportion of individuals who never take treatment (```pnc = 0.05```), or using a correlation parameter for a more dynamic compliance structure (```comp.correlation = 0.3```). More information on correlation can be seen in the complex MDA vignette.
 
 ### 4. References
 
