@@ -128,7 +128,7 @@ The last element,```"all_equilibrium_outputs"``` is the element required to simu
 The `all_mf_prevalence_age_grouped`, `all_mf_intensity_age_grouped`, `oae_incidence_outputs`, and `all_morbidity_prevalence_outputs` elements contain the temporal dynamics (at 1 day increments) for multiple age groups for mf prevalence, intensity, OAE incidence, and morbidity prevalence (including the OAE prevalence) respectively.
 The prevalence outputs are grouped by [5, 80], [0-5), [0-5), [5-10), [10-15), [15-20), [20-30), [30-50), [50-80].
 Other than 5-80, the rest of the age groups can be customized by editing the `output_age_groups` input parameter.
-The incidence outputs are grouped by  [5, 80], [0-5), [5-10], [11-15], Males, and Females. These cannot be customized. 
+The incidence outputs are grouped by  [0, 80], [0-5), [5-10], [11-15], Males, and Females. These cannot be customized. 
 To plot the OAE outputs over time use:
 
 ```{r}
