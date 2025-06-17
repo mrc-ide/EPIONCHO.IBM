@@ -168,7 +168,7 @@ ep.equi.sim <- function(time.its,
   mu.w1 = 0.09953; mu.w2 = 6.00569 #parameters controlling age-dependent mortality in adult worms (matt: these are y_l = y_w and d_l = d_w in equation S6/S7 & Table E)
   mu.mf1 = 1.089; mu.mf2 = 1.428 #parameters controlling age-dependent mortality in mf (matt: these are y_l = y_m and d_l = d_m in equation S6/S7 & Table E)
   fec.w.1 = 70; fec.w.2 = 0.72 #parameters controlling age-dependent fecundity in adult worms (matt: fec.w.1 = F and fec.w.2 = G in Supp table E)
-  l3.delay = 10; dt.days = 1/DT #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
+  l3.delay = 10; dt.days = DT * 366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
 
 
   # Treatment parameters #
