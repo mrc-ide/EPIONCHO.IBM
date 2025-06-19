@@ -89,20 +89,6 @@ find_indiv_totest_func <- function(dat, mf.start, mf.end, morb.mat.tmp, temp_mf,
 #'
 #' @returns updated matrix with disease status updated
 new_cases_morbidity_func <- function(morb.mat.tmp, SI_probs, RSD_probs, Atrp_probs, Hg_probs, Depigm_probs){
-
-  ## extract number of mf per skin snip per individual
-
-  # # extract probabilities (rates) to run Bernoulli trial for each condition
-  # morb.mat.tmp[,38] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, SI_probs[morb.mat.tmp$ObservedMFCount], 0) # severe itch rates
-  # #morb.mat.tmp[,39] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, APOD_probs[morb.mat.tmp$ObservedMFCount], 0) # APOD rates
-  # #morb.mat.tmp[,40] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, CPOD_probs[morb.mat.tmp$ObservedMFCount], 0) # CPOD rates
-  # #morb.mat.tmp[,41] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, LOD_probs[morb.mat.tmp$ObservedMFCount], 0) # LOD rates
-  # morb.mat.tmp[,42] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, RSD_probs[morb.mat.tmp$ObservedMFCount], 0) # RSD rates
-  # morb.mat.tmp[,43] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, Atrp_probs[morb.mat.tmp$ObservedMFCount], 0) # atrophy rates
-  # morb.mat.tmp[,44] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, Hg_probs[morb.mat.tmp$ObservedMFCount], 0) # hanging groin rates
-  # morb.mat.tmp[,45] <- ifelse(morb.mat.tmp$ObservedMFCount > 0, Depigm_probs[morb.mat.tmp$ObservedMFCount], 0) # depigmentation groin rates
-
-
   # ======================= #
   # Undergo Bernouli trial  #
 
@@ -155,15 +141,6 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
   morb.mat.tmp$Day3SevereItchStatus <- sequela.postive.mat1[,4] # assign day 3 from sequela delay matrix (4th col of delay mat)
   morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$Day3SevereItchStatus == 1, 0, morb.mat.tmp$SevereItchStatus) # update current disease status
 
-  # #  Extract current sequela state for reversible conditions
-  # morb.mat.tmp[,22] <- sequela.postive.mat1[,3] # assign day 3 from sequelae delay matrix
-  #
-  # sequela.postive.mat1[,inds.sequela.mat] <- sequela.postive.mat1[,(inds.sequela.mat-1)] # move sequela state along one col
-  #
-  # sequela.postive.mat1[,1] <- morb.mat.tmp$SevereItchStatus # update first col with current sequela state on that day
-  #
-  # morb.mat.tmp[,46] <- ifelse(morb.mat.tmp$DepigSampleAge == 1, 0, morb.mat.tmp$SevereItchStatus) # update current disease status
-
 
   # # =============== #
   # #     for RSD     #
@@ -179,15 +156,6 @@ update_reversible_sequela_func <- function(sequela.postive.mat1, sequela.postive
   morb.mat.tmp$Day3RSDStatus <- sequela.postive.mat2[,4] # assign day 3 from sequela delay matrix (4th col of delay mat)
   morb.mat.tmp$RSDStatus <- ifelse(morb.mat.tmp$Day3RSDStatus == 1, 0, morb.mat.tmp$RSDStatus) # update current disease status
 
-  # #  Extract current sequela state for reversible conditions
-  #
-  # morb.mat.tmp$Day3RSDStatus <- sequela.postive.mat2[,3] # assign day 7 from sequela delay matrix
-  #
-  # sequela.postive.mat2[,inds.sequela.mat] <- sequela.postive.mat2[,(inds.sequela.mat-1)] # move sequela state along one col
-  #
-  # sequela.postive.mat2[,1] <- morb.mat.tmp$RSDStatus # update first col with current sequela state on that day
-  #
-  # morb.mat.tmp$RSDStatus <- ifelse(day3RSDStatus == 1, 0, morb.mat.tmp$RSDStatus) # update current disease status
   return(list(sequela.postive.mat1, sequela.postive.mat2, morb.mat.tmp))
 
 }

@@ -170,12 +170,15 @@ ep.equi.sim <- function(time.its,
   fec.w.1 = 70; fec.w.2 = 0.72 #parameters controlling age-dependent fecundity in adult worms (matt: fec.w.1 = F and fec.w.2 = G in Supp table E)
   l3.delay = 10; dt.days = DT * 366 #delay in worms entering humans and joining the first adult worm age class (dt.days = DT.in*366)
 
+  # Morbidity Probabilities
+  SI_prob = 0.1636701; RSD_prob = 0.04163095
+  Atrp_prob = 0.002375305; HG_prob = 0.0007263018
+  Depigm_prob = 0.001598305
+
 
   # Treatment parameters #
 
   if(all(is.na(treat.switch)) && (is.na(treat.type) || treat.type == "IVM")){
-    #print("default pars")
-
     lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
     cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
     up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
@@ -389,24 +392,6 @@ ep.equi.sim <- function(time.its,
     out.comp[s.comp] <- 1
     all.mats.temp[,1] <- out.comp
 
-    # if(correlated_compliance == "YES"){
-    #
-    # # specify neever treat individuals
-    # compliance.mat <- matrix(nrow=N, ncol=4) # col 1 = age, col 2 = never_treat,
-    #                                          # col 3 = probability of treatment, col 4 = to be treated in this round
-    # compliance.mat[,1] = generateNeverTreat(N, probneverTreat) # never treat col (mat[,1])
-    #
-    # # individual probability of treatment values
-    # cov = coverage # whatever the coverage of this MDA is
-    # rho = correlation # whatever the correlation of this MDA is
-    # compliance.mat[,2] = initializePTreat(N, cov, rho) # initialize pTreat - correlation for each individual (mat[,2])
-    #
-    # # previous coverage #
-    # prevCov = cov # set prevCov to coverage value used
-    # prevRho = rho # set prevRho to correlation value used
-    #
-    # }
-
     treat.vec.in <- rep(NA, N) #for time since treatment calculations
 
     if (morbidity_module == "YES") {
@@ -535,16 +520,6 @@ ep.equi.sim <- function(time.its,
       check_ind <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$check_ind
       tot_ind_ep_samp <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$tot_ind_ep_samp
       OAE_probs <- equilibrium$morbidity_equilibrium_outputs$all_OAE_equilibrium_outputs$OAE_probs
-
-
-      # extract probabilities for each condition
-      #skin.disease.probs <- readRDS("~/EPIONCHO-IBM/data/skin_disease_probabilties_updated2.rds")
-
-      # SI_probs_df <- subset(skin.disease.probs, sequela == "severe itching")
-      # SI_probs <- SI_probs_df$fit
-
-      # RSD_probs_df <- subset(skin.disease.probs, sequela == "reactive skin disease")
-      # RSD_probs <- RSD_probs_df$fit
 
       #==================#
       all.morb.temp <- equilibrium$morbidity_equilibrium_outputs$other_morbidity_equilibrium_outputs$all.morb.updated
@@ -823,8 +798,6 @@ ep.equi.sim <- function(time.its,
 
       from.last <- res # (matt: re-label the final result output to res so do not have to change res below)
 
-      # from.last <- res #assign output to use at next iteration, indexes 2, 5, 6 (worms moving through compartments)
-
       # update male worms in matrix for compartment k
 
       all.mats.temp[, (6 + num.mf.comps + k)] <- res[[1]]
@@ -920,25 +893,24 @@ ep.equi.sim <- function(time.its,
                                                    age_to_samp_vec_nonreversible = age_to_samp_vec_nonreversible)
 
         all.morb.updated <- new_cases_morbidity_func(morb.mat.tmp = all.morb.updated,
-                                                      #SI_probs = 0.1636701, RSD_probs = 0.04163095,
-                                                      SI_probs = 0.1293591, RSD_probs = 0.01857076,
-                                                      Atrp_probs = 0.002375305,
-                                                      Hg_probs = 0.0007263018, Depigm_probs = 0.001598305)
+                                                      SI_probs = SI_prob, RSD_probs = RSD_prob,
+                                                      Atrp_probs = Atrp_prob,
+                                                      Hg_probs = HG_prob, Depigm_probs = Depigm_prob)
 
 
         # un hash below if want to shift to probabilities based on mf count #
 
         # all.morb.updated <- new_cases_morbidity_func2(morb.mat.tmp = all.morb.updated, temp_mf = temp.mf,
-        #                                               SI_probs = SI_probs, RSD_probs = RSD_probs,
-        #                                               Atrp_probs = Atrp_probs,
-        #                                               Hg_probs = Hg_probs, Depigm_probs = Depigm_probs)
+        #                                               SI_probs = SI_prob, RSD_probs = RSD_prob,
+        #                                               Atrp_probs = Atrp_prob,
+        #                                               Hg_probs = Hg_prob, Depigm_probs = Depigm_prob)
 
         reversible.morb.updated <- update_reversible_sequela_func(sequela.postive.mat1 = sequela.postive.mat1,
                                        sequela.postive.mat2 = sequela.postive.mat2,
                                        inds.sequela.mat = inds.sequela.mat, morb.mat.tmp = all.morb.updated)
 
-        sequela.postive.mat1 <- reversible.morb.updated[[1]] # updated SI 7-day delay matrix
-        sequela.postive.mat2 <- reversible.morb.updated[[2]] # updated RSD 7-day delay matrix
+        sequela.postive.mat1 <- reversible.morb.updated[[1]] # updated SI 3-day delay matrix
+        sequela.postive.mat2 <- reversible.morb.updated[[2]] # updated RSD 3-day delay matrix
         all.morb.updated <- reversible.morb.updated[[3]] # updated morb.mat
 
         # ============ #
