@@ -73,7 +73,8 @@ ep.equi.sim <- function(time.its,
                         comp.correlation = 0,
                         treat.switch = NA,
                         treat.type = NA,
-                        ov16_store_times = c()) {
+                        ov16_store_times = c(),
+                        ov16_diagnostic_adjustment = c(0.8, 0.99)) {
 
   output_age_groups_as_strings <- rep("", length(output_age_groups))
   for (output_age_group_index in 1:length(output_age_groups)) {
@@ -311,6 +312,28 @@ ep.equi.sim <- function(time.its,
   L3_vec <- rep(NA, time.its - 1)
   ABR_recorded <- rep(NA, time.its - 1)
   coverage.recorded <- rep(NA, time.its - 1)
+
+  # Ov16 Variables
+  ov16_timetrend_outputs <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 2)
+  colnames(ov16_timetrend_outputs) <- c(
+    "ov16_seroprevalence_no_seroreversion",
+    paste0("ov16_seroprevalence_no_seroreversion", output_age_groups_as_strings),
+    "ov16_seroprevalence_finite_seroreversion",
+    paste0("ov16_seroprevalence_finite_seroreversion", output_age_groups_as_strings),
+  )
+  ov16_timetrend_outputs_adj <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 2)
+  colnames(ov16_timetrend_outputs_adj) <- c(
+    "ov16_seroprevalence_no_seroreversion_adj",
+    paste0("ov16_seroprevalence_no_seroreversion_adj", output_age_groups_as_strings),
+    "ov16_seroprevalence_finite_seroreversion_adj",
+    paste0("ov16_seroprevalence_finite_seroreversion_adj", output_age_groups_as_strings),
+  )
+
+  ov16_seropositive_no_seroreversion <- rep(0, N)
+  ov16_seropositive_finite_serorevert <- rep(0, N)
+  ov16_indiv_matrix <- matrix(0, nrow = N, ncol = length(ov16_store_times) * 5)
+  matrix_index <- 1
+
   if (morbidity_module == "YES") {
     oae_outputs_dt <- matrix(NA, nrow = time.its - 1, ncol = 7)
     colnames(oae_outputs_dt) <- c(
@@ -484,15 +507,6 @@ ep.equi.sim <- function(time.its,
       # TODO? #
       #   lagged vector for blindness / visual impairment (start filling from 2 years)  #
     }
-    
-    # Ov16 Variables
-    ov16_seropositive_mating_any_mf <- rep(0, N)
-    ov16_seropositive_mating_any_mf_finite_serorevert <- rep(0, N)
-    mf_indv_prev <- rep(0, N)
-    ov16_seropositive_matrix <- matrix(0, nrow=N, ncol=length(ov16_store_times)*5)
-    matrix_index <- 1
-    prev_ov16 <- 0
-    prev_ov16_finite_serorevert <- 0
   }
 
 
@@ -560,18 +574,8 @@ ep.equi.sim <- function(time.its,
     }
 
     # Ov16 Variables
-    ov16_seropositive_mating_any_mf <- equilibrium$ov16_equilibrium$ov16_seropositive_mating_any_mf
-    ov16_seropositive_mating_any_mf_finite_serorevert <- equilibrium$ov16_equilibrium$ov16_seropositive_mating_any_mf_finite_serorevert
-    mf_indv_prev <- equilibrium$ov16_equilibrium$mf_indv_prev
-    ov16_seropositive_matrix <- matrix(
-      0,
-      nrow=N,
-      ncol=ncol(equilibrium$ov16_equilibrium$ov16_seropositive_matrix) + length(ov16_store_times)*9
-    )
-    ov16_seropositive_matrix[, 1:ncol(equilibrium$ov16_equilibrium$ov16_seropositive_matrix)] = equilibrium$ov16_equilibrium$ov16_seropositive_matrix
-    matrix_index <- ncol(equilibrium$ov16_equilibrium$ov16_seropositive_matrix)
-    prev_ov16 <- equilibrium$ov16_equilibrium$prev_ov16
-    prev_ov16_finite_serorevert <- equilibrium$ov16_equilibrium$prev_ov16_finite_serorevert
+    ov16_seropositive_no_seroreversion <- equilibrium$ov16_equilibrium$ov16_seropositive_no_seroreversion
+    ov16_seropositive_finite_serorevert <- equilibrium$ov16_equilibrium$ov16_seropositive_finite_serorevert
   }
 
   i <- 1
@@ -1009,21 +1013,25 @@ ep.equi.sim <- function(time.its,
     mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
     mating_worm_any_mf <- (mating_worm & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
 
-    findPositives <- function(exposure_array, curr_array, seroreversion="", doSerorevert=FALSE) {
-      curr_array[which(exposure_array == TRUE & curr_array == 0)] <- 1
-      # hard seroreversion
-      if(doSerorevert & seroreversion == "no_infection") {
-        curr_array[which(curr_array == 1 & any_larvae == FALSE & any_worms == FALSE)] <- 0
-      }
-      return(curr_array)
-    }
+    ov16_seropositive_no_seroreversion <- determine_serostatus(
+      exposure_array = mating_worm_any_mf,
+      curr_array = ov16_seropositive_no_seroreversion
+    )
+    ov16_seropositive_finite_serorevert <- determine_serostatus(
+      exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_finite_serorevert, do_serorevert=TRUE,
+      seroreversion_arrays = list("any_larvae_arr" = any_larvae, "any_worms_arr" = any_worms)
+    )
 
-    ov16_seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, ov16_seropositive_mating_any_mf)
-    ov16_seropositive_mating_any_mf_finite_serorevert <- findPositives(mating_worm_any_mf, ov16_seropositive_mating_any_mf_finite_serorevert, seroreversion="no_infection", doSerorevert=TRUE)
-
-    mf_indv_prev <- as.integer(temp.mf[[2]] > 0)
-    prev_ov16 <- c(prev_ov16, sum(ov16_seropositive_mating_any_mf)/N)
-    prev_ov16_finite_serorevert <- c(prev_ov16_finite_serorevert, sum(ov16_seropositive_mating_any_mf_finite_serorevert)/N)
+    ov16_timetrend_outputs[i] <- calculate_seroprevalence_across_age_groups(
+      ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
+      ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
+      diagnostic_adjustments = c(1, 1)
+    )
+    ov16_timetrend_outputs_adj[i] <- calculate_seroprevalence_across_age_groups(
+      ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
+      ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
+      diagnostic_adjustments = ov16_diagnostic_adjustment
+    )
 
     # new individual exposure for newborns, clear rows for new borns
     if(length(to.die) > 0)
@@ -1043,9 +1051,8 @@ ep.equi.sim <- function(time.its,
       has_been_treated[to.die] <- FALSE
       
       # Ov16 reset dead individuals
-      ov16_seropositive_mating_any_mf[to.die] <- 0
-      ov16_seropositive_mating_any_mf_finite_serorevert[to.die] <- 0
-      mf_indv_prev[to.die] <- 0
+      ov16_seropositive_no_seroreversion[to.die] <- 0
+      ov16_seropositive_finite_serorevert[to.die] <- 0
 
       if(correlated_compliance == "YES" & any(i > times.of.treat.in)){
         compliance.mat[to.die, 3] <- 0
@@ -1081,11 +1088,11 @@ ep.equi.sim <- function(time.its,
     
     # Ov16 add individual data to matrix
     if(!is.na(match(i, ov16_store_times))) {
-      ov16_seropositive_matrix[,5*matrix_index-4] <- all.mats.temp[,2]
-      ov16_seropositive_matrix[,5*matrix_index-3] <- all.mats.temp[,3]
-      ov16_seropositive_matrix[,5*matrix_index-2] <- as.integer(temp.mf[[2]] > 0)
-      ov16_seropositive_matrix[,5*matrix_index-1] <- ov16_seropositive_mating_any_mf
-      ov16_seropositive_matrix[,5*matrix_index] <- ov16_seropositive_mating_any_mf_finite_serorevert
+      ov16_indiv_matrix[,5*matrix_index-4] <- all.mats.temp[,2]
+      ov16_indiv_matrix[,5*matrix_index-3] <- all.mats.temp[,3]
+      ov16_indiv_matrix[,5*matrix_index-2] <- as.integer(temp.mf[[2]] > 0)
+      ov16_indiv_matrix[,5*matrix_index-1] <- ov16_seropositive_no_seroreversion
+      ov16_indiv_matrix[,5*matrix_index] <- ov16_seropositive_finite_serorevert
       matrix_index <- matrix_index + 1
     }
 
@@ -1111,10 +1118,13 @@ ep.equi.sim <- function(time.its,
    
   general_outputs <- list(
     'mf_prev' = mf_prevalence_outputs[,'prev'], 'mf_intens' = mf_intensity_outputs[,'mean.mf.per.snip'],
+    "ov16_seroprevalence_no_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_no_seroreversion"],
+    "ov16_seroprevalence_finite_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_finite_seroreversion"],
     'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp,
     'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
-    'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ABR_recorded' = ABR_recorded,
-    'coverage.recorded' = coverage.recorded, 'percent_never_treated' = never_treated_values
+    'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
+    "ov16_timetrend_outputs" = ov16_timetrend_outputs, 'ov16_timetrend_outputs_adj' = ov16_timetrend_outputs_adj,
+    'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded, 'percent_never_treated' = never_treated_value
   )
 
   if (morbidity_module == "YES"){
@@ -1130,8 +1140,8 @@ ep.equi.sim <- function(time.its,
   {
     equilibrium_outputs <- list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay, has_been_treated)
     # Ov16 Equilibrium Values
-    ov16_equib <- list(prev_ov16, prev_ov16_finite_serorevert, ov16_seropositive_mating_any_mf, ov16_seropositive_mating_any_mf_finite_serorevert, mf_indv_prev, ov16_seropositive_matrix)
-    names(ov16_equib) <- c('ov16_seroprevalence_no_seroreversion', 'ov16_seroprevalence_finite_seroreversion', 'ov16_seropositive_mating_any_mf', 'ov16_seropositive_mating_any_mf_finite_serorevert', 'mf_indv_prevalence', 'ov16_seropositive_matrix')
+    ov16_equib <- list(ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert, )
+    names(ov16_equib) <- c('ov16_seropositive_no_seroreversion', 'ov16_seropositive_finite_serorevert')
     equilibrium_outputs[["ov16_equilibrium_outputs"]] <- ov16_equib
     
     if (morbidity_module == "YES") {
