@@ -126,14 +126,18 @@ Note that ```timesteps``` is the total number of years for which the model is ru
 To visualise the infection dynamics through time during annual MDA, use:
 
 ```{r}
-tme <- seq(1, 30*366-1)/366
+years <- output_treat_annual$years
 
-plot(tme, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
-plot(tme, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+plot(years, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
 
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_treat_annual$ov16_seroprevalence_finite_seroreversion, col="red")
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```
 
@@ -170,16 +174,19 @@ output_treat_variable <- ep.equi.sim(time.its = timesteps,
 Variable treatment timing over the course of the MDA programme is specified with the ```treat.timing.in``` input. Note that the ```treat.int``` input is no longer specified, which gave a fixed interval previously across all rounds. 
 
 ```{r}
-tme <- seq(1, 30*366-1)/366
+years <- output_treat_variable$years
 
-plot(tme, output_treat_variable$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
-
-abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
-
-plot(tme, output_treat_variable$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+plot(years, output_treat_variable$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
 
+plot(years, output_treat_variable$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+
+abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_variable$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_treat_variable$ov16_seroprevalence_finite_seroreversion, col="red")
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```
 
 ### 3.2.3 Compliance
@@ -207,6 +214,7 @@ output_treat_correlation <- ep.equi.sim(time.its = timesteps,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
                                    correlated_compliance = "YES",
+                                   morbidity_module = "NO",
                                    comp.correlation = 0.3,
                                    equilibrium = output_equilibrium$all_equilibrium_outputs,
                                    print_progress = TRUE)
@@ -215,19 +223,23 @@ output_treat_correlation <- ep.equi.sim(time.its = timesteps,
 Below are plots looking at mf prevalence, intensity, and the percentage of people never treated over time.
 
 ```{r}
-tme <- seq(1, 30*366-1)/366
+years <- output_treat_correlation$years
 
-plot(tme, output_treat_correlation$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
-
-abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
-
-plot(tme, output_treat_correlation$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+plot(years, output_treat_correlation$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
 
-plot(tme, output_treat_correlation$percent_never_treated, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity', ylim = c(0, 1))
+plot(years, output_treat_correlation$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_correlation$percent_never_treated, type = 'l', xlab = 'time', ylab = 'percent never treated', ylim = c(0, 1))
+
+abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_correlation$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_treat_correlation$ov16_seroprevalence_finite_seroreversion, col="red")
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```
 
 ### 3.2.2 Moxidectin vs Ivermectin
@@ -259,6 +271,7 @@ output_treat_drugtype <- ep.equi.sim(time.its = timesteps,
                                    vector.control.strt = NA,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
+                                   morbidity_module = "NO",
                                    treat.switch = trt.switch.in,
                                    equilibrium = output_equilibrium$all_equilibrium_outputs,
                                    print_progress = TRUE)
@@ -270,13 +283,18 @@ Below are plots looking at mf prevalence, intensity with the above treatment par
 
 ```{r}
 # Since we are using mox, DT = 1/366/2
-tme <- seq(1, 30*(366*2)-1)/(366*2)
+years <- output_treat_drugtype$years
 
-plot(tme, output_treat_drugtype$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_treat_drugtype$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 abline(v = seq(1, 20), col = 'grey', lwd = 0.1)
 abline(v = seq(21, 25), col = 'grey', lwd = 0.3)
 
-plot(tme, output_treat_drugtype$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+plot(years, output_treat_drugtype$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+abline(v = seq(1, 20), col = 'grey', lwd = 0.1)
+abline(v = seq(21, 25), col = 'grey', lwd = 0.3)
+
+plot(years, output_treat_drugtype$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_treat_drugtype$ov16_seroprevalence_finite_seroreversion, col="red")
 abline(v = seq(1, 20), col = 'grey', lwd = 0.1)
 abline(v = seq(21, 25), col = 'grey', lwd = 0.3)
 
@@ -308,6 +326,7 @@ output_VC <- ep.equi.sim(time.its = timesteps,
                                    vector.control.duration = 14,
                                    vector.control.efficacy = 0.75,
                                    gam.dis.in = 0.3,
+                                   morbidity_module = "NO",
                                    run_equilibrium = FALSE,
                                    equilibrium = output_equilibrium$all_equilibrium_outputs,
                                    print_progress = TRUE)
@@ -321,21 +340,26 @@ We can visualise the impact of vector control with the following:
 ```{r}
 # first we look at when the reduction in ABR occurs:
 
-tme <- seq(1, 30*366-1)/366
+years <- output_VC$years
 
-plot(tme, output_VC$ABR_recorded, type = 'l', xlab = 'time', ylab = 'ABR', ylim = c(0, 1100))
+plot(years, output_VC$ABR_recorded, type = 'l', xlab = 'time', ylab = 'ABR', ylim = c(0, 1100))
 
 # now we look at the impact on mf prevalence and intensity: 
 
 tme2 <- seq(1, 30*366-1)/366
 
-plot(tme2, output_VC$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_VC$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = c(3, 17), col = 'grey', lwd = 0.1) # lines specifying where VC period
 mtext("Vector control period", side=3, line=0.5, at=9.5, col="darkgrey") # Rotated y axis label
 
-plot(tme2, output_VC$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+plot(years, output_VC$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
 
+abline(v = c(3, 17), col = 'grey', lwd = 0.1) # lines specifying where VC period
+mtext("Vector control period", side=3, line=0.5, at=9.5, col="darkgrey") # Rotated y axis label
+
+plot(years, output_VC$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_VC$ov16_seroprevalence_finite_seroreversion, col="red")
 abline(v = c(3, 17), col = 'grey', lwd = 0.1) # lines specifying where VC period
 mtext("Vector control period", side=3, line=0.5, at=9.5, col="darkgrey") # Rotated y axis label
 

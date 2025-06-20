@@ -29,16 +29,24 @@
 #' @param vector.control.strt start year for vector control
 #' @param vector.control.duration duration in years for vector control
 #' @param vector.control.efficacy efficacy of vector (proportion of original ABR value)
-#' @param delta.hz.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to 0)
-#' @param delta.hinf.in this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
-#' @param c.h.in this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
+#' @param delta.hz.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to 0)
+#' @param delta.hinf.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
+#' @param c.h.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
 #' @param gam.dis.in this is a new user-input for individual-level exposure in humans (overdispersion parameter k_E determining degree of individual exposure heterogeneity; default value is 0.3)
+#' @param Q This is the parameter that controls the Ratio of Male Exposure vs Female Exposure. Default is 1.2
 #' @param kM.const.toggle specifies whether kM set to constant (if yes, then overdispersion in mf in skin set to 15)
+#' @param output_age_groups age groups to output prevalences at
 #' @param run_equilibrium specify whether to run to equilibrium first
 #' @param equilibrium equilibrium input given to continue model
 #' @param print_progess print the current status of the model run
-#' @param correlated_compliance correlated compliance structure specified
-#' @param comp.correlation this is the probability associated with the compliance correlation (rho)
+#' @param morbidity_module whether to use and output morbidity in the model. Default is "YES"
+#' @param morbidities the morbidities to track, options from c("SevereItch", "RSD", "Atrophy", "HG", "Depig", "Blindness", "VI", "OAE"). By default all are enabled
+#' @param correlated_compliance correlated compliance structure specified, to toggle on, set to "YES". Default is "NO".
+#' @param comp.correlation this is the probability associated with the compliance correlation (rho). Default is 0. correlated_compliance parameter must be "YES"
+#' @param treat.switch An array designating which drug (IVM or MOX) to be used. Must be a list of the same size as treatment time. Default is NA. ex: c("IVM", "MOX", "IVM")
+#' @param treat.type If you are not using treat.switch, this should be the drug to be used for treatment. Can be "MOX" or "IVM". Default is "IVM"
+#' @param ov16_store_times The timesteps at which you want to store the ov16 status for each individual. Provide in terms of actual time (i.e year 10). Default is c(). ex: c(50, 100)
+#' @param ov16_diagnostic_adjustment The diagnostic adjustment to provide for the adjusted ov16 seroprevalence output. Must be a vector of exactly 2 values. Default is c(0.8, 0.99)
 #'
 #' @export
 
@@ -62,17 +70,18 @@ ep.equi.sim <- function(time.its,
                         delta.hinf.in=0.003,
                         c.h.in=0.005,
                         gam.dis.in=0.3,
+                        Q = 1.2,
                         kM.const.toggle = FALSE,
                         output_age_groups = list(c(0, 5), c(5, 10), c(10, 15), c(15, 20), c(20, 30), c(30, 50), c(50, 81)),
                         run_equilibrium,
                         equilibrium,
                         print_progress = TRUE,
-                        morbidity_module = "NO",
+                        morbidity_module = "YES",
                         morbidities = c("SevereItch", "RSD", "Atrophy", "HG", "Depig", "Blindness", "VI", "OAE"),
                         correlated_compliance = "NO",
                         comp.correlation = 0,
                         treat.switch = NA,
-                        treat.type = NA,
+                        treat.type = "IVM",
                         ov16_store_times = c(),
                         ov16_diagnostic_adjustment = c(0.8, 0.99)) {
 
@@ -86,7 +95,7 @@ ep.equi.sim <- function(time.its,
   # Set-up time parameters #
 
   DT <- DT.in # default timestep
-  if ((!is.na(treat.type) && treat.type == "MOX") || (all(!is.na(treat.switch)) && "MOX" %in% treat.switch)) {
+  if ((treat.type == "MOX") || (all(!is.na(treat.switch)) && "MOX" %in% treat.switch)) {
     # half-day timestep required for MOX dynamics
     DT <- min(DT.in / 2, (1 / 366) / 2)
   }
@@ -193,14 +202,14 @@ ep.equi.sim <- function(time.its,
 
   # Treatment parameters #
 
-  if(all(is.na(treat.switch)) && (is.na(treat.type) || treat.type == "IVM")){
+  if(all(is.na(treat.switch)) && (treat.type == "IVM")){
     lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
     cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
     up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
 
   }
 
-  if(all(is.na(treat.switch)) && !is.na(treat.type) && treat.type == "MOX"){
+  if(all(is.na(treat.switch)) && treat.type == "MOX"){
     #print("default pars")
 
     lam.m = 462; phi = 4.83 #effects of moxidectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
@@ -244,10 +253,10 @@ ep.equi.sim <- function(time.its,
     else{print(paste(treat.prob*100, "%", sep = ''))}
 
     print('Treatment to be given at each round')
-    if(all(is.na(treat.switch)) && (is.na(treat.type) || treat.type == "IVM")){
+    if(all(is.na(treat.switch)) && (treat.type == "IVM")){
       print("IVM only")
     }
-    if(all(is.na(treat.switch)) && !is.na(treat.type) && treat.type == "MOX"){
+    if(all(is.na(treat.switch)) && treat.type == "MOX"){
       print("MOX only")
     }
     if(all(!is.na(treat.switch))){
@@ -309,6 +318,16 @@ ep.equi.sim <- function(time.its,
     paste0("mean.mf.per.snip", output_age_groups_as_strings)
   )
 
+  worm_burden_outputs <- matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 3)
+  colnames(worm_burden_outputs) <- c(
+    "male_worm_burden",
+    paste0("male_worm_burden", output_age_groups_as_strings),
+    "fertile_female_worm_burden",
+    paste0("fertile_female_worm_burden", output_age_groups_as_strings),
+    "infertile_female_worm_burden",
+    paste0("infertile_female_worm_burden", output_age_groups_as_strings)
+  )
+
   L3_vec <- rep(NA, time.its - 1)
   ABR_recorded <- rep(NA, time.its - 1)
   coverage.recorded <- rep(NA, time.its - 1)
@@ -355,7 +374,12 @@ ep.equi.sim <- function(time.its,
     colnames(morbidity_prevalence_outputs) <- morbidity_column_names
 
     # extract probabilities for each condition
-    eye.disease.probs <- readRDS("data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye_disease_file_path <- file.path("inst", "extdata", "eye_disease_probabilties_updated.rds")
+    if (!file.exists(eye_disease_file_path)) {
+      eye_disease_file_path <- system.file("extdata", "eye_disease_probabilties_updated.rds", package = "EPIONCHO.IBM")
+    }
+    eye.disease.probs <- readRDS(eye_disease_file_path) # estimated from Little et al. 2004
+
     eye.dis.probs <- eye.disease.probs$fit
   }
 
@@ -720,21 +744,22 @@ ep.equi.sim <- function(time.its,
     mls <- which(all.mats.cur[,3] == 1) # index males
     fmls <- which(all.mats.cur[,3] == 0) # index females
 
+    e.f <- 1/(sex.rat*(Q-1) + 1) # 0.9
+    e.m <- Q * e.f # 1.08
+
     s.a.exp <- rep(0, N)
 
-    s.a.exp[mls] <- m.exp * exp(-age.exp.m * (all.mats.cur[mls, 2])) # this is E_m * exp(-alpha_m * age)
+    alpha.m <- exp(-age.exp.m * (all.mats.cur[mls, 2]))
+    gamma.m <- 1/mean(alpha.m)
+    s.a.exp[mls] <- alpha.m * e.m * gamma.m
 
-    gam.m <- 1 / mean(s.a.exp[mls]) # calculate the normalizing factor (gamma_m)so distribution of bites among age groups sums to 1
-    s.a.exp[mls] <- s.a.exp[mls] * gam.m # full age/sex specific exposure formula: E_m * gamma_m * exp(-alpha_m * age)
+    alpha.f <- exp(-age.exp.f * (all.mats.cur[fmls, 2]))
+    gamma.f <- 1/mean(alpha.f)
+    s.a.exp[fmls] <- alpha.f * e.f * gamma.f
 
-    s.a.exp[fmls] <- f.exp * exp(-age.exp.f * (all.mats.cur[fmls, 2]))
+    norm.ex.vec <- ex.vec * (1 / mean(ex.vec)) #normalize so mean = 1 (matt: normalising the indvidual-specific exposure from line 565)
 
-    gam.f <- 1 / mean(s.a.exp[fmls]) #normalize so mean = 1
-    s.a.exp[fmls] <- s.a.exp[fmls] * gam.f
-
-    ex.vec <- ex.vec * (1 / mean(ex.vec)) #normalize so mean = 1 (matt: normalising the indvidual-specific exposure from line 565)
-
-    tot.ex.ai <- s.a.exp * ex.vec # matt: combine sex/age specific exposure + individual specific exposure (total exposure to blackfly bites)
+    tot.ex.ai <- s.a.exp * norm.ex.vec # matt: combine sex/age specific exposure + individual specific exposure (total exposure to blackfly bites)
     tot.ex.ai <- tot.ex.ai * (1 / mean(tot.ex.ai)) #normalize so mean = 1
 
     #increase age (for next time step)
@@ -996,6 +1021,15 @@ ep.equi.sim <- function(time.its,
       age_groups=append(list(c(min.mont.age, 81)), output_age_groups)
     )
 
+    worm_burden_outputs[i, ] <- calculate_worm_burden_across_age_groups(
+      main_dat = all.mats.temp,
+      age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
+      male_start = worms.start,
+      infertile_female_start = nfw.start,
+      fertile_female_start = fw.start,
+      fertile_female_end = fw.end
+    )
+
     mf.per.skin.snp.out <- temp.mf[[2]] #to extract out mf per skin snip for each individual?
 
     L3_vec[i] <- mean(all.mats.temp[, 6])
@@ -1124,7 +1158,8 @@ ep.equi.sim <- function(time.its,
     'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
     "ov16_timetrend_outputs" = ov16_timetrend_outputs, 'ov16_timetrend_outputs_adj' = ov16_timetrend_outputs_adj,
-    'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded, 'percent_never_treated' = never_treated_values
+    "worm_burden_outputs" = worm_burden_outputs, 'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded,
+    'percent_never_treated' = never_treated_values
   )
 
   if (morbidity_module == "YES"){

@@ -78,13 +78,6 @@ EPIONCHO IBM is written in R (1) which is freely available for installation on W
 
 The model package can be downloaded and installed directly from a GitHub repository (https://github.com/adiramani/EPIONCHO.IBM). The remotes (2) package must be installed to do this. Installation should take no more than a few seconds on most desktop or laptop machines.
 
-```{r}
-file.sources = list.files("../R/")
-for (file in file.sources) {
-  source(paste0("../R/", file))
-}
-```
-
 ```{r, eval=T, echo = FALSE, collapse= FALSE}
 remotes::install_github("mrc-ide/EPIONCHO.IBM")
 library(EPIONCHO.IBM)

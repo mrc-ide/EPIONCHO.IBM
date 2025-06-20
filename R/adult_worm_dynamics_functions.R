@@ -280,4 +280,31 @@ change.worm.per.ind2 <- function(DT, time.each.comp, compartment, new.worms.nf.f
 
 }
 
+worm_burden_for_age <- function(worm_data, ages, lower_age=5, upper_age=81) {
+  subset_inds <- which(ages >= lower_age & ages < upper_age)
 
+  worm_burden <- sum(rowSums(worm_data[subset_inds, ])) / length(subset_inds)
+  return(worm_burden)
+}
+
+calculate_worm_burden_across_age_groups <- function(
+  main_dat, age_groups, male_start, infertile_female_start, fertile_female_start, fertile_female_end
+) {
+  output_burden_data <- rep(NA, length(age_groups) * 3)
+  for (age_group_index in 1:length(age_groups)) {
+    age_group <- age_groups[[age_group_index]]
+    # male
+    output_burden_data[age_group_index] <- worm_burden_for_age(
+      main_dat[, male_start:infertile_female_start], main_dat[, 2], age_group[1], age_group[2]
+    )
+    # fertile female
+    output_burden_data[age_group_index + length(age_groups)] <- worm_burden_for_age(
+      main_dat[, fertile_female_start:fertile_female_end], main_dat[, 2], age_group[1], age_group[2]
+    )
+    # infertile female
+    output_burden_data[age_group_index + (length(age_groups) * 2)] <- worm_burden_for_age(
+      main_dat[, infertile_female_start:fertile_female_start], main_dat[, 2], age_group[1], age_group[2]
+    )
+  }
+  return(output_burden_data)
+}
