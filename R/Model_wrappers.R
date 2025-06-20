@@ -112,6 +112,13 @@ ep.equi.sim <- function(time.its,
     c.h.in = 0.004
   }
 
+  if(give.treat == 1)
+  {
+    treat.stop <- round(treat.stop / (DT))
+    if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
+    if(treat.start == 0) {treat.start <-  1}
+  }
+
   if(length(ov16_store_times) > 0) {
     ov16_store_times <- round(ov16_store_times / (DT))
   } else {
@@ -124,13 +131,6 @@ ep.equi.sim <- function(time.its,
 
   print("Ov16 full population store times")
   print(ov16_store_times)
-
-  if(give.treat == 1)
-  {
-    treat.stop <- round(treat.stop / (DT))
-    if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
-    if(treat.start == 0) {treat.start <-  1}
-  }
 
   # vector control #
   if(!is.na(vector.control.strt)){
@@ -319,14 +319,14 @@ ep.equi.sim <- function(time.its,
     "ov16_seroprevalence_no_seroreversion",
     paste0("ov16_seroprevalence_no_seroreversion", output_age_groups_as_strings),
     "ov16_seroprevalence_finite_seroreversion",
-    paste0("ov16_seroprevalence_finite_seroreversion", output_age_groups_as_strings),
+    paste0("ov16_seroprevalence_finite_seroreversion", output_age_groups_as_strings)
   )
   ov16_timetrend_outputs_adj <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 2)
   colnames(ov16_timetrend_outputs_adj) <- c(
     "ov16_seroprevalence_no_seroreversion_adj",
     paste0("ov16_seroprevalence_no_seroreversion_adj", output_age_groups_as_strings),
     "ov16_seroprevalence_finite_seroreversion_adj",
-    paste0("ov16_seroprevalence_finite_seroreversion_adj", output_age_groups_as_strings),
+    paste0("ov16_seroprevalence_finite_seroreversion_adj", output_age_groups_as_strings)
   )
 
   ov16_seropositive_no_seroreversion <- rep(0, N)
@@ -1022,12 +1022,12 @@ ep.equi.sim <- function(time.its,
       seroreversion_arrays = list("any_larvae_arr" = any_larvae, "any_worms_arr" = any_worms)
     )
 
-    ov16_timetrend_outputs[i] <- calculate_seroprevalence_across_age_groups(
+    ov16_timetrend_outputs[i, ] <- calculate_seroprevalence_across_age_groups(
       ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
       ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
       diagnostic_adjustments = c(1, 1)
     )
-    ov16_timetrend_outputs_adj[i] <- calculate_seroprevalence_across_age_groups(
+    ov16_timetrend_outputs_adj[i, ] <- calculate_seroprevalence_across_age_groups(
       ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
       ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
       diagnostic_adjustments = ov16_diagnostic_adjustment
@@ -1049,7 +1049,7 @@ ep.equi.sim <- function(time.its,
       all.mats.temp[to.die, cols.to.zero] <- 0 #set age, sex and parasites to 0 (includes L1, but not L2 L3)
       all.mats.temp[to.die, 3] <- rbinom(length(to.die), 1, 0.5) #draw sex
       has_been_treated[to.die] <- FALSE
-      
+
       # Ov16 reset dead individuals
       ov16_seropositive_no_seroreversion[to.die] <- 0
       ov16_seropositive_finite_serorevert[to.die] <- 0
@@ -1085,7 +1085,7 @@ ep.equi.sim <- function(time.its,
         all.blind.updated[to.die, c("BlindnessCountdown")] <- 730
       }
     }
-    
+
     # Ov16 add individual data to matrix
     if(!is.na(match(i, ov16_store_times))) {
       ov16_indiv_matrix[,5*matrix_index-4] <- all.mats.temp[,2]
@@ -1098,14 +1098,14 @@ ep.equi.sim <- function(time.its,
 
     # ========================================================================================================== #
     # update sequela matrix if any individual has reached 3rd day with SI/RSD (4th column) - reversible OSD only #
-    
+
     if(morbidity_module == "YES"){
       # SI 3-day matrix #
       current_day3_SI <- which(sequela.postive.mat1[,4] == 1)
       if(length(current_day3_SI) > 0) {
         sequela.postive.mat1[current_day3_SI, ] <- 0
       }
-      
+
       # RSD 3-day matrix #
       current_day3_RSD <- which(sequela.postive.mat2[,4] == 1)
       if(length(current_day3_RSD) > 0) {
@@ -1115,16 +1115,16 @@ ep.equi.sim <- function(time.its,
 
     i <- i + 1
   }
-   
+
   general_outputs <- list(
     'mf_prev' = mf_prevalence_outputs[,'prev'], 'mf_intens' = mf_intensity_outputs[,'mean.mf.per.snip'],
     "ov16_seroprevalence_no_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_no_seroreversion"],
     "ov16_seroprevalence_finite_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_finite_seroreversion"],
-    'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp,
+    'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp, "Ke" = gam.dis,
     'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
     "ov16_timetrend_outputs" = ov16_timetrend_outputs, 'ov16_timetrend_outputs_adj' = ov16_timetrend_outputs_adj,
-    'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded, 'percent_never_treated' = never_treated_value
+    'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded, 'percent_never_treated' = never_treated_values
   )
 
   if (morbidity_module == "YES"){
@@ -1140,10 +1140,10 @@ ep.equi.sim <- function(time.its,
   {
     equilibrium_outputs <- list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay, has_been_treated)
     # Ov16 Equilibrium Values
-    ov16_equib <- list(ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert, )
+    ov16_equib <- list(ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert)
     names(ov16_equib) <- c('ov16_seropositive_no_seroreversion', 'ov16_seropositive_finite_serorevert')
     equilibrium_outputs[["ov16_equilibrium_outputs"]] <- ov16_equib
-    
+
     if (morbidity_module == "YES") {
       equilibrium_outputs[["morbidity_equilibrium_outputs"]] <- list(
         "all_OAE_equilibrium_outputs" = list(
