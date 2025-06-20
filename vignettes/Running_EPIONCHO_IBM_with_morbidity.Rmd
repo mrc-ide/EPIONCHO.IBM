@@ -94,7 +94,7 @@ The library ggplot2 will also be used for this.
 
 ## 1.2 Run time
 
-When run on laptop machine using Windows, a single run of EPIONCHO-IBM with the activated epilepsy module takes, 
+When run on laptop machine using Windows, a single run of EPIONCHO-IBM with the activated morbidity module takes ~30 minutes.
 
 
 # 2. Installation guide

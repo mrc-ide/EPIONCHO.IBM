@@ -52,12 +52,6 @@ remotes::install_github("mrc-ide/EPIONCHO.IBM", ref="additional_updates")
 library(EPIONCHO.IBM)
 ```
 
-```{r}
-for(file in list.files("../R/")) {
-  source(paste0("../R/", file))
-}
-```
-
 # 2.1 Running the model for multiple runs
 
 To see how to deal with multiple runs, and processing data over multiple runs, the Ov16 vignette has an example of running the model multiple times, along with a function to process the data from multiple runs.
