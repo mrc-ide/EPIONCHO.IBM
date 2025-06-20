@@ -48,7 +48,7 @@ The model package can be downloaded and installed directly from a GitHub reposit
 
 
 ```{r, eval=T, echo = FALSE, collapse= FALSE}
-remotes::install_github("mrc-ide/EPIONCHO.IBM", ref="additional_updates")
+remotes::install_github("mrc-ide/EPIONCHO.IBM")
 library(EPIONCHO.IBM)
 ```
 
