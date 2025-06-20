@@ -107,17 +107,17 @@ names(output_equilibrium)
 The first five elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion` and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
 
 ```{r}
-tme <- seq(1, 30*366-1)/366
+years <- output_equilibrium$years
 
-plot(tme, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
-plot(tme, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
+plot(years, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
 
-plot(tme, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
+plot(years, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
 
-plot(tme, output_equilibrium$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
+plot(years, output_equilibrium$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
 
-plot(tme, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+plot(years, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
 ```
 
 The `ABR` attribute lets you know what the input ABR used was. 
@@ -170,25 +170,25 @@ Note that ```timesteps``` is the total number of years for which the model is ru
 To visualise the infection dynamics through time during annual MDA, use:
 
 ```{r}
-tme <- seq(1, 30*366-1)/366
+years <- output_treat_annual$years
 
-plot(tme, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
-
-abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
-
-plot(tme, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+plot(years, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
-plot(tme, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time', ylab = 'mean seroprevalence w/o seroreversion')
+plot(years, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
-plot(tme, output_treat_annual$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time', ylab = 'mean seroprevalence w/ finite seroreversion')
+plot(years, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time', ylab = 'mean seroprevalence w/o seroreversion')
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
-plot(tme, output_treat_annual$percent_never_treated, type = 'l', xlab = 'time', ylab = 'Percent never treated')
+plot(years, output_treat_annual$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time', ylab = 'mean seroprevalence w/ finite seroreversion')
+
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_annual$percent_never_treated, type = 'l', xlab = 'time', ylab = 'Percent never treated')
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```
@@ -225,17 +225,17 @@ output_treat_biannual <- ep.equi.sim(time.its = timesteps,
 Note than above ```trt.int = 0.5``` (rather than ```trt.int = 1```) to request biannual MDA. The output can be visualised using:
 
 ```{r}
-tme <- seq(1, 30*366-1)/366
+years <- output_treat_biannual$years
 
-plot(tme, output_treat_biannual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
-
-abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
-
-plot(tme, output_treat_biannual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+plot(years, output_treat_biannual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
 
-plot(tme, output_treat_biannual$percent_never_treated, type = 'l', xlab = 'time', ylab = 'Percent never treated')
+plot(years, output_treat_biannual$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+
+abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_biannual$percent_never_treated, type = 'l', xlab = 'time', ylab = 'Percent never treated')
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```

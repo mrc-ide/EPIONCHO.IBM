@@ -109,13 +109,13 @@ names(output_equilibrium_OAE)
 The first five elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion` and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
 
 ```{r}
-tme <- seq(1, 200*366)/366
+years <- output_equilibrium_OAE$years
 
-plot(tme, output_equilibrium_OAE$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_equilibrium_OAE$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
-plot(tme, output_equilibrium_OAE$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
+plot(years, output_equilibrium_OAE$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
 
-plot(tme, output_equilibrium_OAE$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+plot(years, output_equilibrium_OAE$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
 ```
 The `ABR` attribute lets you know what the input ABR used was. 
 The `all_infection_burdens` attribute is a matrix that contains the detailed infection burden of each individual at the final timestep.
@@ -182,15 +182,15 @@ Note that ```timesteps``` is the total number of years for which the model is ru
 To visualise the infection dynamics through time during annual MDA, use:
 
 ```{r}
-tme <- seq(1, 100*366)/366
+years <- output_treat_annual_OAE$years
 
-plot(tme, output_treat_annual_OAE$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_treat_annual_OAE$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 150), col = 'grey', lwd = 0.1)
 
 tme2 <- seq(1, 100*366)/366
 
-plot(tme2, output_treat_annual_OAE$all_morbidity_prevalence_outputs[,"OAE_prev"], type = 'l', xlab = 'time', ylab = 'OAE prevalence')
+plot(years, output_treat_annual_OAE$all_morbidity_prevalence_outputs[,"OAE_prev"], type = 'l', xlab = 'time', ylab = 'OAE prevalence')
 
 abline(v = seq(1, 150), col = 'grey', lwd = 0.1)
 ```
@@ -229,15 +229,15 @@ output_treat_biannual_OAE <- ep.equi.sim(time.its = timesteps,
 Note than above ```trt.int = 0.5``` (rather than ```trt.int = 1```) to request biannual MDA. The output can be visualised using:
 
 ```{r}
-tme <- seq(1, 55*366)/366
+years <- output_treat_biannual_OAE$years
 
-plot(tme, output_treat_biannual_OAE$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_treat_biannual_OAE$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 75, 0.5), col = 'grey', lwd = 0.1)
 
 tme2 <- seq(1, 55*366)/366
 
-plot(tme2, output_treat_biannual_OAE$all_morbidity_prevalence_outputs[,"OAE_prev"], type = 'l', xlab = 'time', ylab = 'OAE prevalence')
+plot(years, output_treat_biannual_OAE$all_morbidity_prevalence_outputs[,"OAE_prev"], type = 'l', xlab = 'time', ylab = 'OAE prevalence')
 
 abline(v = seq(1, 75, 0.5), col = 'grey', lwd = 0.1)
 ```

@@ -59,8 +59,8 @@ give.treat.in = 0
 treat.strt = 1; treat.stp = 16
 trt.int = 1
 
-#annual biting rate, which determines infection prevalence (As parameterised to Chesnais et al., 2018)
-ABR.in = 41922
+#annual biting rate, which determines infection prevalence
+ABR.in = 615 # 50%
 output_equilibrium <- ep.equi.sim(time.its = timesteps,
                                   ABR = ABR.in,
                                   N.in = 400,
@@ -95,17 +95,17 @@ names(output_equilibrium)
 The first five elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion` and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
 
 ```{r}
-tme <- seq(1, 100*366-1)/366
+years <- output_equilibrium$years
 
-plot(tme, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+plot(years, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
-plot(tme, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
+plot(years, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
 
-plot(tme, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
+plot(years, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
 
-plot(tme, output_equilibrium$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
+plot(years, output_equilibrium$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
 
-plot(tme, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+plot(years, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
 ```
 The `ABR` attribute lets you know what the input ABR used was. 
 The `all_infection_burdens` attribute is a matrix that contains the detailed infection burden of each individual at the final timestep.
@@ -241,7 +241,7 @@ output_treat_biannual <- ep.equi.sim(time.its = timesteps,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
                                    morbidity_module = "YES",
-                                   equilibrium = output_equilibrium_OAE$all_equilibrium_outputs,
+                                   equilibrium = output_equilibrium$all_equilibrium_outputs,
                                    print_progress = TRUE)
 
 ```
