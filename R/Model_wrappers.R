@@ -364,7 +364,12 @@ ep.equi.sim <- function(time.its,
     colnames(morbidity_prevalence_outputs) <- morbidity_column_names
 
     # extract probabilities for each condition
-    eye.disease.probs <- readRDS("data/eye_disease_probabilties_updated.rds") # estimated from Little et al. 2004
+    eye_disease_file_path <- file.path("inst", "extdata", "eye_disease_probabilties_updated.rds")
+    if (!file.exists(eye_disease_file_path)) {
+      eye_disease_file_path <- system.file("extdata", "eye_disease_probabilties_updated.rds", package = "EPIONCHO.IBM")
+    }
+    eye.disease.probs <- readRDS(eye_disease_file_path) # estimated from Little et al. 2004
+
     eye.dis.probs <- eye.disease.probs$fit
   }
 
