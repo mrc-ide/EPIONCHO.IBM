@@ -75,19 +75,16 @@ output_equilibrium <- ep.equi.sim(time.its = timesteps,
                                   pnc = 0.05,
                                   min.mont.age = 5,
                                   vector.control.strt = NA,
-                                  delta.hz.in = 0.186,
-                                  delta.hinf.in = 0.003,
-                                  c.h.in = 0.005,
                                   gam.dis.in = 0.3,
                                   run_equilibrium = TRUE,
-                                  equilibrium,
+                                  equilibrium = NA,
                                   print_progress = TRUE)
 ```
 
 To stop the printing of the time as the model runs, set ```print_progress = FALSE```. Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed. For full details of inputs used in the ```ep.equi.sim``` function for endemic equilibrium runs, please see the introductory vignette: [Installing and Running EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM.Rmd). 
 
-The fourth element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
-
+The last element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
+For a full description of the outputs from ```ep.equi.sim```, please see the introductory vignette: [Installing and Running EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM.Rmd). 
 
 ## 3.2 Simulating more complex interventions: variable coverage and frequency of mass drug administration with ivermectin
 
@@ -97,7 +94,7 @@ Assuming you have already run the model and saved the output as described in sec
 
 ```{r}
 timesteps = 30
-treat.strt = 1; treat.stp = 26 #if model run stops in year 30, the last round is at the beginning of year 25
+treat.strt = 1; treat.stp = 26 #if model run stops in year 26, the last round is at the beginning of year 25
 gv.trt = 1
 trt.int = 1
 
@@ -116,12 +113,9 @@ output_treat_annual <- ep.equi.sim(time.its = timesteps,
                                    pnc = 0.05,
                                    min.mont.age = 5,
                                    vector.control.strt = NA,
-                                   delta.hz.in = 0.186,
-                                   delta.hinf.in = 0.003,
-                                   c.h.in = 0.005,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
-                                   equilibrium = output_equilibrium[[4]],
+                                   equilibrium = output_equilibrium$all_equilibrium_outputs,
                                    print_progress = TRUE)
 ```
 Variable coverage is specified with the ```treat.prob.variable``` input, and note that the ```treat.prob``` input is no longer specified, which previously gave a single coverage for all rounds.
@@ -132,7 +126,7 @@ Note that ```timesteps``` is the total number of years for which the model is ru
 To visualise the infection dynamics through time during annual MDA, use:
 
 ```{r}
-tme <- seq(0, 30*366-1)/366
+tme <- seq(1, 30*366-1)/366
 
 plot(tme, output_treat_annual$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
@@ -167,19 +161,16 @@ output_treat_variable <- ep.equi.sim(time.its = timesteps,
                                    pnc = 0.05,
                                    min.mont.age = 5,
                                    vector.control.strt = NA,
-                                   delta.hz.in = 0.186,
-                                   delta.hinf.in = 0.003,
-                                   c.h.in = 0.005,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
-                                   equilibrium = output_equilibrium[[4]],
+                                   equilibrium = output_equilibrium$all_equilibrium_outputs,
                                    print_progress = TRUE)
 ```
 
 Variable treatment timing over the course of the MDA programme is specified with the ```treat.timing.in``` input. Note that the ```treat.int``` input is no longer specified, which gave a fixed interval previously across all rounds. 
 
 ```{r}
-tme <- seq(0, 30*366-1)/366
+tme <- seq(1, 30*366-1)/366
 
 plot(tme, output_treat_variable$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
@@ -188,6 +179,106 @@ abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
 plot(tme, output_treat_variable$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
 
 abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+```
+
+### 3.2.3 Compliance
+
+Assuming you have run the model to the endemic equilibrium (as described in secton 3.1), compliance to the treatment can be specified with a correlation parameter, and/or a static percentage of never treated individuals. To use ONLY a static percentage of never treated individuals (for example 1%), you can set ```pnc = 0.01```, and make sure that ```correlated_compliance = "NO"```. If you want to use ONLY correlated compliance, set ```pnc = 0```, make sure that ```correlated_compliance = "YES"```, and set ```comp.correlation = 0.3``` or any other value in the range (0, 1). To use both, set ```pnc``` to any value within (0, 1), make sure that ```correlated_compliance = "YES"```, and set ```comp.correlation``` to any value within (0, 1). Below is an example using a static never treated percentage of 1%, and a correlated compliance value of 0.3, for 25 years of MDA.
+
+```{r}
+timesteps = 30
+treat.strt = 1; treat.stp = 26 #if model run stops in year 26, the last round is at the beginning of year 25
+gv.trt = 1
+trt.int = 1
+
+output_treat_correlation <- ep.equi.sim(time.its = timesteps,
+                                   ABR = ABR.in,
+                                   N.in = 440,
+                                   treat.timing = NA,
+                                   treat.int = trt.int,
+                                   treat.prob = 0.65,
+                                   give.treat = gv.trt,
+                                   treat.start = treat.strt,
+                                   treat.stop = treat.stp,
+                                   pnc = 0.01,
+                                   min.mont.age = 5,
+                                   vector.control.strt = NA,
+                                   gam.dis.in = 0.3,
+                                   run_equilibrium = FALSE,
+                                   correlated_compliance = "YES",
+                                   comp.correlation = 0.3,
+                                   equilibrium = output_equilibrium$all_equilibrium_outputs,
+                                   print_progress = TRUE)
+```
+
+Below are plots looking at mf prevalence, intensity, and the percentage of people never treated over time.
+
+```{r}
+tme <- seq(1, 30*366-1)/366
+
+plot(tme, output_treat_correlation$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+plot(tme, output_treat_correlation$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+
+abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+
+plot(tme, output_treat_correlation$percent_never_treated, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity', ylim = c(0, 1))
+
+abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
+```
+
+### 3.2.2 Moxidectin vs Ivermectin
+
+Assuming you have run the model to the endemic equilibrium (as described in secton 3.1), the drug used for treatment can be specified with parameters in the model. To use just Ivermectin or just Moxidectin, you can set the ```treat_type``` parameter to either ```"IVM"``` or ```"MOX"``` respectively. Note that using Moxidectin will change your delta time automatically to half a day (1 / 366 / 2).
+
+If you want to switch between the drugs, you should set the ```treat.switch``` input parameter to be a list/vector with the same size as rounds of MDA, with the items at each index being the drug you want to use. Below is an example with 20 years of IVM and 5 years of MOX over 25 total years of MDA.
+
+
+```{r}
+timesteps = 30
+treat.strt = 1; treat.stp = 26 #if model run stops in year 26, the last round is at the beginning of year 25
+gv.trt = 1
+trt.int = 1
+
+trt.switch.in = c(rep("IVM", 20), rep("MOX", 5))
+
+output_treat_drugtype <- ep.equi.sim(time.its = timesteps,
+                                   ABR = ABR.in,
+                                   N.in = 440,
+                                   treat.timing = NA,
+                                   treat.int = trt.int,
+                                   treat.prob = 0.65,
+                                   give.treat = gv.trt,
+                                   treat.start = treat.strt,
+                                   treat.stop = treat.stp,
+                                   pnc = 0.05,
+                                   min.mont.age = 5,
+                                   vector.control.strt = NA,
+                                   gam.dis.in = 0.3,
+                                   run_equilibrium = FALSE,
+                                   treat.switch = trt.switch.in,
+                                   equilibrium = output_equilibrium$all_equilibrium_outputs,
+                                   print_progress = TRUE)
+```
+
+The model output will tell you the years and timesteps at which treatment is given, along with the drug at the related treatment time.
+Below are plots looking at mf prevalence, intensity with the above treatment parameters.
+
+
+```{r}
+# Since we are using mox, DT = 1/366/2
+tme <- seq(1, 30*(366*2)-1)/(366*2)
+
+plot(tme, output_treat_drugtype$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+abline(v = seq(1, 20), col = 'grey', lwd = 0.1)
+abline(v = seq(21, 25), col = 'grey', lwd = 0.3)
+
+plot(tme, output_treat_drugtype$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfilarial intensity')
+abline(v = seq(1, 20), col = 'grey', lwd = 0.1)
+abline(v = seq(21, 25), col = 'grey', lwd = 0.3)
 
 ```
 
@@ -216,12 +307,9 @@ output_VC <- ep.equi.sim(time.its = timesteps,
                                    vector.control.strt = 3,
                                    vector.control.duration = 14,
                                    vector.control.efficacy = 0.75,
-                                   delta.hz.in = 0.186,
-                                   delta.hinf.in = 0.003,
-                                   c.h.in = 0.005,
                                    gam.dis.in = 0.3,
                                    run_equilibrium = FALSE,
-                                   equilibrium = output_equilibrium[[4]],
+                                   equilibrium = output_equilibrium$all_equilibrium_outputs,
                                    print_progress = TRUE)
 
 ```
@@ -233,13 +321,13 @@ We can visualise the impact of vector control with the following:
 ```{r}
 # first we look at when the reduction in ABR occurs:
 
-tme <- seq(0, 30*366-2)/366
+tme <- seq(1, 30*366-1)/366
 
 plot(tme, output_VC$ABR_recorded, type = 'l', xlab = 'time', ylab = 'ABR', ylim = c(0, 1100))
 
 # now we look at the impact on mf prevalence and intensity: 
 
-tme2 <- seq(0, 30*366-1)/366
+tme2 <- seq(1, 30*366-1)/366
 
 plot(tme2, output_VC$mf_prev, type = 'l', xlab = 'time', ylab = 'microfilarial prevalence', ylim = c(0, 1))
 
