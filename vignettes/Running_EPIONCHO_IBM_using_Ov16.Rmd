@@ -1,0 +1,826 @@
+---
+title: "Installing and Running EPIONCHO-IBM to output Ov16"
+author:
+- name: Aditya Ramani
+  affiliation: Royal Veterinary College, Imperial College London
+  role:         # Contributorship roles (e.g., CRediT)
+  - Formal Analysis
+  - Investigation & Methodology
+  - Software
+  - Data Curation
+  - Visualization
+  - Writing - Original Draft
+  - Writing - Review & Editing
+- name: Jacob Stapely
+  affiliation: Imperial College London
+  role:         
+  - Investigation and methodology
+  - Visualization
+  - Resources
+- name: Matthew A Dixon
+  affiliation: Imperial College London 
+  role:       
+  - Visualization
+  - Resources
+  - Writing - Review & Editing
+- Luís-Jorge Amaral
+  affiliation: Imperial College London, University of Antwerp
+  role:       
+  - Data curation
+  - Resources
+  - Writing - Review & Editing
+- name: Jonathan Hamley
+  affiliation: Imperial College London, University of Bern
+  role:
+  - Validation
+  - Writing - Review & Editing
+- name: Martin Walker
+  affiliation: Royal Veterinary College, Imperial College London
+  role:         
+  - Conceptualization
+  - Investigation and methodology
+  - Resources
+  - Visualization
+  - Validation
+  - Supervision
+  - Funding Acquisition
+  - Writing - Original Draft
+  - Writing - Review & Editing
+- name: Maria-Gloria Basanez
+  affiliation: Imperial College London
+  role:         
+  - Conceptualization
+  - Investigation and methodology
+  - Visualization
+  - Validation
+  - Supervision
+  - Funding Acquisition
+  - Writing - Original Draft
+  - Writing - Review & Editing
+date: "May 14, 2024"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  radix::radix_article: default
+  pdf_document: default
+description: |
+  A stochastic, individual-based model for onchocerciasis transmission, now with Ov16 serological outputs
+---
+
+**EPIONCH0-IBM is a stochastic, individual-based model for onchocerciasis transmission. A mathematical description can be found at https://doi.org/10.1371/journal.pntd.0007557.**
+
+# 1. System requirements
+
+EPIONCHO IBM is written in R (1) which is freely available for installation on Windows, Mac OS and Linux platforms from https://www.r-project.org. It is also recommended to install R Studio https://www.rstudio.com which provides a helpful user interface for R. EPIONCHO-IBM has been tested on Mac OS and Windows, but should be compatible with Linux and run on any desktop or laptop machine.
+
+# 2. Installation guide
+
+The model package can be downloaded and installed directly from a GitHub repository (https://github.com/adiramani/EPIONCHO.IBM). The remotes (2) package must be installed to do this. Installation should take no more than a few seconds on most desktop or laptop machines.
+
+```{r}
+file.sources = list.files("../R/")
+for (file in file.sources) {
+  source(paste0("../R/", file))
+}
+```
+
+```{r, eval=T, echo = FALSE, collapse= FALSE}
+remotes::install_github("mrc-ide/EPIONCHO.IBM")
+library(EPIONCHO.IBM)
+overall_start_time <- Sys.time()
+```
+
+# 3. Demo
+
+The entire vignette should take ~30 minutes to run, with most of the time taken up by computational time.
+
+## 3.1 Simulating to find ABR - mfp combinations
+
+If you do not want to test out ABR values, skip to 3.3 to see how to simulate the model to get Ov16 outputs. This is also the most time consuming part of the vignette, as it takes ~12 minutes on average to compute.  
+This is done by simulating the model to endemic equilibrium (which should occur by ~100 years of simulation). Note that running the model to the equilibrium can be slow, taking in excess of 5 minutes (depending on machine performance) per ABR/k~E. Parallel processing (not implemented below) can significantly decrease the run time. To reduce run-time, the code below will only test for 1 run of 2 ABRs for each kE value, over 50 years (typically we use 80-100 years). See section 3.1.1 for a parallel processing version with more ABRs, over a longer period of time. 
+Use the following code to test the ABRs and k~E values that represent a hypoendemic area, with a microfilarial prevalence of around 8%.
+
+```{r, abr-mfp-sim}
+time_start <- Sys.time()
+num_iters_per_abr <- 1
+abr_range_k2 <- seq(70, 79, 5)
+abr_range_k3 <- seq(170, 179, 5)
+
+abrs_k2 <- rep(abr_range_k2, num_iters_per_abr)
+abrs_k3 <- rep(abr_range_k3, num_iters_per_abr)
+all_abrs <- c(abrs_k2, abrs_k3)
+total_sims <- length(all_abrs)
+for(iter in 1:total_sims) {
+  
+  kEs = c(rep(0.2, length(abrs_k2)), rep(0.3, length(abrs_k3)))
+
+  kE = kEs[iter]
+  ABR.in <- all_abrs[iter]
+
+  print(paste("Testing k_E", kE, "with abr", ABR.in))
+
+  # set the timestep for a year (iterate by 1 day, for a total of 366 days in a year)
+  DT.in <- 1/366
+
+
+
+  # total number of years of simulation (100)
+  timesteps = 50
+
+  # we don't want any MDA, but we still need to set a value for these in the model
+  treat.strt = 0
+  treat.stp = 1
+  give.treat.in = 0; trt.int = 1; treat.prob.in = 0.80
+
+  output <- ep.equi.sim(time.its = timesteps,
+                        ABR = ABR.in,
+                        treat.int = trt.int,
+                        treat.prob = treat.prob.in,
+                        give.treat = give.treat.in,
+                        treat.start = treat.strt,
+                        treat.stop = treat.stp,
+                        treat.timing = NA,
+                        pnc = 0.01,
+                        # minimum age for skin-snipping
+                        min.mont.age = 5,
+                        vector.control.strt = NA,
+                        gam.dis.in = kE,
+                        run_equilibrium = TRUE,
+                        print_progress=TRUE)
+
+  # save outputs for analysis
+  params <- list(ABR.in, kE)
+  names(params) <- c('ABR', 'Ke')
+  output <- append(output, params)
+
+  # be sure to make a folder called "test_output_folder"
+  dir.create(file.path("test_output_folder/test_mfp_abr_output_folder/"), recursive=TRUE, showWarnings = FALSE)
+  saveRDS(output, paste("test_output_folder/test_mfp_abr_output_folder/testing_mf_outputs", kE, "_", iter,".rds", sep=""))
+}
+paste("MFP Simulation Run Time", difftime(Sys.time(), time_start, units="mins"), "minutes")
+```
+
+To stop the printing of the time as the model runs, set ```print_progress = FALSE```. Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed.
+If you want to change the ABRs tested, and the number of times each ABR is run, you can adjust the following variables - 
+```num_iters_per_abr```, ```abr_range_k2```, and ```abr_range_k3```
+
+It is also possible to manually change the density-dependent parameters relating to the establishment of the adult *Onchocerca volvulus* (```delta.hz.in```, ```delta.hinf.in``` and ```c.h.in```) and individual exposure heterogeneity in humans (```gam.dis.in```). However, if you use a individual exposure heterogeneity of 0.2, 0.3, or 0.4, the density dependent parameters will be set automatically, to their respectively fitted density-dependent parameters in [Hamley et al. 2019](https://journals.plos.org/plosntds/article?id=10.1371/journal.pntd.0007557). 
+
+### 3.1.1 Simulating with Parallel Processing
+
+This section uses parallel (multi-core) processing to run multiple simulations at the same time. The general idea of the code is the same, however we use the [parallel](), [doParallel](), and [foreach]() packages to (```install.packages("parallel")```, ```install.packages("foreach")```, ```install.packages("doParallel")```) to run the simulations. The code below will be commented to explain the use of the parallel library. Note that the runtime will vary depending on the number of iterations, number of ABRs, and number of cores on your computer.
+
+```{r, eval=FALSE, abr-mfp-sim-parallel}
+library(doParallel)
+library(foreach)
+use_parallel = FALSE # Toggle to true to use this
+if (use_parallel) {
+  # this is just used to get the overal time of the
+  time_start <- Sys.time()
+  
+  # set up ABRs to test
+  num_iters_per_abr <- 100
+  abr_range_k2 <- seq(70, 79, 5)
+  abr_range_k3 <- seq(170, 179, 5)
+  
+  abrs_k2 <- rep(abr_range_k2, num_iters_per_abr)
+  abrs_k3 <- rep(abr_range_k3, num_iters_per_abr)
+  all_abrs <- c(abrs_k2, abrs_k3)
+  total_sims <- length(all_abrs)
+  
+  
+  # see how many cores are available
+  numCores = detectCores()
+  print(numCores)
+  # we want to leave at least 1 core free, but in case numCores is 1, we want to set the minimum to 1
+  coresToUse = max(1, numCores-1)
+  # a cluster is what we use to distribute and process our code in parallel. We need to initialize it with a number of cores to use
+  cl <- makeCluster(coresToUse)
+  # register the cluster to be used in doParallel
+  registerDoParallel(cl)
+  
+  
+  x <- foreach(
+    i = 1:total_sims,
+    .packages = c("EPIONCHO.IBM")
+    ) %dopar% {
+  
+    kEs = c(rep(0.2, length(abrs_k2)), rep(0.3, length(abrs_k3)))
+    
+    kE = kEs[i]
+    ABR.in <- all_abrs[i]
+  
+    # set the timestep for a year (iterate by 1 day, for a total of 366 days in a year)
+    DT.in <- 1/366
+  
+  
+  
+    # total number of years of simulation (100)
+    timesteps = 100
+  
+    # we don't want any MDA, but we still need to set a value for these in the model
+    treat.strt = 100
+    treat.stp = 100
+    give.treat.in = 0; trt.int = 1; treat.prob.in = 0.80
+  
+    output <- ep.equi.sim(time.its = timesteps,
+                          ABR = ABR.in,
+                          treat.int = trt.int,
+                          treat.prob = treat.prob.in,
+                          give.treat = give.treat.in,
+                          treat.start = treat.strt,
+                          treat.stop = treat.stp,
+                          treat.timing = NA,
+                          pnc = 0.01,
+                          # minimum age for skin-snipping
+                          min.mont.age = 5,
+                          vector.control.strt = NA,
+                          gam.dis.in = kE,
+                          run_equilibrium = TRUE,
+                          print_progress=FALSE)
+  
+    # save outputs for analysis
+    params <- list(ABR.in, kE)
+    names(params) <- c('ABR', 'Ke')
+    output <- append(output, params)
+  
+    # be sure to make a folder called "test_output_folder"
+    dir.create(file.path("test_output_folder/test_mfp_abr_output_folder/"), recursive=TRUE, showWarnings = FALSE)
+    saveRDS(output, paste("test_output_folder/test_mfp_abr_output_folder/testing_mf_outputs", kE, "_", iter,".rds", sep=""))
+  }
+  # stop the cluster (this is important, so other processes can use the nodes later)
+  stopCluster(cl)
+  print(paste("MFP Simulation Parallel Run Time", difftime(Sys.time(), time_start, units="mins"), "minutes"))
+}
+```
+
+## 3.2 Visualising microfilarial infection prevalence by ABR
+
+### 3.2.1 Processing outputs
+
+To make visualisation easier, we need to process all of the outputs into a single dataframe. This step requires the `dplyr` package, which can be installed by running ```install.packages("dplyr")```
+Note: This function below will be used in future steps for processing of the Ov16 Output.
+```{r, processing-abr-mfp}
+library(dplyr)
+process_multiple_runs <- function (files='', morbidity_runs = FALSE, verbose=TRUE, ov16_indiv_location=1) {
+  allOutputs <- data.frame()
+  fileToUse <- files
+
+  i <- 1
+  total_files <- length(list.files(fileToUse))
+  start_time <- Sys.time() 
+  mf_prev_df <- NA
+  mf_intensity_df <- NA
+  morbidity_df <- NA
+  oae_incidence_df <- NA
+  ov16_trends_df <- NA
+  ov16_adj_trends_df <- NA
+  ov16_indiv_df <- NA
+  for (file in list.files(fileToUse)) {
+    if(verbose) {
+      if (total_files > 10 & (i %% floor(total_files/10)) == 0) {
+        print(paste("Time Elapsed:", Sys.time()-start_time, ":", i / (total_files)))
+        gc()
+      }
+    }
+    tryCatch(
+      {
+        tmpRDSData <- readRDS(paste(fileToUse, file,sep=""))
+      },
+      error = function(e) {
+        message(paste("Error occurred while reading:", fileToUse))
+      }
+    )
+    
+    selector <- which(tmpRDSData$years %% 1 == 0)
+    num_vals <- length(selector)
+    
+    # Used for Ov16 individual matrix processing
+    ov16_indiv_matrix <- tmpRDSData$ov16_indiv_matrix
+    age <- ov16_indiv_matrix[, (ov16_indiv_location*5)-4]
+    sex <- ifelse(ov16_indiv_matrix[,(ov16_indiv_location*5)-3] == 1, "Male", "Female")
+    mf_status <- ov16_indiv_matrix[,(ov16_indiv_location*5)-2]
+    ov16_status_mating_any_mf <- ov16_indiv_matrix[,(ov16_indiv_location*5)-1]
+    ov16_status_any_mf_finite_seroreversion <- ov16_indiv_matrix[,(ov16_indiv_location*5)]
+    num_individuals <- length(age)
+    if(i == 1) {
+      mf_prev_df <- matrix(ncol=ncol(tmpRDSData$all_mf_prevalence_age_grouped)+4, nrow=total_files*num_vals)
+      colnames(mf_prev_df) <- c(colnames(tmpRDSData$all_mf_prevalence_age_grouped), "ABR", "Ke", "year", 'run_num')
+
+      mf_intensity_df <- matrix(ncol=ncol(tmpRDSData$all_mf_intensity_age_grouped)+4, nrow=total_files*num_vals)
+      colnames(mf_intensity_df) <- c(colnames(tmpRDSData$all_mf_intensity_age_grouped), "ABR", "Ke", "year", 'run_num')
+      
+      if (morbidity_runs) {
+        morbidity_df <- matrix(ncol=ncol(tmpRDSData$all_morbidity_prevalence_outputs)+4, nrow=total_files*num_vals)
+      colnames(morbidity_df) <- c(colnames(tmpRDSData$all_morbidity_prevalence_outputs), "ABR", "Ke", "year", 'run_num')
+
+        oae_incidence_df <- matrix(ncol=ncol(tmpRDSData$oae_incidence_outputs)+4, nrow=total_files*num_vals)
+      colnames(oae_incidence_df) <- c(colnames(tmpRDSData$oae_incidence_outputs), "ABR", "Ke", "year", 'run_num')
+      }
+      
+      ov16_trends_df <- matrix(ncol=ncol(tmpRDSData$ov16_timetrend_outputs)+4, nrow=total_files*num_vals)
+      colnames(ov16_trends_df) <- c(colnames(tmpRDSData$ov16_timetrend_outputs), "ABR", "Ke", "year", 'run_num')
+      
+      ov16_adj_trends_df <- matrix(ncol=ncol(tmpRDSData$ov16_timetrend_outputs_adj)+4, nrow=total_files*num_vals)
+      colnames(ov16_adj_trends_df) <- c(colnames(tmpRDSData$ov16_timetrend_outputs_adj), "ABR", "Ke", "year", 'run_num')
+      
+      ov16_indiv_df <- data.frame(matrix(ncol=8, nrow=num_individuals*total_files))
+      colnames(ov16_indiv_df) <- c("age", "sex", "ov16_status_no_seroreversion", "ov16_status_finite_seroreversion", "mf_status", "ABR", "Ke", "run_num")
+    }
+    
+    kE <- -1
+    if (any("Ke" %in% names(tmpRDSData))) {
+      kE <- tmpRDSData$Ke
+    }
+
+    mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(mf_prev_df)-4)] <- tmpRDSData$all_mf_prevalence_age_grouped[selector,]
+    mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)-3] <- rep(kE, length(selector))
+    mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)-1] <- tmpRDSData$years[selector]
+    mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)] <- rep(i, length(selector))
+    
+    mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(mf_intensity_df)-4)] <- tmpRDSData$all_mf_intensity_age_grouped[selector,]
+    mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)-3] <- rep(kE, length(selector))
+    mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)-1] <- tmpRDSData$years[selector]
+    mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)] <- rep(i, length(selector))
+    
+    if (morbidity_runs) {
+      morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(morbidity_df)-4)] <-tmpRDSData$all_morbidity_prevalence_outputs[selector,]
+      morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)-3] <- rep(kE, length(selector))
+      morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)-2] <- tmpRDSData$ABR_recorded[selector]
+      morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)-1] <- tmpRDSData$years[selector]
+      morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)] <- rep(i, length(selector))
+  
+      oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(oae_incidence_df)-4)] <- tmpRDSData$oae_incidence_outputs[selector,]
+      oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)-3] <- rep(kE, length(selector))
+      oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)-2] <- tmpRDSData$ABR_recorded[selector]
+      oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)-1] <- tmpRDSData$years[selector]
+      oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)] <- rep(i, length(selector))
+    }
+    
+
+    ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(ov16_trends_df)-4)] <- tmpRDSData$ov16_timetrend_outputs[selector,]
+    ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)-3] <- rep(kE, length(selector))
+    ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)-1] <- tmpRDSData$years[selector]
+    ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)] <- rep(i, length(selector))
+    
+    ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(ov16_adj_trends_df)-4)] <- tmpRDSData$ov16_timetrend_outputs_adj[selector,]
+    ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)-3] <- rep(kE, length(selector))
+    ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)-1] <- tmpRDSData$years[selector]
+    ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)] <- rep(i, length(selector))
+    
+    start_index <- 1+num_individuals*(i-1)
+    end_index <- num_individuals*i
+    ov16_indiv_df[start_index:end_index,-8] <- list(age, sex, ov16_status_mating_any_mf, ov16_status_any_mf_finite_seroreversion, mf_status, rep(tmpRDSData$ABR, num_individuals), rep(kE, num_individuals))
+    ov16_indiv_df[start_index:end_index,8] <- i
+
+    i <- i + 1
+
+  }
+
+  ov16_indiv_df <- ov16_indiv_df %>% as.data.frame() %>%
+    mutate(
+      age_groups = case_when(
+        ceiling(age*5)/5 == 0 ~ 0,
+        age <= 75 ~ ceiling(age/5)*5 - 2.5,
+        TRUE ~ 77.5
+      )
+    )
+  
+  all_return <- list(mf_prev_df, mf_intensity_df, morbidity_df, oae_incidence_df, ov16_trends_df, ov16_adj_trends_df, ov16_indiv_df)
+  names(all_return) <- c("mf_prev_df", "mf_intensity_df", "morbidity_df", "oae_incidence_df", "ov16_trends_df", "ov16_adj_trends_df", "ov16_indiv_df")
+  return(all_return)
+}
+
+saveRDS(process_multiple_runs(file="test_output_folder/test_mfp_abr_output_folder/"), "test_output_folder/mfp_abr_all_age_data.RDS")
+```
+
+### 3.2.2 Visualising Output
+
+Now that we have the abrs, k~E~s, and mfp values combined into a single dataframe, we can run the following code to visualize the ABR-k~E~ microfilarial prealence trends (Note: This step requires the `dplyr` and ggplot2 packages, which can be installed by running ```install.packages("dplyr")``` and ```install.packages("ggplot2")```):
+
+```{r, visualising-mfp-abr}
+library(ggplot2)
+library(dplyr)
+# load dataframe
+gabon_mfp_data_df <- readRDS("test_output_folder/mfp_abr_all_age_data.RDS")$mf_prev_df %>% as.data.frame()
+
+# grouped by ABR, kE and time, find the mean MFP across all runs for that combination, and then filter it out to get the MFP at the last year
+gabon_mfp_data_df_mutated <- gabon_mfp_data_df %>% group_by(ABR, Ke, year) %>% summarize(mean_mfp = mean(prev)*100, .groups="drop") %>% filter(year == max(year))
+
+mfp_vs_abr_plot <- ggplot(data=gabon_mfp_data_df_mutated) + 
+  geom_bar(aes(x=factor(ABR), y=mean_mfp), stat="identity") +
+  facet_wrap(~ Ke, scales = "free_x") +
+  ylab("Mean Microfilarial Prevalence (%) at Equilibrium") +
+  labs(
+    title = expression("k"["E"])
+  ) +
+  scale_color_manual("Observed Microfilarial Prevalence 95% CI", values=c("black", "red")) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size=10, hjust = 0.5),
+    legend.position = "bottom",
+    legend.direction = "horizontal"
+  )
+mfp_vs_abr_plot
+```
+
+## 3.3 Simulating for Ov16 seroprevalence outputs
+
+This section will explain how to output Ov16 seroprevalence in the model, using the following two hypotheses:
+1) With a mating worm pair and any (modelled) microfilarae and no seroreversion
+2) With a mating worm pair and any (modelled) microfilarae and finite seroreversion*
+
+*Finite seroreversion is defined as the absence of any larvae or adult worms in a host.
+### 3.3.1 No MDA
+
+To output Ov16 values for the hypotheses in a scenario where there is no MDA, we can do the same thing as we did in step 3.1, simulating for a hypoendemic region.
+The model is set to output a matrix describing all individuals (their age, sex, mf status and ov16 serostatus) at the last timestep by default (if no MDA is applied). 
+If you want to customize the times at which the seroprevalence is output, you can add the parameter ```ov16_store_times = c(x...)```, which will set the store times to be at the year you input. For example ```ov16_store_times = c(50, 100)``` will output data at year 50 and 100.
+Note: To simplify the code, we are doing 1 run, with a k~E~ of 0.2, and an ABR of 72, but for consistant results, you would need to simulate this at least 1000 times (this value has not been strictly tested) and calculate the mean Ov16 seroprevalence. Without at least 200 simulations,
+it might be hard to see any trend in the data.
+
+```{r, no-mda-ov16-sim}
+kE = 0.2
+
+# Set ABR
+ABR.in <- 72
+
+# set the timestep for a year (iterate by 1 day, for a total of 366 days in a year)
+DT.in <- 1/366
+
+# total number of years of simulation (normally 100, set to 50 for speed)
+timesteps = 50
+
+# we don't want any MDA, but we still need to set a value for these in the model
+treat.strt = 100
+treat.stp = 100
+give.treat.in = 0; trt.int = 1; treat.prob.in = 0.80
+
+output <- ep.equi.sim(time.its = timesteps,
+                      ABR = ABR.in,
+                      treat.int = trt.int,
+                      treat.prob = treat.prob.in,
+                      give.treat = give.treat.in,
+                      treat.start = treat.strt,
+                      treat.stop = treat.stp,
+                      treat.timing = NA,
+                      pnc = 0.01,
+                      # minimum age for skin-snipping
+                      min.mont.age = 5,
+                      vector.control.strt = NA,
+                      gam.dis.in = kE,
+                      run_equilibrium = TRUE,
+                      print_progress=TRUE)
+
+# save outputs for analysis
+params <- list(ABR.in, kE)
+names(params) <- c('ABR', 'Ke')
+output <- append(output, params)
+
+# be sure to make a folder called "test_ov16_no_mda_output_folder"
+dir.create(file.path("test_output_folder/test_ov16_no_mda_output_folder/"), recursive=TRUE, showWarnings = FALSE)
+saveRDS(output, paste("test_output_folder/test_ov16_no_mda_output_folder/testing_no_mda_outputs", kE, "_", iter,".rds", sep=""))
+```
+
+The main value of the `output` that will have the seroprevalence values is `ov16_seropositive_matrix` (or `ov16_seropositive_matrix_serorevert` if you used seroreversion). This is a matrix with N x (9*i) rows, with N being the number of individuals in the population. The number of columns is a multiple of 9, defined by i, where i is the number of output times in `ov16_store_times`.
+The columns (by index) contain the following information for the given individual in that row:
+Column:
+1 - Age
+2 - Sex (1 = Male)
+3 - Skin Snip Result
+4 - Ov16 Seroprevalence with No Seroreversion (Hypothesis 1)
+5 - Ov16 Seroprevalence with Finite Seroreversion (Hypothesis 2)
+
+The order of the columns will always be the same, and in the case of multiple timesteps of output, will be ordered by the earliest output.
+I.e: with ```ov16_store_times = c(50, 100)```, column 1 = age at year 50, column 6 = age at year 100, etc. 
+
+#### 3.3.1.1 Visualising the Age Stratified Ov16 seroprevalence by Hypothesis
+
+We can use the same function that we used in 3.2.2 to process the data, before visualizing it. We adjust the simulation data using the OEPA ELISA, but feel free to change it as you wish in the code below.
+This step requires the package dplyr, tidyr, and ggplot2, which can be installed by running ```install.packages("ggplot2")```, ```install.packages("dplyr")```, and ```install.packages("tidyr")``` if they are not already installed.
+
+```{r, no-mda-ov16-age-vis}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+# process data
+seroprevalence_data <- process_multiple_runs(file="test_output_folder/test_ov16_no_mda_output_folder/")$ov16_indiv_df
+# if you used multiple timepoints, you need to set the `location` parameter to match the output time you want to look at.
+# The first output time corresponds to location = 1, second output time to location = 2, etc.
+# seroprevalence_data <- process_multiple_runs(file="test_output_folder/test_ov16_no_mda_output_folder/", ov16_indiv_location=2)$ov16_indiv_df
+
+
+# data explanation: 
+# each row signifies an individual
+# ov16_status_no_seroreversion - ov16 status for hypothesis 6
+# ov16_status_finite_seroreversion - ov16 status for hypothesis 6 with finite seroreversion
+# mf_status - mf skin snip status for an individual
+# ABR - ABR for the run the individual was a part of
+# Ke - kE for the run the individual was a part of
+# run_num - unique run number
+# age_groups - age_group of individuals (5 year bins)
+names(seroprevalence_data)
+
+# adjust for sensitivity and specificity
+# this is a helper function to calculate the sensitivity and specificity
+calcSensSpecSeroPrev <- function(run_seropos_data, sens=1, spec=1, prob=c()) {
+  indv <- length(run_seropos_data)
+  if(length(prob) < indv) {
+    prob <- runif(indv)
+  }
+  
+  if(length(sens) ==0 | is.na(sens)) {
+    sens <- 1
+  }
+  if(length(sens) == 0 | is.na(spec)) {
+    spec <- 1
+  }
+  
+  new_seropos_data<-rep(0, indv)
+  pos <- which(run_seropos_data==1)
+  neg <- which(run_seropos_data==0)
+
+  if(length(pos) > 0) {
+    new_seropos_data[pos] <- as.numeric(prob[pos] <= sens)
+  }
+  if(length(neg) > 0) {
+    new_seropos_data[neg] <- as.numeric(prob[neg] > spec)
+  }
+  return(new_seropos_data)
+}
+
+# from OEPA ELISA; feel free to edit it
+sens = 0.43; spec = 0.998
+seroprevalence_data$probs <- runif(dim(seroprevalence_data)[1])
+seroprevalence_data_adj <- seroprevalence_data %>% group_by(run_num) %>%
+  mutate(
+          ov16_status_no_seroreversion=calcSensSpecSeroPrev(ov16_status_no_seroreversion, sens, spec, probs),
+          ov16_status_finite_seroreversion=calcSensSpecSeroPrev(ov16_status_finite_seroreversion, sens, spec, probs),
+        ) %>% ungroup() %>% as.data.frame()
+
+# find average seroprevalence by age group
+seroprevalence_data_adj <- seroprevalence_data_adj %>% group_by(run_num, age_groups) %>% summarise(
+                     ov16_status_no_seroreversion=mean(ov16_status_no_seroreversion),
+                     ov16_status_finite_seroreversion=mean(ov16_status_finite_seroreversion),
+                     mf_prev=mean(mf_status), .groups="drop") %>% as.data.frame()
+# Name the hypotheses
+colnames(seroprevalence_data_adj)[3:4] <- list("Mating worm pair with any mf", "Mating worm pair with any mf and finite seroreversion")
+
+# Calculate Mean
+seroprevalence_data_summary <- seroprevalence_data_adj %>%
+  as.data.frame() %>% tidyr::pivot_longer(cols=all_of(3:4), names_to="Hypothesis", values_to = "ov16_prev") %>%
+  group_by(age_groups, Hypothesis) %>%
+  summarise(
+    ov16_q1 = quantile(ov16_prev, probs=0.25),
+    ov16_q3 = quantile(ov16_prev, probs=0.75),
+    ov16_prev=mean(ov16_prev), 
+    mf_q1 = quantile(mf_prev, probs=0.25),
+    mf_q3 = quantile(mf_prev, probs=0.75),
+    mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+
+# plot the data
+plot <- ggplot() +
+    geom_line(aes(x=age_groups, y=ov16_prev*100, color=Hypothesis), linewidth=1.1, data=seroprevalence_data_summary) +    
+    scale_color_manual(name="Hypotheses", 
+                       values=c("Mating worm pair with any mf"="brown", "Mating worm pair with any mf and finite seroreversion"="orange")) +
+    theme_bw() +
+    xlab("Age (years)") +
+    ylab("Ov16 Seroprevalence (%)")
+plot
+```
+
+#### 3.3.1.2 Time trends
+
+You can look at the time trend of Ov16 seroprevalence as well.
+This step requires the package dplyr and ggplot2, which can be installed by running ```install.packages("ggplot2")``` and ```install.packages("dplyr")```, if they are not already installed.
+```{r, no-mda-ov16-time-vis}
+library(dplyr)
+library(ggplot2)
+
+processed_no_mda_data <- process_multiple_runs(file="test_output_folder/test_ov16_no_mda_output_folder/")
+
+# See all available outputs
+names(processed_no_mda_data)
+# See all the age groups available for serotrends
+colnames(processed_no_mda_data$ov16_trends_df)
+
+sero_trend <- as.data.frame(processed_no_mda_data$ov16_trends_df) %>%
+              group_by(Ke, year) %>% summarize(no_seroreversion_prev=mean(ov16_seroprevalence_no_seroreversion), finite_seroreversion_prev=mean(ov16_seroprevalence_finite_seroreversion), .groups="drop")
+
+mfp_trend <- as.data.frame(processed_no_mda_data$mf_prev_df) %>% group_by(Ke, run_num)
+
+time_plot <- ggplot() + geom_line(
+  data=mfp_trend %>% group_by(year) %>% summarize(prev=mean(prev), .groups="drop"),
+  aes(x=year, y=prev*100, color="MF Prevalence")) + 
+  geom_line(
+    data=sero_trend,
+    aes(x=year, y=no_seroreversion_prev*100, color="Ov16 Seroprevalence No Seroreversion")
+  ) +
+  geom_line(
+    data=sero_trend,
+    aes(x=year, y=finite_seroreversion_prev*100, color="Ov16 Seroprevalence Finite Seroreversion")
+  ) +
+  scale_y_continuous("Prevalence (%)", breaks=seq(0, 100, 10)) +
+  theme_bw()
+time_plot
+```
+
+### 3.3.2 Applying Interventions
+
+This is a similar method as what we do previously, except we are now incorporating both MDA and vector control. In this case, we will be attempted to simulate a holoendemic
+environment, by pulling ABRs from a gamma distribution that was calculated elsewhere.
+```{r, mda-ov16-sim}
+kE = 0.3
+
+vctr.control.strt <- 50
+vctr.control.duration <- 31
+vctr.control.efficacy <- 0.75
+
+ABR.in <- round(rgamma(1, 12.28, .0014)) # ~85%
+
+# treat.strt.yrs 93 matches with 1989
+treat.len = 26; treat.strt.yrs = 63; yrs.post.treat = 1
+
+treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len; 
+timesteps = treat.stp + yrs.post.treat #final duration
+
+treat.prob.in=0.80 # this is overridden by cstm_treat_params, if it exists
+# percent of population not treated
+pnc.in = 0.01
+
+
+give.treat.in = 1; trt.int = 1
+
+output <- ep.equi.sim(time.its = timesteps,
+                      ABR = ABR.in,
+                      treat.int = trt.int,
+                      treat.prob = treat.prob.in,
+                      give.treat = give.treat.in,
+                      treat.start = treat.strt,
+                      treat.stop = treat.stp,
+                      treat.timing = NA,
+                      pnc = pnc.in,
+                      min.mont.age = 5,
+                      vector.control.strt = vctr.control.strt,
+                      vector.control.duration = vctr.control.duration,
+                      vector.control.efficacy = vctr.control.efficacy,
+                      gam.dis.in = kE,
+                      N.in = 500,
+                      run_equilibrium = TRUE,
+                      print_progress=TRUE)
+
+params <- list(ABR.in, vctr.control.efficacy)
+names(params) <- c('ABR', "vctr.ctrl.eff")
+output <- append(output, params)
+
+# be sure to create a folder called "test_ov16_mda_output_folder"
+dir.create(file.path("test_output_folder/test_ov16_mda_output_folder/"), recursive=TRUE, showWarnings = FALSE)
+saveRDS(output, paste("test_output_folder/test_ov16_mda_output_folder/ov16_output_mda_kE_", kE,".rds", sep=""))
+```
+
+#### 3.3.2.1 Visualising
+
+We can use the same process as 3.3.1.1 to visualize the output. 
+This step requires the package dplyr, tidyr, and ggplot2, which can be installed by running ```install.packages("ggplot2")```, ```install.packages("dplyr")```, and ```install.packages("tidyr")``` if they are not already installed.
+
+```{r, mda-ov16-age-vis}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+# process data
+seroprevalence_data_mda <- process_multiple_runs(file="test_output_folder/test_ov16_mda_output_folder/", ov16_indiv_location=2)$ov16_indiv_df
+# if you used mda, time point 2 is right after the cessation of MDA, you need to set the `location` parameter to match the output time you want to look at.
+# The first output time corresponds to location = 1, second output time to location = 2, etc.
+
+
+# data explanation: 
+# each row signifies an individual
+# ov16_status_no_seroreversion - ov16 status for hypothesis 6
+# ov16_status_finite_seroreversion - ov16 status for hypothesis 6 with finite seroreversion
+# mf_status - mf skin snip status for an individual
+# ABR - ABR for the run the individual was a part of
+# Ke - kE for the run the individual was a part of
+# run_num - unique run number
+# age_groups - age_group of individuals (5 year bins)
+names(seroprevalence_data_mda)
+
+# adjust for sensitivity and specificity
+# this is a helper function to calculate the sensitivity and specificity
+calcSensSpecSeroPrev <- function(run_seropos_data, sens=1, spec=1, prob=c()) {
+  indv <- length(run_seropos_data)
+  if(length(prob) < indv) {
+    prob <- runif(indv)
+  }
+  
+  if(length(sens) ==0 | is.na(sens)) {
+    sens <- 1
+  }
+  if(length(sens) == 0 | is.na(spec)) {
+    spec <- 1
+  }
+  
+  new_seropos_data<-rep(0, indv)
+  pos <- which(run_seropos_data==1)
+  neg <- which(run_seropos_data==0)
+
+  if(length(pos) > 0) {
+    new_seropos_data[pos] <- as.numeric(prob[pos] <= sens)
+  }
+  if(length(neg) > 0) {
+    new_seropos_data[neg] <- as.numeric(prob[neg] > spec)
+  }
+  return(new_seropos_data)
+}
+
+# from OEPA ELISA
+sens = 0.43; spec = 0.998
+seroprevalence_data_mda$probs <- runif(dim(seroprevalence_data_mda)[1])
+seroprevalence_data_mda_adj <- seroprevalence_data_mda %>% group_by(run_num) %>%
+  mutate(
+          ov16_status_no_seroreversion=calcSensSpecSeroPrev(ov16_status_no_seroreversion, sens, spec, probs),
+          ov16_status_finite_seroreversion=calcSensSpecSeroPrev(ov16_status_finite_seroreversion, sens, spec, probs),
+        ) %>% ungroup() %>% as.data.frame()
+
+# find average seroprevalence by age group
+seroprevalence_data_mda_adj <- seroprevalence_data_mda_adj %>% group_by(run_num, age_groups) %>% summarise(
+                     ov16_status_no_seroreversion=mean(ov16_status_no_seroreversion),
+                     ov16_status_finite_seroreversion=mean(ov16_status_finite_seroreversion),
+                     mf_prev=mean(mf_status), .groups="drop") %>% as.data.frame()
+# Name the hypotheses
+colnames(seroprevalence_data_mda_adj)[3:4] <- list("Mating worm pair with any mf", "Mating worm pair with any mf and finite seroreversion")
+
+# Calculate Mean
+seroprevalence_data_mda_summary <- seroprevalence_data_mda_adj %>%
+  as.data.frame() %>% pivot_longer(cols=all_of(3:4), names_to="Hypothesis", values_to = "ov16_prev") %>%
+  group_by(age_groups, Hypothesis) %>%
+  summarise(
+    ov16_q1 = quantile(ov16_prev, probs=0.25),
+    ov16_q3 = quantile(ov16_prev, probs=0.75),
+    ov16_prev=mean(ov16_prev), 
+    mf_q1 = quantile(mf_prev, probs=0.25),
+    mf_q3 = quantile(mf_prev, probs=0.75),
+    mf_prev=mean(mf_prev), .groups="drop") %>% as.data.frame()
+
+# plot the data
+plot_mda <- ggplot() +
+    geom_line(aes(x=age_groups, y=ov16_prev*100, color=Hypothesis), linewidth=1.1, data=seroprevalence_data_mda_summary) +    
+    scale_color_manual(name="Hypotheses", 
+                       values=c("Mating worm pair with any mf"="brown", "Mating worm pair with any mf and finite seroreversion"="orange")) +
+    theme_bw() +
+    xlab("Age (years)") +
+    ylab("Ov16 Seroprevalence (%)")
+plot_mda
+```
+
+#### 3.3.2.2 Time trends
+
+We can use the same process as 3.3.1.2 to visualize the output. 
+This step requires the package dplyr and ggplot2, which can be installed by running ```install.packages("ggplot2")``` and ```install.packages("dplyr")```, if they are not already installed..
+
+```{r, mda-ov16-time-vis}
+library(dplyr)
+library(ggplot2)
+
+output_mda_data <- process_multiple_runs(file="test_output_folder/test_ov16_mda_output_folder/")
+names(output_mda_data)
+sero_trend_mda <- as.data.frame(output_mda_data$ov16_trends_df) %>%
+              group_by(Ke, year) %>% summarize(no_seroreversion_prev=mean( ov16_seroprevalence_no_seroreversion), finite_seroreversion_prev=mean( ov16_seroprevalence_finite_seroreversion), .groups="drop")
+
+mfp_trend_mda <- as.data.frame(output_mda_data$mf_prev_df)
+
+time_plot_mda <- ggplot() + geom_line(
+  data=mfp_trend_mda %>% group_by(year) %>% summarize(prev=mean(prev), .groups="drop"),
+  aes(x=year, y=prev*100, color="MF Prevalence")) + 
+  geom_line(
+    data=sero_trend_mda,
+    aes(x=year, y=no_seroreversion_prev*100, color="Ov16 Seroprevalence No Seroreversion")
+  ) +
+  geom_line(
+    data=sero_trend_mda,
+    aes(x=year, y=finite_seroreversion_prev*100, color="Ov16 Seroprevalence Finite Seroreversion")
+  ) +
+  scale_y_continuous("Prevalence (%)", breaks=seq(0, 100, 10)) +
+  theme_bw()
+time_plot_mda
+print(paste("Overall Vignette Run time: ", difftime(Sys.time(), overall_start_time, units="mins"), "minutes"))
+```
+
+### 4. Cleaning up Data
+
+Use this code to clean up the artifacts made from running this code.
+
+```{r, clean-up}
+unlink("test_output_folder/", recursive = TRUE)
+```
+### 5. References
+
+1. R Core Team. R: A language and environment for statistical computing. (R Foundation for Statistical Computing, 2018).
+
+2. Csárdi, G. RCurl: Package ‘remotes’: R Package Installation from Remote Repositories, Including 'GitHub'. (2022). https://cran.r-project.org/web/packages/remotes/ 
+
+
