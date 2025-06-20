@@ -48,8 +48,14 @@ The model package can be downloaded and installed directly from a GitHub reposit
 
 
 ```{r, eval=T, echo = FALSE, collapse= FALSE}
-remotes::install_github("mrc-ide/EPIONCHO.IBM")
+remotes::install_github("mrc-ide/EPIONCHO.IBM", ref="additional_updates")
 library(EPIONCHO.IBM)
+```
+
+```{r}
+for(file in list.files("../R/")) {
+  source(paste0("../R/", file))
+}
 ```
 
 # 2.1 Running the model for multiple runs
@@ -98,7 +104,7 @@ It is also possible to manually change the density-dependent parameters relating
 
 ## 3.2 Visualising microfilarial infection prevalence through time
 
-The output from run_EPIONCHO_IBM is a list with 20 elements.
+The output from run_EPIONCHO_IBM is a list with 21 elements.
 
 ```{r}
 names(output_equilibrium)
@@ -113,11 +119,13 @@ plot(years, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab 
 
 plot(years, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
 
-plot(years, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
-
-plot(years, output_equilibrium$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
+plot(years, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_equilibrium$ov16_seroprevalence_finite_seroreversion, col="red")
 
 plot(years, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+
+# worm burden parameter explained below
+plot(years, output_equilibrium$worm_burden_outputs[, "fertile_female_worm_burden"], type = 'l', xlab = 'time (years)', ylab = 'fertile female worm burden')
 ```
 
 The `ABR` attribute lets you know what the input ABR used was. 
@@ -129,8 +137,8 @@ The `coverage.recorded` attribute is a temporal output showing the MDA coverage 
 The `percent_never_treated` attribute is a temporal output, showing how many individuals at a given timestep had never been treated. Without MDA, this will be all NA values.
 The last element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
 
-The `all_mf_prevalence_age_grouped`, `all_mf_intensity_age_grouped`, `ov16_timetrend_outputs`, `ov16_timetrend_outputs_adj`, `oae_incidence_outputs`, and `all_morbidity_prevalence_outputs` elements contain the temporal dynamics (at 1 day increments) for multiple age groups for mf prevalence, intensity, ov16 seroprevalence (w/ and without seroreversion), ov16 seroprevalence adjusted, OAE incidence, and morbidity prevalence (including the OAE prevalence) respectively.
-The prevalence outputs are grouped by [5, 80], [0-5), [0-5), [5-10), [10-15), [15-20), [20-30), [30-50), [50-80].
+The `all_mf_prevalence_age_grouped`, `all_mf_intensity_age_grouped`, `ov16_timetrend_outputs`, `ov16_timetrend_outputs_adj`, `worm_burden_outputs`, `oae_incidence_outputs`, and `all_morbidity_prevalence_outputs` elements contain the temporal dynamics (at 1 day increments) for multiple age groups for mf prevalence, intensity, ov16 seroprevalence (w/ and without seroreversion), ov16 seroprevalence adjusted, worm burden (male, fertile female, infertile female), OAE incidence, and morbidity prevalence (including the OAE prevalence) respectively.
+The prevalence and burden outputs are grouped by [5, 80], [0-5), [0-5), [5-10), [10-15), [15-20), [20-30), [30-50), [50-80].
 Other than 5-80, the rest of the age groups can be customized by editing the `output_age_groups` input parameter.
 The OAE incidence outputs are grouped by  [5, 80], [0-5), [5-10], [11-15], Males, and Females. These cannot be customized. 
 
@@ -180,16 +188,16 @@ plot(years, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'me
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
-plot(years, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time', ylab = 'mean seroprevalence w/o seroreversion')
-
-abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
-
-plot(years, output_treat_annual$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time', ylab = 'mean seroprevalence w/ finite seroreversion')
+plot(years, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_treat_annual$ov16_seroprevalence_finite_seroreversion, col="red")
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
 plot(years, output_treat_annual$percent_never_treated, type = 'l', xlab = 'time', ylab = 'Percent never treated')
 
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_annual$worm_burden_outputs[, "fertile_female_worm_burden"], type = 'l', xlab = 'time (years)', ylab = 'fertile female worm burden')
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```
 
@@ -235,8 +243,16 @@ plot(years, output_treat_biannual$mf_intens, type = 'l', xlab = 'time', ylab = '
 
 abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
 
+plot(years, output_treat_biannual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
+lines(years, output_treat_biannual$ov16_seroprevalence_finite_seroreversion, col="red")
+
 plot(years, output_treat_biannual$percent_never_treated, type = 'l', xlab = 'time', ylab = 'Percent never treated')
 
+abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+
+plot(years, output_treat_biannual$worm_burden_outputs[, "fertile_female_worm_burden"], type = 'l', xlab = 'time (years)', ylab = 'fertile female worm burden')
+lines(years, output_treat_biannual$worm_burden_outputs[, "male_worm_burden"], type = "l", col = "red")
+lines(years, output_treat_biannual$worm_burden_outputs[, "infertile_female_worm_burden"], type = "l", col = "blue")
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 ```
 
