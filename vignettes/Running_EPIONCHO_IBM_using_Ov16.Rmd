@@ -2,28 +2,61 @@
 title: "Installing and Running EPIONCHO-IBM to output Ov16"
 author:
 - name: Aditya Ramani
-  affiliation: Imperial College London, Royal Veterinary College
+  affiliation: Royal Veterinary College, Imperial College London
   role:         # Contributorship roles (e.g., CRediT)
-  - Conceptualization
-  - Writing - Original Draft Preparation
-  - Writing - Review & Editing
+  - Formal Analysis
+  - Investigation & Methodology
   - Software
+  - Data Curation
+  - Visualization
+  - Writing - Original Draft
+  - Writing - Review & Editing
 - name: Jacob Stapely
   affiliation: Imperial College London
   role:         
-  - Conceptualization
+  - Investigation and methodology
+  - Visualization
+  - Resources
+- name: Matthew A Dixon
+  affiliation: Imperial College London 
+  role:       
+  - Visualization
+  - Resources
+  - Writing - Review & Editing
+- Luís-Jorge Amaral
+  affiliation: Imperial College London, University of Antwerp
+  role:       
+  - Data curation
+  - Resources
+  - Writing - Review & Editing
 - name: Jonathan Hamley
   affiliation: Imperial College London, University of Bern
   role:
-  - Conceptualization
+  - Validation
+  - Writing - Review & Editing
 - name: Martin Walker
   affiliation: Royal Veterinary College, Imperial College London
   role:         
   - Conceptualization
+  - Investigation and methodology
+  - Resources
+  - Visualization
+  - Validation
+  - Supervision
+  - Funding Acquisition
+  - Writing - Original Draft
+  - Writing - Review & Editing
 - name: Maria-Gloria Basanez
   affiliation: Imperial College London
   role:         
   - Conceptualization
+  - Investigation and methodology
+  - Visualization
+  - Validation
+  - Supervision
+  - Funding Acquisition
+  - Writing - Original Draft
+  - Writing - Review & Editing
 date: "May 14, 2024"
 output:
   html_document:

@@ -106,7 +106,7 @@ The output from run_EPIONCHO_IBM_with_OAE is a list with 14 elements.
 names(output_equilibrium_OAE)
 ```
 
-The first three elements (`mf_prev`, `mf_intens`, and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5) and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
+The first five elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion` and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
 
 ```{r}
 tme <- seq(1, 200*366)/366
@@ -119,17 +119,17 @@ plot(tme, output_equilibrium_OAE$L3, type = 'l', xlab = 'time (years)', ylab = '
 ```
 The `ABR` attribute lets you know what the input ABR used was. 
 The `all_infection_burdens` attribute is a matrix that contains the detailed infection burden of each individual at the final timestep.
+The `ov16_indiv_matrix` attribute is a matrix/dataframe that contains the detailed ov16 serostatus for each individual at various timesteps. See the Ov16 vignette for more detail.
 The `years` attribute lets you know what the timestep is in terms of years from timepoint 0.
 The `ABR_recorded` attribute is a temporal output showing the ABR at every year/timestep.
 The `coverage.recorded` attribute is a temporal output showing the MDA coverage at every year/timestep. It will have NA values if no treatment was given.
 The `percent_never_treated` attribute is a temporal output, showing how many individuals at a given timestep had never been treated. Without MDA, this will be all NA values.
 The last element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
 
-The `all_mf_prevalence_age_grouped`, `all_mf_intensity_age_grouped`, `oae_incidence_outputs`, and `all_morbidity_prevalence_outputs` elements contain the temporal dynamics (at 1 day increments) for multiple age groups for mf prevalence, intensity, OAE incidence, and morbidity prevalence (including the OAE prevalence) respectively.
+The `all_mf_prevalence_age_grouped`, `all_mf_intensity_age_grouped`, `ov16_timetrend_outputs`, `ov16_timetrend_outputs_adj`, `oae_incidence_outputs`, and `all_morbidity_prevalence_outputs` elements contain the temporal dynamics (at 1 day increments) for multiple age groups for mf prevalence, intensity, ov16 seroprevalence (w/ and without seroreversion), ov16 seroprevalence adjusted, OAE incidence, and morbidity prevalence (including the OAE prevalence) respectively.
 The prevalence outputs are grouped by [5, 80], [0-5), [0-5), [5-10), [10-15), [15-20), [20-30), [30-50), [50-80].
 Other than 5-80, the rest of the age groups can be customized by editing the `output_age_groups` input parameter.
-The incidence outputs are grouped by  [0, 80], [0-5), [5-10], [11-15], Males, and Females. These cannot be customized. 
-To plot the OAE outputs over time use:
+The OAE incidence outputs are grouped by  [5, 80], [0-5), [5-10], [11-15], Males, and Females. These cannot be customized. 
 
 ```{r}
 tme2 <- seq(1, 200*366)/366
