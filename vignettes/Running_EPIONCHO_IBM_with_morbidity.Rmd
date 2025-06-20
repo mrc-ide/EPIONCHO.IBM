@@ -1,0 +1,285 @@
+---
+title: "Installing and Running EPIONCHO-IBM with OAE"
+author:
+- name: Aditya Ramani
+  affiliation: Royal Veterinary College, Imperial College London
+  role:         # Contributorship roles (e.g., CRediT)
+  - Conceptualization
+  - Writing - Original Draft Preparation
+  - Writing - Review & Editing
+  - Software
+
+date: "June 20th 2025"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  radix::radix_article: default
+  pdf_document: default
+description: |
+  A stochastic, individual-based model for onchocerciasis transmission
+---
+
+**EPIONCHO-IBM is a stochastic, individual-based model for onchocerciasis transmission. A mathematical description can be found at https://doi.org/10.1371/journal.pntd.0007557.**
+
+# 1. System requirements
+
+## 1.1 Software
+
+EPIONCHO IBM is written in R (1) which is freely available for installation on Windows, Mac OS and Linux platforms from https://www.r-project.org. It is also recommended to install R Studio https://www.rstudio.com which provides a helpful user interface for R. EPIONCHO-IBM has been tested on Mac OS and Windows, but should be compatible with Linux and run on any desktop or laptop machine.
+The library ggplot2 will also be used for this.
+
+## 1.2 Run time
+
+When run on laptop machine using Windows, a single run of EPIONCHO-IBM with the activated epilepsy module takes, 
+
+
+# 2. Installation guide
+
+The model package can be downloaded and installed directly from a GitHub repository (https://github.com/mrc-ide/EPIONCHO.IBM). The remotes (2) package must be installed to do this. Installation should take no more than a few seconds on most desktop or laptop machines.
+
+
+```{r, eval=T, echo = FALSE, collapse= FALSE}
+remotes::install_github("mrc-ide/EPIONCHO.IBM", ref="additional_updates")
+library(EPIONCHO.IBM)
+```
+
+# 3. Demo
+
+## 3.1 Simulating an endemic equilibrium without MDA
+
+Before simulating treatment, the model must be simulated to the endemic equilibrium. It is best to run the model to equilibrium (```run_equilibrium = TRUE```, ```give.treat = 0 ```), save the output and use this as the starting point for MDA. Note that running the model to the equilibrium can be slow, taking in excess of 5 minutes (depending on machine performance). Turning on the epilepsy module (```epilepsy module = YES```) outputs each individual's OAE status, assigned, when aged between 3 and 15 years, according to an onset probability derive from [Chesnais et al. 2018]. To run the model to equilibrium without treating in the same run, use the following code:
+
+```{r}
+#length of simulation in years
+timesteps = 100
+
+#should treatment be given, when and how often
+give.treat.in = 0
+treat.strt = 1; treat.stp = 16
+trt.int = 1
+
+#annual biting rate, which determines infection prevalence (As parameterised to Chesnais et al., 2018)
+ABR.in = 41922
+output_equilibrium <- ep.equi.sim(time.its = timesteps,
+                                  ABR = ABR.in,
+                                  N.in = 400,
+                                  treat.int = trt.int,
+                                  treat.prob = 0.65,
+                                  give.treat = give.treat.in,
+                                  treat.start = treat.strt,
+                                  treat.stop = treat.stp,
+                                  pnc = 0.05,
+                                  min.mont.age = 5,
+                                  vector.control.strt = NA,
+                                  gam.dis.in = 0.3,
+                                  run_equilibrium = TRUE,
+                                  morbidity_module = "YES",
+                                  equilibrium = NA,
+                                  print_progress = TRUE)
+```
+
+To stop the printing of the time as the model runs, set ```print_progress = FALSE```. Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed.
+If ```run_equilibrium = TRUE``` then no input is expected for ```equilibrium```, which is where a previously simulated endemic equilibrium can be entered. This will be discussed later in section 3.3. Above, no MDA is not requested by setting ```gv.trt = 0```. Note that values must be entered for treatment start, stop and interval (1 is annual, 0.5 is biannual), e.g ```treat.strt = 0; treat.stp = 16; trt.int = 1```, even if ```gv.trt = 0```. 
+
+It is also possible to manually change the density-dependent parameters relating to the establishment of the adult *Onchocerca volvulus* (```delta.hz.in```, ```delta.hinf.in``` and ```c.h.in```) and individual exposure heterogeneity in humans (```gam.dis.in```), in the function calling the model (above). However, if you use a individual exposure heterogeneity of 0.2, 0.3, or 0.4, the density dependent parameters will be set automatically, to their respectively fitted density-dependent parameters in [Hamley et al. 2019](https://journals.plos.org/plosntds/article?id=10.1371/journal.pntd.0007557). 
+
+## 3.2 Visualising microfilarial infection and OAE prevalence through time
+
+The output from run_EPIONCHO_IBM_with_OAE is a list with 20 elements.
+
+```{r}
+names(output_equilibrium)
+```
+
+The first five elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion` and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
+
+```{r}
+tme <- seq(1, 100*366-1)/366
+
+plot(tme, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+plot(tme, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
+
+plot(tme, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
+
+plot(tme, output_equilibrium$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
+
+plot(tme, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+```
+The `ABR` attribute lets you know what the input ABR used was. 
+The `all_infection_burdens` attribute is a matrix that contains the detailed infection burden of each individual at the final timestep.
+The `ov16_indiv_matrix` attribute is a matrix/dataframe that contains the detailed ov16 serostatus for each individual at various timesteps. See the Ov16 vignette for more detail.
+The `years` attribute lets you know what the timestep is in terms of years from timepoint 0.
+The `ABR_recorded` attribute is a temporal output showing the ABR at every year/timestep.
+The `coverage.recorded` attribute is a temporal output showing the MDA coverage at every year/timestep. It will have NA values if no treatment was given.
+The `percent_never_treated` attribute is a temporal output, showing how many individuals at a given timestep had never been treated. Without MDA, this will be all NA values.
+The last element,```"all_equilibrium_outputs"``` is the element required to simulate MDA without having to run the model to the endemic equilibrium.
+Note: The `Running_EPIONCHO_IBM.Rmd` vignette will have the most up-to-date output parameters.
+
+The `all_mf_prevalence_age_grouped`, `all_mf_intensity_age_grouped`, `ov16_timetrend_outputs`, `ov16_timetrend_outputs_adj`, `oae_incidence_outputs`, and `all_morbidity_prevalence_outputs` elements contain the temporal dynamics (at 1 day increments) for multiple age groups for mf prevalence, intensity, ov16 seroprevalence (w/ and without seroreversion), ov16 seroprevalence adjusted, OAE incidence, and morbidity prevalence (including the OAE prevalence) respectively.
+The prevalence outputs are grouped by [5, 80], [0-5), [0-5), [5-10), [10-15), [15-20), [20-30), [30-50), [50-80].
+Other than 5-80, the rest of the age groups can be customized by editing the `output_age_groups` input parameter.
+The OAE incidence outputs are grouped by  [5, 80], [0-5), [5-10], [11-15], Males, and Females. These cannot be customized. 
+
+The morbidity outputs are shown below, using ggplot2, dplyr, and tidyr:
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+process_morbidity_outputs <- function(data) {
+  morbidity_outputs_tmp <- data$all_morbidity_prevalence_outputs
+  morbidity_outputs_tmp_2 <- morbidity_outputs_tmp[, c(which(endsWith(colnames(morbidity_outputs_tmp), "prev") | colnames(morbidity_outputs_tmp) == "ABR" | colnames(morbidity_outputs_tmp) == "year"))] %>% as.data.frame() 
+  years <- data$years
+  morbidity_outputs_tmp_2[, "year"] <- years
+  morbidity_outputs_return <- morbidity_outputs_tmp_2 %>% pivot_longer(cols=c(which(grepl("prev", colnames(morbidity_outputs_tmp_2)))), names_to="measure", values_to="mean_prevalence")
+  return(morbidity_outputs_return)
+}
+morbidity_outputs <- process_morbidity_outputs(output_equilibrium)
+
+
+
+ggplot(morbidity_outputs) + 
+  geom_line(
+    aes(x=year, y=mean_prevalence * 100)
+  ) +
+  theme_bw() +
+  facet_wrap(~measure) +
+  xlab("Years") +
+  scale_y_continuous("Prevalence (%)")
+```
+
+
+
+
+## 3.3 Simulating annual and biannual mass drug administration with ivermectin
+### 3.3.1 Annual MDA
+
+Assuming you have already run the model and saved the output as described in section 3.1, you can simulate 15 years of annual mass drug administration with ivermectin by running:
+
+```{r}
+timesteps = 25
+treat.strt = 1; treat.stp = 25 #if treatment stops in year 25, the last round is at the beginning of year 24
+gv.trt = 1
+trt.int = 1
+
+output_treat_annual <- ep.equi.sim(time.its = timesteps,
+                                   ABR = ABR.in,
+                                   N.in = 400,
+                                   treat.timing = NA,
+                                   treat.int = trt.int,
+                                   treat.prob = 0.65,
+                                   give.treat = gv.trt,
+                                   treat.start = treat.strt,
+                                   treat.stop = treat.stp,
+                                   pnc = 0.05,
+                                   min.mont.age = 5,
+                                   vector.control.strt = NA,
+                                   gam.dis.in = 0.3,
+                                   run_equilibrium = FALSE,
+                                   equilibrium = output_equilibrium$all_equilibrium_outputs,
+                                   morbidity_module = "YES",
+                                   print_progress = FALSE)
+
+```
+
+If in the above model run ```print_progress = FALSE``` is called, but ```gv.trt = 1``` is also specified, only the duration of MDA will be printed (no progress updates). Currently, with ```print_progress = TRUE```, when the model run reaches each year in the simulation, the year and % progress will be printed as before.
+Note that ```timesteps``` is the total number of years for which the model is run. ```treat.start``` and ```treat.stop``` are the years within this duration at which MDA is given.
+
+To visualise the infection and morbidity dynamics through time during annual MDA, use:
+
+```{r}
+years <- output_treat_annual$years
+
+plot(years, output_treat_annual$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+plot(years, output_treat_annual$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
+
+plot(years, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
+
+plot(years, output_treat_annual$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
+
+plot(years, output_treat_annual$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+
+
+morbidity_outputs_annual <- process_morbidity_outputs(output_treat_annual)
+ggplot(morbidity_outputs_annual) + 
+  geom_line(
+    aes(x=year, y=mean_prevalence * 100)
+  ) +
+  theme_bw() +
+  facet_wrap(~measure) +
+  xlab("Years") +
+  scale_y_continuous("Prevalence (%)")
+```
+
+### 3.3.2 Biannual MDA
+
+Assuming you have run the model to the endemic equilibrium (as described in secton 3.1), temporal infection trends during biannual MDA can be obtained by running:
+
+```{r}
+timesteps = 25
+treat.strt = 1; treat.stp = 25 #if treatment stops in year 25, the last round is at the beginning of year 24
+gv.trt = 1
+trt.int = 0.5
+
+
+output_treat_biannual <- ep.equi.sim(time.its = timesteps,
+                                   ABR = ABR.in,
+                                   N.in = 400,
+                                   treat.timing = NA,
+                                   treat.int = trt.int,
+                                   treat.prob = 0.65,
+                                   give.treat = gv.trt,
+                                   treat.start = treat.strt,
+                                   treat.stop = treat.stp,
+                                   pnc = 0.05,
+                                   min.mont.age = 5,
+                                   vector.control.strt = NA,
+                                   gam.dis.in = 0.3,
+                                   run_equilibrium = FALSE,
+                                   morbidity_module = "YES",
+                                   equilibrium = output_equilibrium_OAE$all_equilibrium_outputs,
+                                   print_progress = TRUE)
+
+```
+
+Note than above ```trt.int = 0.5``` (rather than ```trt.int = 1```) to request biannual MDA. The outputs can be visualised using:
+
+```{r}
+years <- output_treat_biannual$years
+
+plot(years, output_treat_biannual$mf_prev, type = 'l', xlab = 'time (years)', ylab = 'microfilarial prevalence', ylim = c(0, 1))
+
+plot(years, output_treat_biannual$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
+
+plot(years, output_treat_biannual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no seroreversion', ylim = c(0, 1))
+
+plot(years, output_treat_biannual$ov16_seroprevalence_finite_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ finite seroreversion', ylim = c(0, 1))
+
+plot(years, output_treat_biannual$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+
+morbidity_outputs_annual <- process_morbidity_outputs(output_treat_biannual)
+ggplot(morbidity_outputs_annual) + 
+  geom_line(
+    aes(x=year, y=mean_prevalence * 100)
+  ) +
+  theme_bw() +
+  facet_wrap(~measure) +
+  xlab("Years") +
+  scale_y_continuous("Prevalence (%)")
+```
+
+### 3.3.3 Coverage and non-compliance
+
+The population level coverage is a proportion and is entered via ```treat.prob```. Note that because children <5 do not receive treatment, coverage of 1 cannot be achieved. Additionally, there is the option to set the proportion of individuals who never take treatment (```pnc = 0.05```), or using a correlation parameter for a more dynamic compliance structure (```comp.correlation = 0.3```). More information on correlation can be seen in the complex MDA vignette.
+
+### 4. References
+
+1. R Core Team. R: A language and environment for statistical computing. (R Foundation for Statistical Computing, 2018).
+
+2. Csárdi, G. RCurl: Package ‘remotes’: R Package Installation from Remote Repositories, Including 'GitHub'. (2022). https://cran.r-project.org/web/packages/remotes/ 
+
+
