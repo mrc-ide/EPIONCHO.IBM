@@ -318,6 +318,16 @@ ep.equi.sim <- function(time.its,
     paste0("mean.mf.per.snip", output_age_groups_as_strings)
   )
 
+  worm_burden_outputs <- matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 3)
+  colnames(worm_burden_outputs) <- c(
+    "male_worm_burden",
+    paste0("male_worm_burden", output_age_groups_as_strings),
+    "fertile_female_worm_burden",
+    paste0("fertile_female_worm_burden", output_age_groups_as_strings),
+    "infertile_female_worm_burden",
+    paste0("infertile_female_worm_burden", output_age_groups_as_strings)
+  )
+
   L3_vec <- rep(NA, time.its - 1)
   ABR_recorded <- rep(NA, time.its - 1)
   coverage.recorded <- rep(NA, time.its - 1)
@@ -1011,6 +1021,15 @@ ep.equi.sim <- function(time.its,
       age_groups=append(list(c(min.mont.age, 81)), output_age_groups)
     )
 
+    worm_burden_outputs[i, ] <- calculate_worm_burden_across_age_groups(
+      main_dat = all.mats.temp,
+      age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
+      male_start = worms.start,
+      infertile_female_start = nfw.start,
+      fertile_female_start = fw.start,
+      fertile_female_end = fw.end
+    )
+
     mf.per.skin.snp.out <- temp.mf[[2]] #to extract out mf per skin snip for each individual?
 
     L3_vec[i] <- mean(all.mats.temp[, 6])
@@ -1139,7 +1158,8 @@ ep.equi.sim <- function(time.its,
     'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
     "ov16_timetrend_outputs" = ov16_timetrend_outputs, 'ov16_timetrend_outputs_adj' = ov16_timetrend_outputs_adj,
-    'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded, 'percent_never_treated' = never_treated_values
+    "worm_burden_outputs" = worm_burden_outputs, 'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded,
+    'percent_never_treated' = never_treated_values
   )
 
   if (morbidity_module == "YES"){
