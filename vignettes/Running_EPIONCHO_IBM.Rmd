@@ -98,7 +98,7 @@ It is also possible to manually change the density-dependent parameters relating
 
 ## 3.2 Visualising microfilarial infection prevalence through time
 
-The output from run_EPIONCHO_IBM is a list with twelve elements.
+The output from run_EPIONCHO_IBM is a list with 20 elements.
 
 ```{r}
 names(output_equilibrium)

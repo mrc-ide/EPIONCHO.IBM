@@ -100,7 +100,7 @@ It is also possible to manually change the density-dependent parameters relating
 
 ## 3.2 Visualising microfilarial infection and OAE prevalence through time
 
-The output from run_EPIONCHO_IBM_with_OAE is a list with 14 elements.
+The output from run_EPIONCHO_IBM_with_OAE is a list with 20 elements.
 
 ```{r}
 names(output_equilibrium_OAE)
