@@ -80,6 +80,15 @@ vignette
 For a detailed practical guide/demo for running more complex interventions, with variable MDA coverage, variable timing (e.g., some round of annual and biannual MDA),
 and inclusion of vector control, please see the [Running complex intervention guide for EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_complex_interventions.Rmd) vignette
 
+## Morbidity Extension
+
+EPIONCHO-IBM has been extended to include a OAE module, to simulate OAE prevalence and incidence. Below, we present a flow chart detailing the process overview for the the morbidity module, how this module is parameterised, and how this module connects to the main transmission model. The section below this one describes OAE.
+
+<img src="man/figures/morbidity_flowchart.png">
+<img src="man/figures/eyedisease_flowchart.png">
+
+For a detailed practical guide/demo for running the onchocerciasis-associated epilepsy (OAE) module, please see the [Running OAE in EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM_with_morbidity.Rmd) vignette
+
 ## Onchocerciasis-associated epilepsy (OAE) extension
 
 EPIONCHO-IBM has been extended to include a OAE module, to simulate OAE prevalence and incidence. Below, we present a flow chart detailing the process overview for the OAE module, how this module is parameterised (dose-response relationship between mf load and OAE onset probability), and how this module connects to the main transmission model. 
