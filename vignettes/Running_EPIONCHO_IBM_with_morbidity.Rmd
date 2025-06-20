@@ -5,10 +5,74 @@ author:
   affiliation: Royal Veterinary College, Imperial College London
   role:         # Contributorship roles (e.g., CRediT)
   - Conceptualization
-  - Writing - Original Draft Preparation
-  - Writing - Review & Editing
+  - Formal analysis
+  - Investigation and Methodology
   - Software
-
+  - Validation
+  - Visualization
+  - Writing - Review & Editing
+- name: Matthew A Dixon
+  affiliation: Imperial College London 
+  role: 
+  - Conceptualization
+  - Data curation
+  - Formal analysis
+  - Investigation and Methodology
+  - Software
+  - Validation
+  - Visualization
+  - Resources
+  - Writing - Original Draft
+  - Writing - Review & Editing
+- name: Martin Walker
+  affiliation: Royal Veterinary College, Imperial College London
+  role:         
+  - Conceptualization
+  - Formal analysis
+  - Investigation and Methodology
+  - Resources
+  - Validation
+  - Supervision
+  - Funding Acquisition
+  - Writing - Review & Editing
+- name: Jacob Stapely
+  affiliation: Imperial College London
+  role:         
+  - Writing - Review & Editing
+- name: Michelle E. Murdoch
+  affiliation: West Hertfordshire Teaching Hospitals NHS Trust
+  role:
+  - Resources
+  - Validation
+  - Writing - Review & Editing
+- name: Ian E. Murdoch
+  affiliation: Ahmadu Bello University Hospital, Institute of Ophthalmology
+  role:         
+  - Resources
+  - Validation
+  - Writing - Review & Editing
+- name: Gladys A. Ozoh
+  affiliation: University of Nigeria Teaching Hospital
+  role:         
+  - Resources
+  - Writing - Review & Editing
+- name: Jonathan F. Mosser
+  affiliation: University of Washington, Institute for Health Metric and Evaluation
+  role:         
+  - Writing - Review & Editing
+- name: Maria-Gloria Basanez
+  affiliation: Imperial College London
+  role:         
+  - Conceptualization
+  - Data curation
+  - Formal analysis
+  - Investigation and Methodology
+  - Validation
+  - Visualization
+  - Supervision
+  - Funding Acquisition
+  - Writing - Original Draft
+  - Writing - Review & Editing
 date: "June 20th 2025"
 output:
   html_document:
@@ -19,7 +83,6 @@ output:
 description: |
   A stochastic, individual-based model for onchocerciasis transmission
 ---
-
 **EPIONCHO-IBM is a stochastic, individual-based model for onchocerciasis transmission. A mathematical description can be found at https://doi.org/10.1371/journal.pntd.0007557.**
 
 # 1. System requirements
