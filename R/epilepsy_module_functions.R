@@ -123,10 +123,7 @@ find_indiv_OAE_func <- function(dat, mf.start, mf.end, worms.start, nfw.start, f
 #' incidence in under 5 years, 5 - 10 years, 10 - 15 years, and males and females, vii) OAE probabilities for each individual based on mf count,
 #' viii) those tested/sampled
 new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, dat,
-                               prev_OAE, OAE, tested_OAE,
-                               OAE_incidence_DT, OAE_incidence_DT_under_5, OAE_incidence_DT_5_10, OAE_incidence_DT_11_15,
-                               OAE_incidence_DT_M, OAE_incidence_DT_F){
-
+                               OAE, tested_OAE, age_groups){
 
   mf_round <- round(temp.mf[[2]][tot_ind_ep_samp]) + 1 # mf count (in those tested)
                                                        # note: if zero the first probability comes from from ep_probs
@@ -141,11 +138,7 @@ new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, dat,
 
   tested_OAE[tot_ind_ep_samp] <- 1 # records that they've been tested (those identified in tot_ind_ep_samp are indexed)
 
-  prev_OAE <- c(prev_OAE, mean(OAE)) # calculate & update prevalence of OAE
-
   new_inc <- length(which(OAE[tot_ind_ep_samp] == 1)) # how many infections (finds total new infected/OAE in all OAE)
-
-  OAE_incidence_DT <- c(OAE_incidence_DT, new_inc) # record + update number of new OAE cases
 
   new_inc_under_5 <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,2] >= 3 & dat[tot_ind_ep_samp ,2]< 5 )) # new cases in under 5 age group
   new_inc_5_10 <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,2] >= 5 & dat[tot_ind_ep_samp ,2]<= 10 )) # new cases in 5 to 10 age group
@@ -154,15 +147,10 @@ new_OAE_cases_func <- function(temp.mf, tot_ind_ep_samp, OAE_probs, dat,
   new_inc_M <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,3] == 1)) # new cases in males
   new_inc_F <- length(which(OAE[tot_ind_ep_samp] == 1 & dat[tot_ind_ep_samp ,3] == 0)) # new cases in females
 
-  OAE_incidence_DT_under_5 <- c(OAE_incidence_DT_under_5, new_inc_under_5) # record & update incidence in under 5 age group
-  OAE_incidence_DT_5_10 <- c(OAE_incidence_DT_5_10, new_inc_5_10) # record & update incidence in 5 to 10 age group
-  OAE_incidence_DT_11_15 <- c(OAE_incidence_DT_11_15, new_inc_11_15) # record & update incidence in 10 to 15 age group
-
-  OAE_incidence_DT_M <- c(OAE_incidence_DT_M, new_inc_M) # record & update incidence in males
-  OAE_incidence_DT_F <- c(OAE_incidence_DT_F, new_inc_F) # record & update incidence in females
-
-  return(list(prev_OAE, OAE_incidence_DT, OAE_incidence_DT_under_5, OAE_incidence_DT_5_10, OAE_incidence_DT_11_15,
-              OAE_incidence_DT_F, OAE_incidence_DT_M,
-              OAE_rates, OAE, tested_OAE))
-
+  return(list(
+    "output_vals" = c(
+      mean(OAE), new_inc, new_inc_under_5, new_inc_5_10, new_inc_11_15, new_inc_M, new_inc_F
+    ),
+    OAE_rates, OAE, tested_OAE
+  ))
 }
