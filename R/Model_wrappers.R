@@ -1040,7 +1040,7 @@ ep.equi.sim <- function(time.its,
     l3_prev_blackflies[i] <- calculate_l3_prevalence_in_blackflies(
       l3_per_blackfly = mean(all.mats.temp[, 6]),
       k0 = k0_in,
-      k1 = k1_in,
+      k1 = k1_in
     )
 
     ABR_recorded[i] <- ABR_upd # tracking changing ABR
