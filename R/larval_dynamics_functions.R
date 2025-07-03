@@ -89,3 +89,18 @@ calc.L3 <- function(nutwo, L2.in, a.H, g, mu.v, sigma.L0)
   return(out)
 }
 
+#' @title
+#' calculate_l3_prevalence_in_blackflies
+#' @description
+#' Using a typical prevalence-intensity relationship to estimate l3 prevalence in blackflies.
+#'
+#' @param l3_per_blackfly the mean L3 per blackfly
+#' @param k0 parameter defining the y-intercept in the relationship between l3 intensity and overdispersion parameter k
+#' @param k1 parameter defining the slope relationship between l3 intensity and overdispersion parameter k
+#'
+#' @returns vector of mean L3 per individual
+calculate_l3_prevalence_in_blackflies <- function(l3_per_blackfly, k0, k1) {
+  k <- l3_per_blackfly * k1 + k0
+  prevalence <- 1 - (1 + l3_per_blackfly / k)^(-k)
+  return(prevalence)
+}
