@@ -104,7 +104,7 @@ The output from run_EPIONCHO_IBM is a list with 21 elements.
 names(output_equilibrium)
 ```
 
-The first five elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion` and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
+Within the first 10 elements, there are 5 main outputs (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion`, `L3`, and `blackfly_l3_prevalence`) which contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), the mean number of L3 larvae in the blackfly population, and the estimated prevalence of l3 in the blackfly population. To plot these over time, use: 
 
 ```{r}
 years <- output_equilibrium$years
@@ -116,7 +116,9 @@ plot(years, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', yla
 plot(years, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
 lines(years, output_equilibrium$ov16_seroprevalence_finite_seroreversion, col="red")
 
-plot(years, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in fly population')
+plot(years, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in blackfly population')
+
+plot(years, output_equilibrium$blackfly_l3_prevalence, type = 'l', xlab = 'time (years)', ylab = 'L3 prevalence in blackfly population')
 
 # worm burden parameter explained below
 plot(years, output_equilibrium$worm_burden_outputs[, "fertile_female_worm_burden"], type = 'l', xlab = 'time (years)', ylab = 'fertile female worm burden')
