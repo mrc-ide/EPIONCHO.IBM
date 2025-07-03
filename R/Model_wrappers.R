@@ -71,6 +71,8 @@ ep.equi.sim <- function(time.its,
                         c.h.in=0.005,
                         gam.dis.in=0.3,
                         Q = 1.2,
+                        k0_in = 0.0054, # 95% CI = (0.0012, 0.0097)
+                        k1_in = 0.1459, # 95% CI = (0.0548, 0.237)
                         kM.const.toggle = FALSE,
                         output_age_groups = list(c(0, 5), c(5, 10), c(10, 15), c(15, 20), c(20, 30), c(30, 50), c(50, 81)),
                         run_equilibrium,
@@ -329,6 +331,7 @@ ep.equi.sim <- function(time.its,
   )
 
   L3_vec <- rep(NA, time.its - 1)
+  l3_prev_blackflies <- rep(NA, time.its - 1)
   ABR_recorded <- rep(NA, time.its - 1)
   coverage.recorded <- rep(NA, time.its - 1)
 
@@ -1034,6 +1037,12 @@ ep.equi.sim <- function(time.its,
 
     L3_vec[i] <- mean(all.mats.temp[, 6])
 
+    l3_prev_blackflies[i] <- calculate_l3_prevalence_in_blackflies(
+      l3_per_blackfly = mean(all.mats.temp[, 6]),
+      k0 = k0_in,
+      k1 = k1_in
+    )
+
     ABR_recorded[i] <- ABR_upd # tracking changing ABR
 
     coverage.recorded[i] <- coverage.upd # track changing coverage if specified
@@ -1155,7 +1164,7 @@ ep.equi.sim <- function(time.its,
     "ov16_seroprevalence_no_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_no_seroreversion"],
     "ov16_seroprevalence_finite_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_finite_seroreversion"],
     'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp, "Ke" = gam.dis,
-    'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
+    'blackfly_l3_prevalence' = l3_prev_blackflies, 'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
     "ov16_timetrend_outputs" = ov16_timetrend_outputs, 'ov16_timetrend_outputs_adj' = ov16_timetrend_outputs_adj,
     "worm_burden_outputs" = worm_burden_outputs, 'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded,
