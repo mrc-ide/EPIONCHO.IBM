@@ -198,8 +198,9 @@ ep.equi.sim <- function(time.its,
 
   # Morbidity Probabilities
   SI_prob = 0.1636701; RSD_prob = 0.04163095
-  Atrp_prob = 0.002375305; HG_prob = 0.0007263018
-  Depigm_prob = 0.001598305
+  Atrp_prob = 0.036; HG_prob = 0.018
+  Depigm_prob = 0.059
+  avg_age_dpm_atr_hg = 22.876
 
 
   # Treatment parameters #
@@ -965,7 +966,8 @@ ep.equi.sim <- function(time.its,
         all.morb.updated <- new_cases_morbidity_func(morb.mat.tmp = all.morb.updated,
                                                       SI_probs = SI_prob, RSD_probs = RSD_prob,
                                                       Atrp_probs = Atrp_prob,
-                                                      Hg_probs = HG_prob, Depigm_probs = Depigm_prob)
+                                                      Hg_probs = HG_prob, Depigm_probs = Depigm_prob,
+                                                      avg_age = avg_age_dpm_atr_hg)
 
 
         # un hash below if want to shift to probabilities based on mf count #
