@@ -7,10 +7,14 @@
 #'
 #' @param prob the yearly probability
 #' @param days_per_year the number of days in a year (355 or 366)
+#' @param avg_age the average age used for calculating the probability (in years). This is primarily for DPM, ATR, and HG
 #'
 #' @returns the daily probability
-calc_daily_prob <- function(prob, days) {
+calc_daily_prob <- function(prob, days, avg_age = -1) {
   daily_prob <- 1 - (1 - prob) ^ (1 / days)
+  if (avg_age > 0) {
+      daily_prob <- 1 - (1 - prob) ^ (1 / (avg_age*days))
+  }
   return(daily_prob)
 }
 
@@ -86,18 +90,19 @@ find_indiv_totest_func <- function(dat, mf.start, mf.end, morb.mat.tmp, temp_mf,
 #' @param Atrp_probs yearly probabilities of Atrophy for a given mf count
 #' @param Hg_probs yearly probabilities of hanging groin for a given mf count
 #' @param Depigm_probs yearly probabilities of depigmentation for a given mf count
+#' @param avg_age the average age used for calculating the probability (in years). This is primarily for DPM, ATR, and HG
 #'
 #' @returns updated matrix with disease status updated
-new_cases_morbidity_func <- function(morb.mat.tmp, SI_probs, RSD_probs, Atrp_probs, Hg_probs, Depigm_probs){
+new_cases_morbidity_func <- function(morb.mat.tmp, SI_probs, RSD_probs, Atrp_probs, Hg_probs, Depigm_probs, avg_age){
   # ======================= #
   # Undergo Bernouli trial  #
 
   # based on whether true mf present
   morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$ToTestSevereItch == 1, rbinom(sum(morb.mat.tmp$ToTestSevereItch), 1, SI_probs), morb.mat.tmp$SevereItchStatus) # severe itch (stay as prior disease condition status if test does not take place)
   morb.mat.tmp$RSDStatus <- ifelse(morb.mat.tmp$ToTestRSD == 1, rbinom(sum(morb.mat.tmp$ToTestRSD), 1, RSD_probs), morb.mat.tmp$RSDStatus) # RSD (stay as prior disease condition status if test does not take place)
-  morb.mat.tmp$AtrophyStatus <- ifelse(morb.mat.tmp$ToTestAtrophy == 1, rbinom(sum(morb.mat.tmp$ToTestAtrophy), 1, calc_daily_prob(Atrp_probs, 365)), morb.mat.tmp$AtrophyStatus) # atrophy (non-reversible: only testing 0's
-  morb.mat.tmp$HGStatus <- ifelse(morb.mat.tmp$ToTestHG == 1, rbinom(sum(morb.mat.tmp$ToTestHG), 1,  calc_daily_prob(Hg_probs, 365)), morb.mat.tmp$HGStatus) # HG (non-reversible: only testing 0's
-  morb.mat.tmp$DepigStatus <- ifelse(morb.mat.tmp$ToTestDepig == 1, rbinom(sum(morb.mat.tmp$ToTestDepig), 1,  calc_daily_prob(Depigm_probs, 365)), morb.mat.tmp$DepigStatus) # depigmentation (non-reversible: only testing 0's
+  morb.mat.tmp$AtrophyStatus <- ifelse(morb.mat.tmp$ToTestAtrophy == 1, rbinom(sum(morb.mat.tmp$ToTestAtrophy), 1, calc_daily_prob(Atrp_probs, 365, avg_age)), morb.mat.tmp$AtrophyStatus) # atrophy (non-reversible: only testing 0's
+  morb.mat.tmp$HGStatus <- ifelse(morb.mat.tmp$ToTestHG == 1, rbinom(sum(morb.mat.tmp$ToTestHG), 1,  calc_daily_prob(Hg_probs, 365, avg_age)), morb.mat.tmp$HGStatus) # HG (non-reversible: only testing 0's
+  morb.mat.tmp$DepigStatus <- ifelse(morb.mat.tmp$ToTestDepig == 1, rbinom(sum(morb.mat.tmp$ToTestDepig), 1,  calc_daily_prob(Depigm_probs, 365, avg_age)), morb.mat.tmp$DepigStatus) # depigmentation (non-reversible: only testing 0's
 
   # # based on whether observed mf present
   # morb.mat.tmp$SevereItchStatus <- ifelse(morb.mat.tmp$ToTestSevereItch == 1, rbinom(sum(morb.mat.tmp$ToTestSevereItch), 1, morb.mat.tmp[,38]), morb.mat.tmp$SevereItchStatus) # severe itch (stay as prior disease condition status if test does not take place)
