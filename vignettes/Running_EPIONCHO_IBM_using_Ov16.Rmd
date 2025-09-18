@@ -299,24 +299,24 @@ process_multiple_runs <- function (files='', morbidity_runs = FALSE, verbose=TRU
     num_individuals <- length(age)
     if(i == 1) {
       mf_prev_df <- matrix(ncol=ncol(tmpRDSData$all_mf_prevalence_age_grouped)+4, nrow=total_files*num_vals)
-      colnames(mf_prev_df) <- c(colnames(tmpRDSData$all_mf_prevalence_age_grouped), "ABR", "Ke", "year", 'run_num')
+      colnames(mf_prev_df) <- c(colnames(tmpRDSData$all_mf_prevalence_age_grouped), "Ke", "ABR", "year", 'run_num')
 
       mf_intensity_df <- matrix(ncol=ncol(tmpRDSData$all_mf_intensity_age_grouped)+4, nrow=total_files*num_vals)
-      colnames(mf_intensity_df) <- c(colnames(tmpRDSData$all_mf_intensity_age_grouped), "ABR", "Ke", "year", 'run_num')
+      colnames(mf_intensity_df) <- c(colnames(tmpRDSData$all_mf_intensity_age_grouped), "Ke", "ABR", "year", 'run_num')
       
       if (morbidity_runs) {
         morbidity_df <- matrix(ncol=ncol(tmpRDSData$all_morbidity_prevalence_outputs)+4, nrow=total_files*num_vals)
-      colnames(morbidity_df) <- c(colnames(tmpRDSData$all_morbidity_prevalence_outputs), "ABR", "Ke", "year", 'run_num')
+      colnames(morbidity_df) <- c(colnames(tmpRDSData$all_morbidity_prevalence_outputs), "Ke", "ABR", "year", 'run_num')
 
         oae_incidence_df <- matrix(ncol=ncol(tmpRDSData$oae_incidence_outputs)+4, nrow=total_files*num_vals)
-      colnames(oae_incidence_df) <- c(colnames(tmpRDSData$oae_incidence_outputs), "ABR", "Ke", "year", 'run_num')
+      colnames(oae_incidence_df) <- c(colnames(tmpRDSData$oae_incidence_outputs), "Ke", "ABR", "year", 'run_num')
       }
       
       ov16_trends_df <- matrix(ncol=ncol(tmpRDSData$ov16_timetrend_outputs)+4, nrow=total_files*num_vals)
-      colnames(ov16_trends_df) <- c(colnames(tmpRDSData$ov16_timetrend_outputs), "ABR", "Ke", "year", 'run_num')
+      colnames(ov16_trends_df) <- c(colnames(tmpRDSData$ov16_timetrend_outputs), "Ke", "ABR", "year", 'run_num')
       
       ov16_adj_trends_df <- matrix(ncol=ncol(tmpRDSData$ov16_timetrend_outputs_adj)+4, nrow=total_files*num_vals)
-      colnames(ov16_adj_trends_df) <- c(colnames(tmpRDSData$ov16_timetrend_outputs_adj), "ABR", "Ke", "year", 'run_num')
+      colnames(ov16_adj_trends_df) <- c(colnames(tmpRDSData$ov16_timetrend_outputs_adj), "Ke", "ABR", "year", 'run_num')
       
       ov16_indiv_df <- data.frame(matrix(ncol=8, nrow=num_individuals*total_files))
       colnames(ov16_indiv_df) <- c("age", "sex", "ov16_status_no_seroreversion", "ov16_status_finite_seroreversion", "mf_status", "ABR", "Ke", "run_num")
