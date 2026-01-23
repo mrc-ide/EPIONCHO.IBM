@@ -75,11 +75,11 @@ author:
   - Writing - Review & Editing
 date: "June 20th 2025"
 output:
-  html_document:
-    df_print: paged
+  pdf_document: default
   word_document: default
   radix::radix_article: default
-  pdf_document: default
+  html_document:
+    df_print: paged
 description: |
   A stochastic, individual-based model for onchocerciasis transmission
 ---
