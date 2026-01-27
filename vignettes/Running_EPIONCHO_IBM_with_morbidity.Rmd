@@ -1,88 +1,41 @@
 ---
-title: "Installing and Running EPIONCHO-IBM with OAE"
+title: "Installing and Running EPIONCHO-IBM with morbidity"
 author:
 - name: Aditya Ramani
-  affiliation: Royal Veterinary College, Imperial College London
+  affiliation: Imperial College London, Royal Veterinary College
   role:         # Contributorship roles (e.g., CRediT)
   - Conceptualization
-  - Formal analysis
-  - Investigation and Methodology
-  - Software
-  - Validation
-  - Visualization
-  - Writing - Review & Editing
-- name: Matthew A Dixon
-  affiliation: Imperial College London 
-  role: 
-  - Conceptualization
-  - Data curation
-  - Formal analysis
-  - Investigation and Methodology
-  - Software
-  - Validation
-  - Visualization
-  - Resources
-  - Writing - Original Draft
-  - Writing - Review & Editing
+  - Writing - Original Draft Preparation of vignette
+  - Writing - Review & Editing of the vignette
+  - Software (development of morbidity and the author of the Ov16 component)
+- name: Matthew A. Dixon
+  affiliation: Imperial College London
+  role:   
+  - Writing - Original Draft Preparation of vignette (updating the vignette)
+  - Writing - Review & Editing of the vignette      
+  - Software (skin and ocular disease in the morbidity module)
+  - Data/ code curation 
 - name: Martin Walker
   affiliation: Royal Veterinary College, Imperial College London
   role:         
   - Conceptualization
-  - Formal analysis
-  - Investigation and Methodology
-  - Resources
-  - Validation
-  - Supervision
-  - Funding Acquisition
-  - Writing - Review & Editing
-- name: Jacob Stapely
+  - Software
+- name: Jacob N. Stapley
   affiliation: Imperial College London
   role:         
-  - Writing - Review & Editing
-- name: Michelle E. Murdoch
-  affiliation: West Hertfordshire Teaching Hospitals NHS Trust
-  role:
-  - Resources
-  - Validation
-  - Writing - Review & Editing
-- name: Ian E. Murdoch
-  affiliation: Ahmadu Bello University Hospital, Institute of Ophthalmology
-  role:         
-  - Resources
-  - Validation
-  - Writing - Review & Editing
-- name: Gladys A. Ozoh
-  affiliation: University of Nigeria Teaching Hospital
-  role:         
-  - Resources
-  - Writing - Review & Editing
-- name: Jonathan F. Mosser
-  affiliation: University of Washington, Institute for Health Metric and Evaluation
-  role:         
-  - Writing - Review & Editing
-- name: Maria-Gloria Basanez
-  affiliation: Imperial College London
-  role:         
-  - Conceptualization
-  - Data curation
-  - Formal analysis
-  - Investigation and Methodology
-  - Validation
-  - Visualization
-  - Supervision
-  - Funding Acquisition
-  - Writing - Original Draft
-  - Writing - Review & Editing
-date: "June 20th 2025"
+  - Software (OAE component of morbidity module)
+  - Data/ code curation 
+date: "January 26th 2026"
 output:
-  pdf_document: default
-  word_document: default
-  radix::radix_article: default
   html_document:
     df_print: paged
+  word_document: default
+  radix::radix_article: default
+  pdf_document: default
 description: |
-  A stochastic, individual-based model for onchocerciasis transmission
+  A stochastic, individual-based model for onchocerciasis transmission with morbidity
 ---
+
 **EPIONCHO-IBM is a stochastic, individual-based model for onchocerciasis transmission. A mathematical description can be found at https://doi.org/10.1371/journal.pntd.0007557.**
 
 # 1. System requirements
@@ -90,11 +43,10 @@ description: |
 ## 1.1 Software
 
 EPIONCHO IBM is written in R (1) which is freely available for installation on Windows, Mac OS and Linux platforms from https://www.r-project.org. It is also recommended to install R Studio https://www.rstudio.com which provides a helpful user interface for R. EPIONCHO-IBM has been tested on Mac OS and Windows, but should be compatible with Linux and run on any desktop or laptop machine.
-The library ggplot2 will also be used for this.
 
 ## 1.2 Run time
 
-When run on laptop machine using Windows, a single run of EPIONCHO-IBM with the activated morbidity module takes ~30 minutes.
+When run on laptop machine using Windows, a single run of EPIONCHO-IBM with the activated morbidity module takes at least 30 minutes to locally run on most machines.
 
 
 # 2. Installation guide
@@ -106,6 +58,17 @@ The model package can be downloaded and installed directly from a GitHub reposit
 remotes::install_github("mrc-ide/EPIONCHO.IBM")
 library(EPIONCHO.IBM)
 ```
+
+In the updated model (version 1.1.0), morbidity is included, capturing onchocerciasis related skin and ocular disease. 
+
+EPIONCHO-IBM has previously been extended to include a OAE module, to simulate OAE prevalence and incidence. Below, we present a flow chart detailing the process overview for the the morbidity module which now features skin and ocular disease, including how this module is parameterised, and how this module connects to the main transmission model. 
+
+Skin disease Flowchart | Ocular disease Flowchart
+:--:|:--:
+`r knitr::include_graphics("morbidity_flowchart.png")` | `r knitr::include_graphics("eyedisease_flowchart.png")`
+
+We also provide details on how onchocerciasis associated epilepsy (OAE) has also been previously incorporated (see [Stapley et al. 2024 Nat Commun](https://www.nature.com/articles/s41467-024-50582-9)), with a detailed practical guide/demo for running the onchocerciasis-associated epilepsy (OAE) module, please see the [Running OAE in EPIONCHO-IBM](https://github.com/mrc-ide/EPIONCHO.IBM/blob/master/vignettes/Running_EPIONCHO_IBM_with_OAE.Rmd) vignette
+
 
 # 3. Demo
 
@@ -344,5 +307,3 @@ The population level coverage is a proportion and is entered via ```treat.prob``
 1. R Core Team. R: A language and environment for statistical computing. (R Foundation for Statistical Computing, 2018).
 
 2. Csárdi, G. RCurl: Package ‘remotes’: R Package Installation from Remote Repositories, Including 'GitHub'. (2022). https://cran.r-project.org/web/packages/remotes/ 
-
-

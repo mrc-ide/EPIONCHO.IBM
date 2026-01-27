@@ -58,6 +58,11 @@ remotes::install_github("mrc-ide/EPIONCHO.IBM")
 library(EPIONCHO.IBM)
 ```
 
+Below, we present a flow chart detailing the process overview for the the OAE module, highlighting how this module is parameterised and connects to the main transmission model. 
+
+<img src='man/figures/OAE_flowchart.jpg' align="below" height="800" />
+
+
 # 3. Demo
 
 ## 3.1 Simulating an endemic equilibrium without MDA
