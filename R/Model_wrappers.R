@@ -261,10 +261,10 @@ ep.equi.sim <- function(time.its,
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
 
-    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + treat.start} # # 1 day dt
+    if(all(!is.na(treat.timing))) {treat.timing <- round(treat.timing / DT) + treat.start} # # 1 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
-    else {times.of.treat.in <- round((treat.timing) / (DT)) + (days_per_year * DT)}
+    else {times.of.treat.in <- treat.timing + (1 / (days_per_year * DT))}
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
@@ -755,7 +755,7 @@ ep.equi.sim <- function(time.its,
       CovTotal = hostsTreated / N * 100
 
     }
-    if (i >= treat.start & give.treat == 1 ) {
+    if (any(i >= times.of.treat.in) & give.treat == 1 ) {
       has_been_treated <- has_been_treated | (cov.in == 1)
     }
     #         TODO: Update print output here with new coverage vals from compliance structure                       #
