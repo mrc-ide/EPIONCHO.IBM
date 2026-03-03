@@ -106,7 +106,7 @@ The output from run_EPIONCHO_IBM_with_OAE is a list with 20 elements.
 names(output_equilibrium_OAE)
 ```
 
-The first five elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion` and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
+The first four elements (`mf_prev`, `mf_intens`, `ov16_seroprevalence_combined_seroreversion`, and `L3`) contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/ seroreverstion), and the mean number of L3 larvae in the black fly population. To plot these over time, use: 
 
 ```{r}
 years <- output_equilibrium_OAE$years
