@@ -17,6 +17,7 @@
 #' @param ABR annual biting rate (this input is a single value)
 #' @param N.in human population size
 #' @param DT timestep (must be one day e.g., 1/366)
+#' @param days_per_year number of days in a year (typically either 366 or 365), based off of timestep
 #' @param treat.int treatment interval in years e.g., 1 is every 1 year, 0.5 is every 6 months (this input is a single value)
 #' @param treat.timing specific timing of treatment rounds (default is NA)
 #' @param treat.prob total population coverage (this input is a single value between 0 - 1)
@@ -29,6 +30,7 @@
 #' @param vector.control.strt start year for vector control
 #' @param vector.control.duration duration in years for vector control
 #' @param vector.control.efficacy efficacy of vector (proportion of original ABR value)
+#' @param vector.control.timing years in which vector control will be applied.
 #' @param delta.hz.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to 0)
 #' @param delta.hinf.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
 #' @param c.h.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
@@ -52,6 +54,7 @@
 
 ep.equi.sim <- function(time.its,
                         DT.in = 1 / 366,
+                        days_per_year = 366,
                         ABR,
                         N.in=440,
                         treat.int,
@@ -66,6 +69,7 @@ ep.equi.sim <- function(time.its,
                         vector.control.strt,
                         vector.control.duration,
                         vector.control.efficacy,
+                        vector.control.timing,
                         delta.hz.in=0.186, # these inputs are new (matt) for testing DD
                         delta.hinf.in=0.003,
                         c.h.in=0.005,
@@ -85,7 +89,8 @@ ep.equi.sim <- function(time.its,
                         treat.switch = NA,
                         treat.type = "IVM",
                         ov16_store_times = c(),
-                        ov16_diagnostic_adjustment = c(0.8, 0.99)) {
+                        ov16_diagnostic_adjustment = c(0.8, 0.99),
+                        prob_serorevert_fast = 0.5) {
 
   output_age_groups_as_strings <- rep("", length(output_age_groups))
   for (output_age_group_index in 1:length(output_age_groups)) {
@@ -99,7 +104,7 @@ ep.equi.sim <- function(time.its,
   DT <- DT.in # default timestep
   if ((treat.type == "MOX") || (all(!is.na(treat.switch)) && "MOX" %in% treat.switch)) {
     # half-day timestep required for MOX dynamics
-    DT <- min(DT.in / 2, (1 / 366) / 2)
+    DT <- min(DT.in / 2, (1 / days_per_year) / 2)
   }
 
   time.its <- round(time.its / (DT))
@@ -153,6 +158,22 @@ ep.equi.sim <- function(time.its,
     vc.iter.strt <- NA
     vc.iter.stp <- NA
     vector.control.duration <- NA
+  }
+
+  if (any(!is.na(vector.control.timing))) {
+    vc.iter.index <- 1
+    vc.iter.strt <- round(vector.control.timing / (DT))
+    # Assume that if a list/vector is given, each index represents
+    # 1 full year
+    vc.iter.stp <- round((vector.control.timing + 1) / (DT))
+    if (length(vector.control.efficacy) != length(vector.control.timing)) {
+      stop(paste0(
+        "Param vector.control.efficacy (", length(vector.control.efficacy),
+        ") should be the same length as param vector.control.timing (",
+        length(vector.control.timing), ")")
+      )
+    }
+    print(paste0("Vector Control given from ", vc.iter.strt, " to ", vc.iter.stp))
   }
 
 
@@ -239,10 +260,10 @@ ep.equi.sim <- function(time.its,
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
 
-    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - (1/DT)+round((1/DT)/366)) * DT)} # # 1 day dt
+    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + treat.start} # # 1 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
-    else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
+    else {times.of.treat.in <- round((treat.timing) / (DT)) + (days_per_year * DT)}
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
@@ -800,9 +821,21 @@ ep.equi.sim <- function(time.its,
 
 
     # change m based on ABR change due to vector control if called (during vector control duration iteration period)
-    if(!is.na(vector.control.strt)){
-
+    do_vector_control = FALSE
+    if (any(!is.na(vector.control.timing)) & vc.iter.index <= length(vc.iter.strt)) {
+      if (i >= vc.iter.strt[vc.iter.index] & i < vc.iter.stp[vc.iter.index]) {
+        do_vector_control = TRUE
+        
+        ABR_updated <- ABR - (ABR * vector.control.efficacy[vc.iter.index]) # proportional reduction in ABR (x efficacy) during VC
+        m = ABR_updated * ((1/104) / 0.63) # update m
+        
+        if (i + 1 >= vc.iter.stp[vc.iter.index]) {
+          vc.iter.index <- vc.iter.index + 1
+        }
+      }
+    } else if(!is.na(vector.control.strt)){
       if (i >= vc.iter.strt && i < vc.iter.stp) {
+      do_vector_control = TRUE
 
       ABR_updated <- ABR - (ABR * vector.control.efficacy) # proportional reduction in ABR (x efficacy) during VC
 
@@ -811,12 +844,8 @@ ep.equi.sim <- function(time.its,
     }
 
     # change m back to original after VC finishes (can change when this occurs i.e, one year after VC ends)
-    if(!is.na(vector.control.strt)){
-
-      if (i >= vc.iter.stp) {
-
-        m = ABR * ((1/104) / 0.63) # update m
-      }
+    if(do_vector_control == FALSE){
+      m = ABR * ((1/104) / 0.63) # update m
     }
 
 
