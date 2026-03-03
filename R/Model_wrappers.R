@@ -49,6 +49,7 @@
 #' @param treat.type If you are not using treat.switch, this should be the drug to be used for treatment. Can be "MOX" or "IVM". Default is "IVM"
 #' @param ov16_store_times The timesteps at which you want to store the ov16 status for each individual. Provide in terms of actual time (i.e year 10). Default is c(). ex: c(50, 100)
 #' @param ov16_diagnostic_adjustment The diagnostic adjustment to provide for the adjusted ov16 seroprevalence output. Must be a vector of exactly 2 values. Default is c(0.8, 0.99)
+#' @param prob_serorevert_fast The probability an individual seroreverts fast. A value of 0 assumes all individuals serorevert in the absence of infection, 1 assumes all individuals serorever when the stimulus is lost.
 #'
 #' @export
 
@@ -373,9 +374,12 @@ ep.equi.sim <- function(time.its,
     paste0("ov16_seroprevalence_finite_seroreversion_adj", output_age_groups_as_strings)
   )
 
-  ov16_seropositive_no_seroreversion <- rep(0, N)
-  ov16_seropositive_finite_serorevert <- rep(0, N)
-  ov16_indiv_matrix <- matrix(0, nrow = N, ncol = length(ov16_store_times) * 5)
+  ov16_seropositive_combined_serorevert <- rep(0, N)
+  ov16_type_of_seroreverison <- sample(
+    c("instant", "finite"), 400,
+    prob=c(prob_serorevert_fast, 1-prob_serorevert_fast), replace=TRUE
+  )
+  ov16_indiv_matrix <- matrix(0, nrow = N, ncol = length(ov16_store_times) * 6)
   matrix_index <- 1
 
   if (morbidity_module == "YES") {
@@ -623,8 +627,8 @@ ep.equi.sim <- function(time.its,
     }
 
     # Ov16 Variables
-    ov16_seropositive_no_seroreversion <- equilibrium$ov16_equilibrium$ov16_seropositive_no_seroreversion
-    ov16_seropositive_finite_serorevert <- equilibrium$ov16_equilibrium$ov16_seropositive_finite_serorevert
+    ov16_seropositive_combined_serorevert <- equilibrium$ov16_equilibrium$ov16_seropositive_combined_serorevert
+    ov16_type_of_seroreverison <- equilibrium$ov16_equilibrium$ov16_type_of_seroreverison
   }
 
   i <- 1
@@ -1086,23 +1090,24 @@ ep.equi.sim <- function(time.its,
     any_worms <- (rowSums(all.mats.temp[,worms.start:fw.end]) > 0)
     mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
     mating_worm_any_mf <- (mating_worm & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
-
-    ov16_seropositive_no_seroreversion <- determine_serostatus(
-      exposure_array = mating_worm_any_mf,
-      curr_array = ov16_seropositive_no_seroreversion
+    combned_seroreversion <- which(
+      ov16_type_of_seroreverison == "instant",
+      mating_worm == FALSE,
+      any_worm == FALSE & any_larvae == FALSE
     )
-    ov16_seropositive_finite_serorevert <- determine_serostatus(
-      exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_finite_serorevert, do_serorevert=TRUE,
-      seroreversion_arrays = list("any_larvae_arr" = any_larvae, "any_worms_arr" = any_worms)
+
+    ov16_seropositive_combined_serorevert <- determine_serostatus(
+      exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_combined_serorevert, do_serorevert="finite",
+      seroreversion_arrays = list("custom_seroreversion_status" = combned_seroreversion)
     )
 
     ov16_timetrend_outputs[i, ] <- calculate_seroprevalence_across_age_groups(
-      ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
+      ov16_seropositive_combined_serorevert,
       ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
       diagnostic_adjustments = c(1, 1)
     )
     ov16_timetrend_outputs_adj[i, ] <- calculate_seroprevalence_across_age_groups(
-      ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
+      ov16_seropositive_combined_serorevert,
       ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
       diagnostic_adjustments = ov16_diagnostic_adjustment
     )
@@ -1125,8 +1130,11 @@ ep.equi.sim <- function(time.its,
       has_been_treated[to.die] <- FALSE
 
       # Ov16 reset dead individuals
-      ov16_seropositive_no_seroreversion[to.die] <- 0
-      ov16_seropositive_finite_serorevert[to.die] <- 0
+      ov16_seropositive_combined_serorevert[to.die] <- 0
+      ov16_type_of_seroreverison[to.die] <- sample(
+        c("instant", "finite"), length(to.die),
+        prob=c(prob_serorevert_fast, 1-prob_serorevert_fast), replace=TRUE
+      )
 
       if(correlated_compliance == "YES" & any(i > times.of.treat.in)){
         compliance.mat[to.die, 3] <- 0
@@ -1162,11 +1170,12 @@ ep.equi.sim <- function(time.its,
 
     # Ov16 add individual data to matrix
     if(!is.na(match(i, ov16_store_times))) {
-      ov16_indiv_matrix[,5*matrix_index-4] <- all.mats.temp[,2]
-      ov16_indiv_matrix[,5*matrix_index-3] <- all.mats.temp[,3]
-      ov16_indiv_matrix[,5*matrix_index-2] <- as.integer(temp.mf[[2]] > 0)
-      ov16_indiv_matrix[,5*matrix_index-1] <- ov16_seropositive_no_seroreversion
-      ov16_indiv_matrix[,5*matrix_index] <- ov16_seropositive_finite_serorevert
+      ov16_indiv_matrix[,6*matrix_index-5] <- all.mats.temp[,2]
+      ov16_indiv_matrix[,6*matrix_index-4] <- all.mats.temp[,3]
+      ov16_indiv_matrix[,6*matrix_index-3] <- as.integer(temp.mf[[2]] > 0)
+      ov16_indiv_matrix[,6*matrix_index-2] <- rowSums(all.mats.temp[,mf.start:mf.end])
+      ov16_indiv_matrix[,6*matrix_index-1] <- ov16_type_of_seroreverison
+      ov16_indiv_matrix[,6*matrix_index] <- ov16_seropositive_combined_serorevert
       matrix_index <- matrix_index + 1
     }
 
@@ -1215,8 +1224,8 @@ ep.equi.sim <- function(time.its,
   {
     equilibrium_outputs <- list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay, has_been_treated)
     # Ov16 Equilibrium Values
-    ov16_equib <- list(ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert)
-    names(ov16_equib) <- c('ov16_seropositive_no_seroreversion', 'ov16_seropositive_finite_serorevert')
+    ov16_equib <- list(ov16_seropositive_combined_serorevert, ov16_type_of_seroreverison)
+    names(ov16_equib) <- c('ov16_seropositive_combined_serorevert', "ov16_type_of_seroreverison")
     equilibrium_outputs[["ov16_equilibrium_outputs"]] <- ov16_equib
 
     if (morbidity_module == "YES") {

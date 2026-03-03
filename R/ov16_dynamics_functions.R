@@ -6,22 +6,40 @@
 #'
 #' @param exposure_array the yearly probability
 #' @param curr_array the number of days in a year (355 or 366)
-#' @param seroreversion the number of days in a year (355 or 366)
-#' @param doSerorevert Calculate seroreversion
+#' @param do_serorevert what type of seroreversion to incorporate. "none", "combined", "finite", "instant"
 #' @param seroreversion_arrays list of arrays to use to see if seroreversion occurs
 #'
 #' @returns a list of all individuals and their ov16 serostatus (1 if positive, 0 if negative)
 determine_serostatus <- function(
-  exposure_array, curr_array, do_serorevert = FALSE, seroreversion_arrays = list()
+  exposure_array, curr_array, do_serorevert = "none", seroreversion_arrays = list()
 ) {
   curr_array[which(exposure_array == TRUE & curr_array == 0)] <- 1
 
-  if (do_serorevert) {
+  if (do_serorevert == "combined") {
     curr_array[
       which(
         curr_array == 1 &
-          seroreversion_arrays[["any_larvae_arr"]] == FALSE &
-          seroreversion_arrays[["any_worms_arr"]] == FALSE
+        seroreversion_arrays[["custom_seroreversion_status"]] == TRUE
+      )
+    ] <- 0
+  }
+  if (do_serorevert == "finite") {
+    curr_array[
+      which(
+        curr_array == 1 &
+        seroreversion_arrays[["any_larvae_arr"]] == FALSE &
+        seroreversion_arrays[["any_worms_arr"]] == FALSE
+      )
+    ] <- 0
+  }
+  if (do_serorevert == "instant") {
+    curr_array[
+      which(
+        curr_array == 1 &
+        (
+          seroreversion_arrays[["mating_worm_arr"]] == FALSE |
+          seroreversion_arrays[["mating_worm_any_mf_arr"]] == FALSE
+        )
       )
     ] <- 0
   }
@@ -56,26 +74,21 @@ seroprevalence_for_age <- function(
 #' @description
 #' Determine seroprevalence for provided age groups, with or without diagnostic adjustment
 #'
-#' @param serostatus_no_seroreversion the serostatus without seroreversion
-#' @param serostatus_finite_seroreversion the serostatus with finite seroreversion
+#' @param serostatus_combined_seroreversion the serostatus of each individual
 #' @param ages the ages of the population
 #' @param age_groups a list of age groups list(c(5, 80), c(..), ..)
 #' @param diagnostic_adjustments a vector of length 2 containing sens, spec (0.8, 0.99)
 #'
 #' @returns vector of seroprevalence for all provided age groups in order
 calculate_seroprevalence_across_age_groups <- function(
-  serostatus_no_seroreversion, serostatus_finite_seroreversion,
+  serostatus_combined_seroreversion,
   ages, age_groups, diagnostic_adjustments = c(1, 1)
 ) {
-  output_ov16_data <- rep(NA, length(age_groups) * 2)
+  output_ov16_data <- rep(NA, length(age_groups))
   for (age_group_index in 1:length(age_groups)) {
     age_group <- age_groups[[age_group_index]]
     output_ov16_data[age_group_index] <- seroprevalence_for_age(
-      serostatus_no_seroreversion, ages, age_group[1], age_group[2],
-      diagnostic_adjustments[1], diagnostic_adjustments[2]
-    )
-    output_ov16_data[age_group_index + length(age_groups)] <- seroprevalence_for_age(
-      serostatus_finite_seroreversion, ages, age_group[1], age_group[2],
+      serostatus_combined_seroreversion, ages, age_group[1], age_group[2],
       diagnostic_adjustments[1], diagnostic_adjustments[2]
     )
   }
