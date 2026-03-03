@@ -70,7 +70,7 @@ ep.equi.sim <- function(time.its,
                         vector.control.strt,
                         vector.control.duration,
                         vector.control.efficacy,
-                        vector.control.timing,
+                        vector.control.timing = NA,
                         delta.hz.in=0.186, # these inputs are new (matt) for testing DD
                         delta.hinf.in=0.003,
                         c.h.in=0.005,
@@ -161,8 +161,8 @@ ep.equi.sim <- function(time.its,
     vector.control.duration <- NA
   }
 
+  vc.iter.index <- 1
   if (any(!is.na(vector.control.timing))) {
-    vc.iter.index <- 1
     vc.iter.strt <- round(vector.control.timing / (DT))
     # Assume that if a list/vector is given, each index represents
     # 1 full year
@@ -359,24 +359,20 @@ ep.equi.sim <- function(time.its,
   coverage.recorded <- rep(NA, time.its - 1)
 
   # Ov16 Variables
-  ov16_timetrend_outputs <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 2)
+  ov16_timetrend_outputs <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1))
   colnames(ov16_timetrend_outputs) <- c(
-    "ov16_seroprevalence_no_seroreversion",
-    paste0("ov16_seroprevalence_no_seroreversion", output_age_groups_as_strings),
-    "ov16_seroprevalence_finite_seroreversion",
-    paste0("ov16_seroprevalence_finite_seroreversion", output_age_groups_as_strings)
+    "ov16_seroprevalence_combined_seroreversion",
+    paste0("ov16_seroprevalence_combined_seroreversion", output_age_groups_as_strings)
   )
-  ov16_timetrend_outputs_adj <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 2)
+  ov16_timetrend_outputs_adj <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1))
   colnames(ov16_timetrend_outputs_adj) <- c(
-    "ov16_seroprevalence_no_seroreversion_adj",
-    paste0("ov16_seroprevalence_no_seroreversion_adj", output_age_groups_as_strings),
-    "ov16_seroprevalence_finite_seroreversion_adj",
-    paste0("ov16_seroprevalence_finite_seroreversion_adj", output_age_groups_as_strings)
+    "ov16_seroprevalence_combined_seroreversion_adj",
+    paste0("ov16_seroprevalence_combined_seroreversion_adj", output_age_groups_as_strings)
   )
 
   ov16_seropositive_combined_serorevert <- rep(0, N)
   ov16_type_of_seroreverison <- sample(
-    c("instant", "finite"), 400,
+    c("instant", "finite"), N,
     prob=c(prob_serorevert_fast, 1-prob_serorevert_fast), replace=TRUE
   )
   ov16_indiv_matrix <- matrix(0, nrow = N, ncol = length(ov16_store_times) * 6)
@@ -1201,8 +1197,7 @@ ep.equi.sim <- function(time.its,
 
   general_outputs <- list(
     'mf_prev' = mf_prevalence_outputs[,'prev'], 'mf_intens' = mf_intensity_outputs[,'mean.mf.per.snip'],
-    "ov16_seroprevalence_no_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_no_seroreversion"],
-    "ov16_seroprevalence_finite_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_finite_seroreversion"],
+    "ov16_seroprevalence_combined_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_combined_seroreversion"],
     'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp, "Ke" = gam.dis,
     'blackfly_l3_prevalence' = l3_prev_blackflies, 'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
