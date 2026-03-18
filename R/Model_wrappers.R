@@ -1089,11 +1089,11 @@ ep.equi.sim <- function(time.its,
     combned_seroreversion <- which(
       ov16_type_of_seroreverison == "instant",
       mating_worm == FALSE,
-      any_worm == FALSE & any_larvae == FALSE
+      any_worms == FALSE & any_larvae == FALSE
     )
 
     ov16_seropositive_combined_serorevert <- determine_serostatus(
-      exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_combined_serorevert, do_serorevert="finite",
+      exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_combined_serorevert, do_serorevert="combined",
       seroreversion_arrays = list("custom_seroreversion_status" = combned_seroreversion)
     )
 

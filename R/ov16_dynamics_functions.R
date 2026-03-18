@@ -55,8 +55,8 @@ seroprevalence_for_age <- function(
 
   prob <- runif(total_inds)
   new_serostatus <- rep(0, total_inds)
-  pos <- which(serostatus == 1)
-  neg <- which(serostatus == 0)
+  pos <- which(serostatus[subset_inds] == 1)
+  neg <- which(serostatus[subset_inds] == 0)
   if (length(pos) > 0) {
     new_serostatus[pos] <- as.numeric(prob[pos] <= sensitivity)
   }
@@ -64,7 +64,7 @@ seroprevalence_for_age <- function(
     new_serostatus[neg] <- as.numeric(prob[neg] > specificity)
   }
 
-  seropositives <- which(new_serostatus[subset_inds] == 1)
+  seropositives <- which(new_serostatus == 1)
   return(length(seropositives) / total_inds)
 }
 
