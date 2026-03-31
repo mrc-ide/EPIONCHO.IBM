@@ -983,6 +983,7 @@ ep.equi.sim <- function(time.its,
                         ov16_store_times = c(),
                         no_prev_run=FALSE,
                         custom_treat_params = list(),
+                        seroreversion = "none",
                         Q = 1.2)
 
 
@@ -1007,7 +1008,7 @@ ep.equi.sim <- function(time.its,
     if(treat.start >= 1) {treat.start <-  round( (treat.start) / (DT)) + 1}
     if(treat.start == 0) {treat.start <-  1}
     if(length(ov16_store_times) == 0) {
-      ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(0.5/DT), treat.stop+(1/DT))
+      ov16_store_times <- c(treat.start-1, treat.stop, treat.stop+(1/DT)+1)
     }
   } else {
     if(length(ov16_store_times) == 0) {
@@ -1047,7 +1048,7 @@ ep.equi.sim <- function(time.its,
   g = 0.0096
   a.v = 0.39
   real.max.age = 80 #no humans live longer than 80 years
-  N = 500 #human population size
+  N = 4400 #human population size
   mean.age = 50 #mean human age (before truncation)
   int.L3 = 0.03; int.L2 = 0.03; int.L1 = 0.03
   lambda.zero = 0.33 # (matt:) per-capita rate that female worms lose their fertility (W_FF) & return to non-fertile state (W_FN)
@@ -1277,24 +1278,15 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_mating_detectable_mf_serorevert <- rep(0, N)
       Ov16_Seropositive_mating_any_mf_serorevert <- rep(0, N)
 
-      Ov16_Seropositive_serorevert_instant <- rep(0, N)
-      Ov16_Seropositive_L3_serorevert_instant <- rep(0, N)
-      Ov16_Seropositive_L4_serorevert_instant <- rep(0, N)
-      Ov16_Seropositive_mating_no_mf_serorevert_instant <- rep(0, N)
-      Ov16_Seropositive_mating_detectable_mf_serorevert_instant <- rep(0, N)
-      Ov16_Seropositive_mating_any_mf_serorevert_instant <- rep(0, N)
-
 
       mf_indv_prev <- rep(0, N)
 
 
       Ov16_Seropositive_matrix <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
       Ov16_Seropositive_Serorevert_matrix <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
-      Ov16_Seropositive_Serorevert_matrix_instant <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
       matrix_index <- 1
 
       prev_Ov16 <- 0
-      prev_Ov16_sero <- 0
 
       # 80% of pop is able to mount Antibody response to Ov16
       all.mats.temp[,num.cols+ov16.col] <- 1#sample(rep(c(1,1,1,1,1,1,1,1,0,0), N*0.1), N)
@@ -1415,11 +1407,9 @@ ep.equi.sim <- function(time.its,
 
       Ov16_Seropositive_matrix <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
       Ov16_Seropositive_Serorevert_matrix <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
-      Ov16_Seropositive_Serorevert_matrix_instant <- matrix(0, nrow=N, ncol=length(ov16_store_times)*9)
       matrix_index <- 1
 
-      prev_Ov16_sero <- c(prev_Ov16_sero, sum(Ov16_Seropositive_mating_any_mf_serorevert)/N)
-      prev_Ov16 <- sum(Ov16_Seropositive_mating_any_mf)/N
+      prev_Ov16 <- sum(Ov16_Seropositive_mating_any_mf_serorevert)/N
     }
 
   }
@@ -1480,18 +1470,22 @@ ep.equi.sim <- function(time.its,
     e.f <- 1/(sex.rat*(Q-1) + 1) # 0.9
     e.m <- Q * e.f # 1.08
 
+    # Onchosim exposure
     s.a.exp <- rep(0, N)
+    s.a.exp[mls] <- ifelse(all.mats.cur[mls, 2] >= 20, 1, (1/20) * all.mats.cur[mls, 2])
+    s.a.exp[fmls] <- ifelse(all.mats.cur[fmls, 2] >= 20, 0.7, (0.7/20 * all.mats.cur[fmls, 2]))
 
-    alpha.m <- exp(-age.exp.m * (all.mats.cur[mls, 2]))
-    gamma.m <- 1/mean(alpha.m)
-    s.a.exp[mls] <- alpha.m * e.m * gamma.m
+    # alpha.m <- exp(-age.exp.m * (all.mats.cur[mls, 2]))
+    # gamma.m <- 1/mean(alpha.m)
+    # s.a.exp[mls] <- alpha.m * e.m * gamma.m
 
 
-    alpha.f <- exp(-age.exp.f * (all.mats.cur[fmls, 2]))
-    gamma.f <- 1/mean(alpha.f)
-    s.a.exp[fmls] <- alpha.f * e.f * gamma.f
+    # alpha.f <- exp(-age.exp.f * (all.mats.cur[fmls, 2]))
+    # gamma.f <- 1/mean(alpha.f)
+    # s.a.exp[fmls] <- alpha.f * e.f * gamma.f
 
     norm.ex.vec <- ex.vec * (1 / mean(ex.vec)) #normalize so mean = 1 (matt: normalising the indvidual-specific exposure from line 565)
+
 
     tot.ex.ai <- s.a.exp * norm.ex.vec # matt: combine sex/age specific exposure + individual specific exposure (total exposure to blackfly bites)
     tot.ex.ai <- tot.ex.ai * (1 / mean(tot.ex.ai)) #normalize so mean = 1
@@ -1528,21 +1522,13 @@ ep.equi.sim <- function(time.its,
     #mean number of L3 in fly population
     L3.in <- mean(all.mats.cur[, 6])
 
-    # Uncomment to vary ABR
-    # ABR_ctrl <- ABR
-    # last_change <- -1
-    # if (i >= vc.iter.strt && (i %/% 365 > last_change)) {
-    #   abr_mult <- runif(1, 0.98, 1.02)
-    #   ABR_ctrl <- ABR_ctrl * abr_mult 
-    #   last_change <- i %/% 365
-    # }
-
 
     # change m based on ABR change due to vector control if called (during vector control duration iteration period)
     if(!is.na(vector.control.strt)){
+
       if (i >= vc.iter.strt && i < vc.iter.stp) {
 
-        ABR_updated <- ABR_ctrl - (ABR_ctrl * vector.control.efficacy) # proportional reduction in ABR (x efficacy) during VC
+        ABR_updated <- ABR - (ABR * vector.control.efficacy) # proportional reduction in ABR (x efficacy) during VC
 
         m = ABR_updated * ((1/104) / 0.63) # update m
       }
@@ -1553,7 +1539,7 @@ ep.equi.sim <- function(time.its,
 
       if (i >= vc.iter.stp) {
 
-        m = ABR_ctrl * ((1/104) / 0.63) # update m
+        m = ABR * ((1/104) / 0.63) # update m
       }
     }
 
@@ -1565,7 +1551,7 @@ ep.equi.sim <- function(time.its,
 
     } else {
 
-      ABR_upd <- ABR_ctrl
+      ABR_upd <- ABR
     }
 
 
@@ -1723,18 +1709,22 @@ ep.equi.sim <- function(time.its,
       any_l3_exposure <- (l.extras[,1] > 0)
       any_larvae <- (rowSums(l.extras) > 0)
       l4_development <- (l.extras[,floor(length(l.extras[1,])/2)] > 0)
-      any_worms <- (rowSums(all.mats.temp[,worms.start:fw.end]) > 0)
+      any_worms <- rowSums(all.mats.temp[,worms.start:fw.end])
       mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
       mating_worm_detectable_mf <- (mating_worm & temp.mf[[2]] > 0)
       mating_worm_any_mf <- (mating_worm & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
+      mf_counts <- (rowSums(all.mats.temp[,mf.start:mf.end]) > 0)
 
       indv_antibody_response <- all.mats.temp[,91]
 
-      findPositives <- function(exposure_array, curr_array, antibody_resp, seroreversion="", doSerorevert=FALSE) {
+      findPositives <- function(exposure_array, curr_array, antibody_resp, doSerorevert=FALSE, mf_array=c()) {
         curr_array[which(exposure_array == TRUE & curr_array == 0 & antibody_resp == 1)] <- 1
         # hard seroreversion
         if(doSerorevert & seroreversion == "no_infection") {
           curr_array[which(curr_array == 1 & any_larvae == FALSE & any_worms == FALSE)] <- 0
+        }
+        if(doSerorevert & seroreversion == "no_mf") {
+          curr_array[which(curr_array == 1 & (mf_array == FALSE))] <- 0
         }
         if(doSerorevert & seroreversion == "absence_of_trigger") {
           curr_array[which(curr_array == 1 & exposure_array == FALSE)] <- 0
@@ -1742,30 +1732,22 @@ ep.equi.sim <- function(time.its,
         return(curr_array)
       }
 
-      Ov16_Seropositive <- findPositives(any_juvy_worms, Ov16_Seropositive, indv_antibody_response)
-      Ov16_Seropositive_L3 <- findPositives(any_l3_exposure, Ov16_Seropositive_L3, indv_antibody_response)
-      Ov16_Seropositive_L4 <- findPositives(l4_development, Ov16_Seropositive_L4, indv_antibody_response)
-      Ov16_Seropositive_mating_no_mf <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf, indv_antibody_response)
-      Ov16_Seropositive_mating_detectable_mf <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf, indv_antibody_response)
-      Ov16_Seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf, indv_antibody_response)
+      Ov16_Seropositive <- findPositives(any_juvy_worms, Ov16_Seropositive, indv_antibody_response, mf_array=mf_counts)
+      Ov16_Seropositive_L3 <- findPositives(any_l3_exposure, Ov16_Seropositive_L3, indv_antibody_response, mf_array=mf_counts)
+      Ov16_Seropositive_L4 <- findPositives(l4_development, Ov16_Seropositive_L4, indv_antibody_response, mf_array=mf_counts)
+      Ov16_Seropositive_mating_no_mf <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf, indv_antibody_response, mf_array=mf_counts)
+      Ov16_Seropositive_mating_detectable_mf <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf, indv_antibody_response, mf_array=mf_counts)
+      Ov16_Seropositive_mating_any_mf <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf, indv_antibody_response, mf_array=mf_counts)
 
-      Ov16_Seropositive_serorevert <- findPositives(any_juvy_worms, Ov16_Seropositive_serorevert, indv_antibody_response, seroreversion="no_infection", doSerorevert=TRUE)
-      Ov16_Seropositive_L3_serorevert <- findPositives(any_l3_exposure, Ov16_Seropositive_L3_serorevert, indv_antibody_response, seroreversion="no_infection", doSerorevert=TRUE)
-      Ov16_Seropositive_L4_serorevert <- findPositives(l4_development, Ov16_Seropositive_L4_serorevert, indv_antibody_response, seroreversion="no_infection", doSerorevert=TRUE)
-      Ov16_Seropositive_mating_no_mf_serorevert <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf_serorevert, indv_antibody_response, seroreversion="no_infection", doSerorevert=TRUE)
-      Ov16_Seropositive_mating_detectable_mf_serorevert <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf_serorevert, indv_antibody_response, seroreversion="no_infection", doSerorevert=TRUE)
-      Ov16_Seropositive_mating_any_mf_serorevert <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf_serorevert, indv_antibody_response, seroreversion="no_infection", doSerorevert=TRUE)
-
-      Ov16_Seropositive_serorevert_instant <- findPositives(any_juvy_worms, Ov16_Seropositive_serorevert_instant, indv_antibody_response, seroreversion="absence_of_trigger", doSerorevert=TRUE)
-      Ov16_Seropositive_L3_serorevert_instant <- findPositives(any_l3_exposure, Ov16_Seropositive_L3_serorevert_instant, indv_antibody_response, seroreversion="absence_of_trigger", doSerorevert=TRUE)
-      Ov16_Seropositive_L4_serorevert_instant <- findPositives(l4_development, Ov16_Seropositive_L4_serorevert_instant, indv_antibody_response, seroreversion="absence_of_trigger", doSerorevert=TRUE)
-      Ov16_Seropositive_mating_no_mf_serorevert_instant <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf_serorevert_instant, indv_antibody_response, seroreversion="absence_of_trigger", doSerorevert=TRUE)
-      Ov16_Seropositive_mating_detectable_mf_serorevert_instant <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf_serorevert_instant, indv_antibody_response, seroreversion="absence_of_trigger", doSerorevert=TRUE)
-      Ov16_Seropositive_mating_any_mf_serorevert_instant <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf_serorevert_instant, indv_antibody_response, seroreversion="absence_of_trigger", doSerorevert=TRUE)
+      Ov16_Seropositive_serorevert <- findPositives(any_juvy_worms, Ov16_Seropositive_serorevert, indv_antibody_response, doSerorevert=TRUE, mf_array=mf_counts)
+      Ov16_Seropositive_L3_serorevert <- findPositives(any_l3_exposure, Ov16_Seropositive_L3_serorevert, indv_antibody_response, doSerorevert=TRUE, mf_array=mf_counts)
+      Ov16_Seropositive_L4_serorevert <- findPositives(l4_development, Ov16_Seropositive_L4_serorevert, indv_antibody_response, doSerorevert=TRUE, mf_array=mf_counts)
+      Ov16_Seropositive_mating_no_mf_serorevert <- findPositives(mating_worm, Ov16_Seropositive_mating_no_mf_serorevert, indv_antibody_response, doSerorevert=TRUE, mf_array=mf_counts)
+      Ov16_Seropositive_mating_detectable_mf_serorevert <- findPositives(mating_worm_detectable_mf, Ov16_Seropositive_mating_detectable_mf_serorevert, indv_antibody_response, doSerorevert=TRUE, mf_array=mf_counts)
+      Ov16_Seropositive_mating_any_mf_serorevert <- findPositives(mating_worm_any_mf, Ov16_Seropositive_mating_any_mf_serorevert, indv_antibody_response, doSerorevert=TRUE, mf_array=mf_counts)
 
       mf_indv_prev <- as.integer(temp.mf[[2]] > 0)
-      prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive_mating_any_mf)/N)
-      prev_Ov16_sero <- c(prev_Ov16_sero, sum(Ov16_Seropositive_mating_any_mf_serorevert)/N)
+      prev_Ov16 <- c(prev_Ov16, sum(Ov16_Seropositive_mating_any_mf_serorevert)/N)
     }
 
     if(!is.na(vector.control.strt)) {
@@ -1806,14 +1788,6 @@ ep.equi.sim <- function(time.its,
         Ov16_Seropositive_mating_no_mf_serorevert[to.die] <- 0
         Ov16_Seropositive_mating_detectable_mf_serorevert[to.die] <- 0
         Ov16_Seropositive_mating_any_mf_serorevert[to.die] <- 0
-        
-        Ov16_Seropositive_serorevert_instant[to.die] <- 0
-        Ov16_Seropositive_L3_serorevert_instant[to.die] <- 0
-        Ov16_Seropositive_L4_serorevert_instant[to.die] <- 0
-        Ov16_Seropositive_mating_no_mf_serorevert_instant[to.die] <- 0
-        Ov16_Seropositive_mating_detectable_mf_serorevert_instant[to.die] <- 0
-        Ov16_Seropositive_mating_any_mf_serorevert_instant[to.die] <- 0
-
         mf_indv_prev[to.die] <- 0
       }
 
@@ -1850,16 +1824,6 @@ ep.equi.sim <- function(time.its,
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-2] <- Ov16_Seropositive_mating_no_mf_serorevert
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index-1] <- Ov16_Seropositive_mating_detectable_mf_serorevert
       Ov16_Seropositive_Serorevert_matrix[,9*matrix_index] <- Ov16_Seropositive_mating_any_mf_serorevert
-
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-8] <- all.mats.temp[,2]
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-7] <- all.mats.temp[,3]
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-6] <- as.integer(temp.mf[[2]] > 0)
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-5] <- Ov16_Seropositive_serorevert_instant
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-4] <- Ov16_Seropositive_L3_serorevert_instant
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-3] <- Ov16_Seropositive_L4_serorevert_instant
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-2] <- Ov16_Seropositive_mating_no_mf_serorevert_instant
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index-1] <- Ov16_Seropositive_mating_detectable_mf_serorevert_instant
-      Ov16_Seropositive_Serorevert_matrix_instant[,9*matrix_index] <- Ov16_Seropositive_mating_any_mf_serorevert_instant
 
       matrix_index <- matrix_index + 1
     }
@@ -1921,8 +1885,8 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay), ABR_recorded, coverage.recorded)
       names(outp) <- c('mf_prev', 'mf_intens', 'L3', 'all_equilibrium_outputs', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_seropos_outputs <- list(prev_Ov16, prev_Ov16_sero, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix, Ov16_Seropositive_Serorevert_matrix_instant)
-        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'ov16_seroprevalence_sero', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert', 'ov16_seropositive_matrix_serorevert_instant')
+        ov16_seropos_outputs <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_seropos_outputs) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         ov16_equilibrium_outputs <- list(ov16_seropos_outputs, mf_indv_prev)
         names(ov16_equilibrium_outputs) <- c('ov16_seropos_outputs', 'mf_indv_prev')
         ov16_output <- list(ov16_equilibrium_outputs)
@@ -1938,8 +1902,8 @@ ep.equi.sim <- function(time.its,
       outp <- list(prev, mean.mf.per.snip, L3_vec, ABR, all.mats.temp, ABR_recorded, coverage.recorded)
       names(outp) <-  c('mf_prev', 'mf_intens', 'L3', 'ABR', 'all_infection_burdens', 'ABR_recorded', 'coverage.recorded')
       if(calc_ov16) {
-        ov16_output <- list(prev_Ov16, prev_Ov16_sero, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix, Ov16_Seropositive_Serorevert_matrix_instant)
-        names(ov16_output) <- c('ov16_seroprevalence', 'ov16_seroprevalence_sero', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert', 'ov16_seropositive_matrix_serorevert_instant')
+        ov16_output <- list(prev_Ov16, mf_indv_prev, Ov16_Seropositive_matrix, Ov16_Seropositive_Serorevert_matrix)
+        names(ov16_output) <- c('ov16_seroprevalence', 'mf_indv_prevalence', 'ov16_seropositive_matrix', 'ov16_seropositive_matrix_serorevert')
         outp <- append(outp, ov16_output)
       }
       return(outp)
@@ -1950,106 +1914,53 @@ ep.equi.sim <- function(time.its,
 }
 
 
-#### Current file: runModelRCSTogo.R 
+#### Current file: runModelRCS.R 
+
+library(dplyr)
 
 # TODO: Set your own index here
 iter <- #as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
+print(iter)
 set.seed(iter + (iter*3758))
-
-kEs = rep(0.3, 13500)
-
-kE = kEs[iter]
 
 DT.in <- 1/366
 
-if(kE == 0.4) {
-    delta.hz.in.val = 0.118
-    delta.hinf.in.val = 0.002
-    c.h.in.val = 0.004
-    gam.dis.in.val = 0.4
+# 3000
+kEs = rep(0.2, 3000)
+seroreversions = c(rep("no_infection", 1500), rep("absence_of_trigger", 1500))
+
+kE = kEs[iter]
+sero_val <- seroreversions[iter]
+
+if(kE == 0.2) {
+  delta.hz.in.val =  0.385
+  delta.hinf.in.val = 0.003
+  c.h.in.val = 0.008
+  gam.dis.in.val = 0.2
 } else {
-    delta.hz.in.val =  0.186
-    delta.hinf.in.val = 0.003
-    c.h.in.val = 0.005
-    gam.dis.in.val = 0.3
+  delta.hz.in.val =  0.186
+  delta.hinf.in.val = 0.003
+  c.h.in.val = 0.005
+  gam.dis.in.val = 0.3
 }
 
-vctr.control.strt <- 180
-vctr.control.duration <- 31
-vector.control.efficacies <- rep(rep(c(.60, .75, .90), 4500), 2)
-vctr.control.efficacy <- vector.control.efficacies[iter]
 
-if (iter < 4500) {
-  prefecture = "keran"
-} else if (iter < 9000) {
-  prefecture = "bassar"
+# Gabon Elisa Dataset
+if (kE == 0.2) {
+  ABR.in <- 70
+  mda.val <- 0
 } else {
-  prefecture = "oti"
+  ABR.in <- 164
+  mda.val <- 0
 }
 
-if(kE == 0.3) {
-    if(prefecture == "bassar") {
-        ABR.in <- round(rgamma(1, 21.98, 0.0092)) # 70% Bassar
-    }
-    if(prefecture == "oti") {
-        ABR.in <- round(rgamma(1, 21.98, 0.0092)) # 70% Oti
-    }
-    if(prefecture == "keran") {
-        ABR.in <- round(rgamma(1, 7.37, 0.00037)) # 85% Keran
-    }
-}
+# try 13/14 as well
+treat.len = mda.val; treat.strt.yrs = 100; yrs.post.treat = 0
 
-mda_1 = 0.50
-mda_2 = 0.65
-mda_3 = 0.65
-sna_val = 0.05
-if(vctr.control.efficacy == 0.75) {
-  mda_1 = 0.50
-  mda_2 = 0.65
-  mda_3 = 0.75
-  sna_val = 0.025
-}
-if(vctr.control.efficacy == 0.90) {
-  mda_1 = 0.65
-  mda_2 = 0.75
-  mda_3 = 0.80
-  sna_val = 0.01
-}
+treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
+timesteps = treat.stp + yrs.post.treat #final duration
 
-
-if(prefecture == "bassar") {
-  # treat.strt.yrs = 1991
-  mda.val <- 24
-  treat.len = mda.val; treat.strt.yrs = 195; yrs.post.treat = 10
-
-  treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
-  timesteps = treat.stp + yrs.post.treat #final duration
-  cstm_treat_params <- list(start_biannual=treat.strt.yrs+12, coverage_changes=c(treat.strt.yrs+5, treat.strt.yrs+10), coverage_change_values=c(mda_1, mda_2, mda_3))
-}
-if(prefecture == "oti") {
-  mda.val <- 24
-  vctr.control.duration = 18
-  treat.len = mda.val; treat.strt.yrs = 195; yrs.post.treat = 10
-  
-  treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
-  timesteps = treat.stp + yrs.post.treat #final duration
-  cstm_treat_params <- list(start_biannual=treat.strt.yrs+12, coverage_changes=c(treat.strt.yrs+5, treat.strt.yrs+10), coverage_change_values=c(mda_1, mda_2, mda_3))
-}
-if(prefecture == "keran") {
-  # treat.strt.yrs = 1991
-  mda.val <- 24
-  treat.len = mda.val; treat.strt.yrs = 195; yrs.post.treat = 10
-
-  treat.strt = treat.strt.yrs; treat.stp = treat.strt + treat.len
-  timesteps = treat.stp + yrs.post.treat #final duration
-  cstm_treat_params <- list(start_biannual=treat.strt.yrs+12, coverage_changes=c(treat.strt.yrs+5, treat.strt.yrs+10), coverage_change_values=c(mda_1, mda_2, mda_3))
-}
-
-print(cstm_treat_params)
-
-
-
-give.treat.in = 1; trt.int = 1
+give.treat.in = 0; trt.int = 1
 
 output <- ep.equi.sim(time.its = timesteps,
                       ABR = ABR.in,
@@ -2059,11 +1970,9 @@ output <- ep.equi.sim(time.its = timesteps,
                       treat.start = treat.strt,
                       treat.stop = treat.stp,
                       treat.timing = NA,
-                      pnc = sna_val,
+                      pnc = 0.01,
                       min.mont.age = 5,
-                      vector.control.strt = vctr.control.strt,
-                      vector.control.duration = vctr.control.duration,
-                      vector.control.efficacy = vctr.control.efficacy,
+                      vector.control.strt = NA,
                       delta.hz.in =  delta.hz.in.val,
                       delta.hinf.in = delta.hinf.in.val,
                       c.h.in = c.h.in.val,
@@ -2072,10 +1981,10 @@ output <- ep.equi.sim(time.its = timesteps,
                       print_progress=TRUE,
                       calc_ov16 = TRUE,
                       no_prev_run=TRUE,
-                      custom_treat_params=cstm_treat_params)
+                      seroreversion=sero_val)
 
-params <- list(mda.val, ABR.in, kE, vctr.control.efficacy)
-names(params) <- c('MDA', 'ABR', 'Ke', "vctr.ctrl.eff")
+params <- list(mda.val, ABR.in, kE, sero_val)
+names(params) <- c('MDA', 'ABR', 'Ke', "sero_type")
 output <- append(output, params)
 
-saveRDS(output, paste("raw_data/togo_output/ov16_any_worm_output_togo_", prefecture, "_", kE, "_", iter,".rds", sep=""))
+saveRDS(output, paste("raw_data/gabon_output_onchosim/ov16_any_worm_output_", kE, "_", iter,".rds", sep=""))

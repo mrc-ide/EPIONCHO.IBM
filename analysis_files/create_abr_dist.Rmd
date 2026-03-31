@@ -1,0 +1,277 @@
+---
+title: "create_abr_dist"
+author: "Aditya Ramani"
+date: "2023-07-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(7281998)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(fastR2)
+library(stringr)
+library(MASS)
+library(fitdistrplus)
+knitr::knit_hooks$set(timeit = local({
+  now = NULL
+  function(before, options) {
+    if (before) {
+      now <<- Sys.time()
+    } else {
+      res = difftime(Sys.time(), now)
+      now <<- NULL
+      paste('Time for this code chunk:', as.character(res))
+    }
+  }})
+)
+overall_data_folder = "data/"
+data_folder = "your/folder_name/"
+analysis_folder = "analysis_processed_data/"
+
+run_version = "v1"
+knitr::opts_knit$set(root.dir = dirname(getwd()))
+```
+
+## Simulation Data
+
+```{r simulation_processing_functions}
+processRCSFiles <- function (files='path/to_data/', verbose=TRUE, onlyCalcMFP=FALSE) {
+  allOutputs <- data.frame()
+  fileToUse <- paste(files, sep="")
+
+  i <- 1
+  mda_vals <- c()
+  abr_vals <- c()
+  mf_prev_vals <- c()
+  total_files <- length(list.files(fileToUse))
+  for (file in list.files(fileToUse)) {
+    if(verbose) {
+      print(i)
+    }
+    tryCatch(
+    {
+      tmpRDSData <- readRDS(paste(fileToUse, file,sep=""))
+    },
+    error = function(e) {
+      message(paste("Error occurred while reading:", fileToUse))
+    }
+    )
+    
+    mf_prev_vals <- c(mf_prev_vals, tail(tmpRDSData$mf_prev)[1])
+    mda_vals <- c(mda_vals, tmpRDSData$MDA)
+    abr_vals <- c(abr_vals, tmpRDSData$ABR)
+    if(onlyCalcMFP) {
+      next
+    }
+    
+    age <- tmpRDSData$ov16_seropositive_matrix[,1]
+    sex <- ifelse(tmpRDSData$ov16_seropositive_matrix[,2] == 1, "Male", "Female")
+    mf_prev <- tmpRDSData$ov16_seropositive_matrix[,3]
+    ov16_seropos <- tmpRDSData$ov16_seropositive_matrix[,4]
+    ov_l3 <- tmpRDSData$ov16_seropositive_matrix[,5]
+    ov_l4 <- tmpRDSData$ov16_seropositive_matrix[,6]
+    ov_mating_no_mf <- tmpRDSData$ov16_seropositive_matrix[,7]
+    ov_mating_detectable_mf <- tmpRDSData$ov16_seropositive_matrix[,8]
+    ov_mating_any_mf <- tmpRDSData$ov16_seropositive_matrix[,9]
+
+    tmpNumRows <- length(age)
+    if(i == 1) {
+      allOutputs <- data.frame(matrix(ncol=11, nrow=tmpNumRows*total_files))
+      colnames(allOutputs) <- c("age", "sex", "ov16_pos", "ov16_pos_l3", "ov16_pos_l4", "ov16_pos_mating_no_mf", "ov16_pos_mating_detectable_mf", "ov16_pos_mating_any_mf", "mf_prev", "ABR", "run_num")
+    }
+
+    startIndex <- 1+tmpNumRows*(i-1)
+    endIndex <- tmpNumRows*i
+    allOutputs[startIndex:endIndex,-11] <- list(age, sex, ov16_seropos, ov_l3, ov_l4, ov_mating_no_mf, ov_mating_detectable_mf, ov_mating_any_mf, mf_prev, tmpRDSData$ABR)
+    allOutputs[startIndex:endIndex,11] <- i
+
+    i <- i + 1
+  }
+
+  if(onlyCalcMFP) {
+    mfpReturn <- list(mf_prev_vals, mda_vals, abr_vals)
+    names(mfpReturn) <- c('mf_prev', 'mda_vals', 'abr_vals')
+    return(mfpReturn)
+  }
+
+  abr_vs_mf_prev <- ggplot() + geom_boxplot(aes(x=factor(abr_vals), y=mf_prev_vals)) +
+    scale_y_continuous(breaks=seq(0, 0.3, 0.05), limits = c(0, 0.3))
+
+  allOutputs <- allOutputs %>% mutate(age_groups = case_when(
+                                                age <= 30 ~ ceiling(age/1)*1,
+                                                age <= 75 ~ ceiling(age/5)*5,
+                                                TRUE ~ 80
+                                              ))
+  returnVal <- list(allOutputs, mf_prev_vals, abr_vals, mda_vals, abr_vs_mf_prev)
+  names(returnVal) <- c("allOutputs", "mf_prev", "abr_vals", "mda_vals", "abr_vs_mf_prev")
+  return(returnVal)
+}
+```
+
+### ABR DIST
+
+#### loading data
+
+```{r}
+if("togo_abr_mfp_map.csv" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  tmpmfpvals <- read.csv(paste0(overall_data_folder, analysis_folder, "togo_abr_mfp_map.csv"))
+} else {
+  tmpmfpvals <- data.frame(abr_vals=c(), mf_prev=c())
+  k_value <- "k3"
+  tmp <- processRCSFiles(data_folder, verbose=FALSE, onlyCalcMFP=TRUE)
+  tmpDf <- data.frame(abr_vals=tmp$abr_vals, mf_prev=tmp$mf_prev)
+  tmpmfpvals <- rbind(tmpmfpvals, tmpDf)
+  write.csv(tmpmfpvals, paste0(overall_data_folder, analysis_folder, "togo_abr_mfp_map.csv"))
+}
+```
+
+#### Helping functions
+
+```{r calc_mfp, timeit=TRUE}
+getRangeOfABR <- function(data, target_mfp, extra=0.002, raw_data=data.frame(), kval="", dist_name="normal", dist_func=dnorm, onlyPlotCullFur=FALSE, dist_manual=c(), start_shape=list(), bin_size=500) {
+  
+  print(ggplot() + geom_histogram(aes(x=raw_data$abr_vals), binwidth=bin_size))
+  raw_data <- raw_data %>% filter(mf_prev >= target_mfp - 0.005 & mf_prev < target_mfp + 0.005)
+
+  
+  plot <- NA
+  if(length(raw_data) > 0) {
+    min_val <- floor(min(raw_data$abr_vals)/(bin_size))*(bin_size)
+    max_val <- ceiling(max(raw_data$abr_vals)/(bin_size))*(bin_size)
+    print(paste("Min, max:", min_val, max_val))
+    data_dist <- raw_data %>% mutate(
+      abr_vals = abr_vals
+    ) %>% .$abr_vals
+    if(onlyPlotCullFur) {
+      desc_summary <- descdist(data_dist, discrete = FALSE)
+      print(desc_summary)
+    } else {
+      firstParam <- dist_manual[1]
+      secondParam <- dist_manual[2]
+      if(length(dist_manual) == 0) {
+        if(grepl("norm", dist_name)) {
+          scale_by <- 1
+          if(dist_name == "log-normal") {
+            dist_name = "lnorm"
+          }
+          if(dist_name == "normal") {
+            dist_name = "norm"
+          }
+          dist2 <- fitdist(data_dist, dist_name)
+        } else {
+          lower = 0.00001
+          scale_by = 1000
+          
+          if(length(start_shape) > 0) {
+            dist2 <- fitdist(data_dist/scale_by, dist_name, shape=start_shape, lower=lower)
+          } else {
+            dist2 <- fitdist(data_dist/scale_by, dist_name, lower=lower)
+          }
+          
+        }
+        print(paste("AIC: ", dist2$aic))
+        print(plot(dist2))
+        firstParam = dist2$estimate[1]
+        secondParam = dist2$estimate[2]/scale_by
+      }
+  
+      xrange <- seq(min_val, max_val, 20)
+      scaling_factor <- length(data_dist) * bin_size
+      fitted_data <- data.frame(x=xrange, y=dist_func(xrange, firstParam, secondParam)*scaling_factor)
+      print(paste(dist_name, "Dist Parameters:", firstParam, secondParam))
+      
+      break_val <- bin_size*2
+      print(kval)
+      print(target_mfp)
+      k_value_print <- "kE 0.4"
+      if(kval == "k3") {
+        k_value_print <- "kE = 0.3"
+      }
+      if(kval == "k3" & target_mfp > 0.75) {
+        break_val <- break_val*4
+      }
+      print(break_val)
+      plot <- ggplot() +
+        geom_histogram(aes(x=abr_vals), color='darkblue', fill="lightblue", binwidth=bin_size, boundary = 0, closed="left", data=raw_data) +
+        geom_line(aes(x=x, y=y), color="red", data=fitted_data) +
+        scale_x_continuous("ABR Values", breaks=seq(min_val, max_val, break_val), limits=c(min_val, max_val)) + ylab('Count') + 
+        theme_bw() +
+        ggtitle(paste0("Target Microfilarial Prevalence: ", target_mfp*100 , "% - ", target_mfp*100+1, "%"))
+    }
+  }
+  return_val <- list(plot)
+  return(return_val)
+}
+
+custom_sample <- function(data) {
+  sample_size <- min(nrow(data), 100)
+  return(data %>% sample_n(size = sample_size, replace = FALSE))
+}
+
+raw_data_vals <- tmpmfpvals %>% dplyr::mutate(abr_vals_2 = case_when(
+      abr_vals <= 10000 ~ floor(abr_vals/100)*100,
+      TRUE ~ floor(abr_vals/100)*100,
+      )) %>% dplyr::group_by(abr_vals_2) %>% group_map(~ custom_sample(.), .keep=TRUE) %>% bind_rows() %>% as.data.frame()
+
+for(mfp in c(70, 75, 85)) {
+  size <- 500
+  getRangeOfABR(NULL, mfp/100, raw_data=raw_data_vals, onlyPlotCullFur = TRUE, bin_size = size)
+}
+```
+
+#### Gamma
+```{r}
+gamma_shape_start <- list(list(18.9, 7.2/1000), list(15.4, 3.3/1000), list(6.8, .29/1000))
+for(mfp in c(70, 75, 85)) {
+  size <- 500
+  print(paste("MFP:", mfp))
+  target_mfp_str = paste(mfp, "", sep="")
+  target_mfp = (mfp / 100) - 0.005
+  
+  summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
+  print(summarized_abr_mfp)
+
+  ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
+  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
+
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval="k3", dist_name = 'gamma', dist_func = dgamma, bin_size = size)
+  print(range_return[[1]])
+  ggsave(paste("images/images_", run_version, "/gamma_abr_dist_", "k3", "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+}
+```
+
+#### Final Sims
+```{r}
+#k3
+gamma_vals <- list(c(21.98, 0.0092), c(14.82, 0.0037), c(7.37, 0.00037))
+
+i <- 0
+all_plots <- list()
+for(mfp in c(70, 75, 85)) {
+  size <- 500
+  i <- i + 1
+  target_mfp_str = paste(mfp, "", sep="")
+  target_mfp = (mfp / 100) - 0.005
+  
+  summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
+  print(summarized_abr_mfp)
+
+  ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
+  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 1000))
+
+  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval="k3", dist_name = 'gamma', dist_func = dgamma, dist_manual=gamma_vals[[i]], bin_size = size)
+  print(range_return[[1]])
+  all_plots[[paste0(mfp)]] <- range_return[[1]]
+  ggsave(paste("images/images_", run_version, "/", "final_gamma_abr_dist_", "k3", "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+}
+
+library(patchwork)
+
+final_plot <- ((all_plots[["70"]] + theme(plot.title = element_blank())) / (all_plots[["85"]] + theme(plot.title = element_blank()))) + plot_layout(axis_titles="collect")
+
+ggsave(paste("images/images_", run_version, "/", "final_gamma_abr_dist_", "k3", "_mfp_70_85.png", sep=""), final_plot, width=7000, height = 4000, units="px", dpi=600)
+
+```

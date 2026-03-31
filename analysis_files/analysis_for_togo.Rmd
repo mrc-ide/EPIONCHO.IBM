@@ -1,0 +1,2017 @@
+---
+title: "Compare Togo Data"
+author: "Aditya Ramani"
+date: "2023-08-02"
+output: html_document
+---
+
+# Initial Setup
+This chunk initializes the libraries and variables needed for the analysis code below. `data_folder` should be the path to the post-processed output of running `all_funcs_combined_togo.R` with 13,500 iterations. You can post-process the data using code from `processDataTogo.R`. The relative path to the post-processed data (from the working directory) is expected to be `data/{data_folder}/`.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(7281998)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(fastR2)
+library(stringr)
+library(gtable)
+library(knitr)
+library(kableExtra)
+library(doParallel)
+library(foreach)
+library(data.table)
+library(webshot)
+library(gridExtra)
+library(patchwork)
+library(ggpattern)
+knitr::knit_hooks$set(timeit = local({
+  now = NULL
+  function(before, options) {
+    if (before) {
+      now <<- Sys.time()
+    } else {
+      res = difftime(Sys.time(), now)
+      now <<- NULL
+      # use options$label if you want the chunk label as well
+      paste('Time for this code chunk:', as.character(res))
+    }
+  }})
+)
+num_sig_figs = 3
+overall_data_folder = "data/"
+data_folder = "model_processed_data/"
+analysis_folder = "analysis_processed_data/"
+
+run_version = "v1"
+
+use_oti_100 <- TRUE
+if (use_oti_100) {
+  run_version = paste0(run_version, "_oti_100")
+  analysis_folder = "analysis_processed_data_oti_100/"
+}
+
+knitr::opts_knit$set(root.dir = dirname(getwd()))
+```
+
+## Actual Data
+This code chunk sets up the read and processing files for the observed data.
+
+The Togo data has been extracted from the following paper: Komlan K, Vossberg PS, Gantin RG, Solim T, Korbmacher F, Banla M, Padjoudoum K, Karabou P, Köhler C, Soboslay PT. Onchocerca volvulus infection and serological prevalence, ocular onchocerciasis and parasite transmission in northern and central Togo after decades of Simulium damnosum s.l. vector control and mass drug administration of ivermectin. PLoS Negl Trop Dis. 2018 Mar 1;12(3):e0006312. doi: 10.1371/journal.pntd.0006312. PMID: 29494606; PMCID: PMC5849363.
+```{r basic_read_functions, timeit=TRUE}
+# all data from tables in https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5849363/
+togoMF <- function(combined_pop=TRUE) {
+  # 2 years each side except for 7.5 (2.5y gap) and 70.5 (9.5y gap)
+  ageGroups <- c(7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 70.5)
+  male_pop <- c(96, 106, 31, 32, 58, 45, 42, 45, 37, 32, 29, 42)
+  female_pop <- c(76, 106, 64, 86, 137, 90, 63, 44, 53, 30, 32, 38)
+  mf_pos_male <- c(1, 1, 0, 2, 9, 6, 6, 4, 3, 2, 1, 1)
+  mf_pos_female <- c(3, 3, 1, 4, 7, 7, 8, 3, 3, 0, 3, 4)
+  wilson_lb_m <- c()
+  wilson_ub_m <- c()
+  wilson_lb_f <- c()
+  wilson_ub_f <- c()
+  for(i in 1:length(ageGroups)) {
+    wilson_ci_m <- wilson.ci(mf_pos_male[i], male_pop[i])
+    wilson_ci_f <- wilson.ci(mf_pos_female[i], female_pop[i])
+
+    wilson_lb_m <- c(wilson_lb_m, wilson_ci_m[1])
+    wilson_ub_m <- c(wilson_ub_m, wilson_ci_m[2])
+    wilson_lb_f <- c(wilson_lb_f, wilson_ci_f[1])
+    wilson_ub_f <- c(wilson_ub_f, wilson_ci_f[2])
+  }
+  
+  data <- data.frame(age_groups=ageGroups, male_pop=male_pop, female_pop=female_pop, mf_pos_male=mf_pos_male, mf_pos_female=mf_pos_female,
+                     mf_wilson_lb_m=wilson_lb_m, mf_wilson_ub_m=wilson_ub_m,
+                     mf_wilson_lb_f=wilson_lb_f, mf_wilson_ub_f=wilson_ub_f) %>%
+    mutate(mf_prev_male = mf_pos_male/male_pop,
+           mf_prev_female=mf_pos_female/female_pop,
+           mf_wilson_lb_m=ifelse(mf_wilson_lb_m < 0, 0, mf_wilson_lb_m),
+           mf_wilson_lb_f=ifelse(mf_wilson_lb_f < 0, 0, mf_wilson_lb_f))
+  
+  if(combined_pop) {
+    total_pop <- male_pop + female_pop
+    total_mf_pos <- mf_pos_male + mf_pos_female
+    wilson_lb <- c()
+    wilson_ub <- c()
+    for(i in 1:length(ageGroups)) {
+      wilson_ci <- wilson.ci(total_mf_pos[i], total_pop[i])
+
+      wilson_lb <- c(wilson_lb, wilson_ci[1])
+      wilson_ub <- c(wilson_ub, wilson_ci[2])
+    }
+    data <- data %>% mutate(total_pop=total_pop, mf_pos_total=total_mf_pos, mf_wilson_lb=wilson_lb, mf_wilson_ub=wilson_ub) %>% 
+      mutate(
+        mf_prev = mf_pos_total/total_pop
+      )
+  }
+  return(data)
+}
+
+togoOv16 <- function() {
+  # 2 years each side except for 7.5 (2.5y gap) and 75.5 (4.5y gap)
+  ageGroups <- c(7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 63, 68, 75.5)
+  participants <- c(87, 76, 41, 44, 75, 58, 40, 27, 43, 24, 30, 13, 16, 2)
+  ov16_pos <- c(13, 12, 7, 18, 31, 22, 20, 11, 15, 15, 17, 6, 9, 2)
+
+  ageGroups <- c(0, 7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 63, 73)
+  participants <- c(1, 87, 76, 41, 44, 75, 58, 40, 27, 43, 24, 30, 13, 18)
+  ov16_pos <- c(0, 13, 12, 7, 18, 31, 22, 20, 11, 15, 15, 17, 6, 11)
+  wilson_lb <- c()
+  wilson_ub <- c()
+  for(i in 1:length(ov16_pos)) {
+    if(i==1) {
+      wilson_lb <- c(wilson_lb, 0)
+      wilson_ub <- c(wilson_ub, 0)
+      next
+    }
+    wilson_ci <- wilson.ci(ov16_pos[i], participants[i])
+
+    wilson_lb <- c(wilson_lb, wilson_ci[1])
+    wilson_ub <- c(wilson_ub, wilson_ci[2])
+  }
+  data <- data.frame(age_groups=ageGroups, participants=participants, ov16_seropos=ov16_pos,
+                     ov16_wilson_lb=wilson_lb, ov16_wilson_ub=wilson_ub) %>%
+    mutate(ov16_seroprev = ov16_pos/participants, pct_pop=ifelse(age_groups==0, 0, participants/(sum(participants)-1)))
+  return(data)
+}
+
+togoVillage <- function() {
+  riverBasin <- c(rep('Oti', 3), rep('Keran', 4), rep('Mo', 4))
+  # https://journals.plos.org/plosntds/article/figure?id=10.1371/journal.pntd.0006312.g002
+  prefecture <- c('OTI/KPENDJAL', 'OTI/KPENDJAL', 'OTI/KPENDJAL', #c('KPENDJAL', 'KPENDJAL', 'OTI',#
+                  'Keran', 'Keran', 'Keran', 'Keran',
+                  'Bassar', 'Bassar', 'Bassar', 'Bassar')
+  village <- c('Pancerys', 'Boutchakou', 'Koukoumbou',
+               'Goulbi', 'Tchitchira', 'Koutougou Solla', 'Kpantiiyagou',
+               'Bawlensi', 'Mo-Village', 'Katcha-Konkomba', 'Saboundi')
+  mfExamined <- c(140, 127, 57,
+                  131, 146, 81, 181,
+                  148, 151, 188, 105)
+  mfPositive <- c(4, 1, 3,
+                  15, 15, 11, 14,
+                  0, 13, 5, 2)
+  mfLB <- c(0, 0, 0, 
+            7.5, 6.6, 8.6, 4.4,
+            0, 4.9, 0, 0)
+  mfUB <- c(6.6, 4.8, 11.2,
+            15.4, 14.0, 18.5, 11.11,
+            3.7, 12.2, 5.9, 6.3)
+  ov16ElisaExaminedAllAges <- c(92, 92, 70,
+                         92, 92, 79, 92,
+                         NA, 22, NA, 13)
+  ov16ElisaPositive <- c(10, 15, 9,
+                         42, 42, 45, 46,
+                         NA, 9, NA, 1)
+  ov16ElisaLB <- c(4.4, 8.6, 4.8, 
+                   35.5, 35.3, 45.8, 39.6,
+                   NA, 18.6, NA, 0)
+  ov16ElisaUB <- c(17.4, 24, 20.9,
+                   56, 56, 68.1, 60.4,
+                   NA, 63.2, NA, 24.4)
+  # Age 5-10
+  ov16ElisaChildrenExamined <- c(25, 15, 17,
+                         1, 1, 6, 22,
+                         NA, NA, NA, NA)
+  ov16ElisaChildrenPositive <- c(1, 1, 1,
+                                 0, 0, 4, 6,
+                                 NA, NA, NA, NA)
+  ov16ElisaChildrenLB <- c(0, 0, 0,
+                           0, 12.4, 17.1, 15.4,
+                           NA, NA, NA, NA)
+  ov16ElisaChildrenUB <- c(12.3, 21.0, 18.4,
+                           0, 20.6, 47.5, 51.2,
+                           NA, NA, NA, NA)
+  
+  df <- data.frame(river_basin=riverBasin, prefecture=prefecture, village=village, mf_pop=mfExamined,
+                   mf_pos=mfPositive, ov16_pop_all_ages=ov16ElisaExaminedAllAges,
+                   ov16_pos_all_ages=ov16ElisaPositive, ov16_pop_children=ov16ElisaChildrenExamined,
+                   ov16_pos_children=ov16ElisaChildrenPositive,
+                   ov16_all_ages_lb=ov16ElisaLB,
+                   ov16_all_ages_ub=ov16ElisaUB,
+                   ov16_children_lb=ov16ElisaChildrenLB,
+                   ov16_children_ub=ov16ElisaChildrenUB)
+  return(df)
+}
+```
+
+### Setup and Explore Data
+
+```{r init_act_data, timeit=TRUE}
+togoMFData <- togoMF()
+
+togoOv16Data <- togoOv16()
+
+togoVillageData <- togoVillage()
+
+groupedVillageData <- togoVillageData %>% group_by(river_basin, prefecture) %>% summarise(across(-c('village'), ~ sum(.x, na.rm=TRUE)), .groups='drop') %>% as.data.frame() %>%
+  mutate(
+    mf_prev = mf_pos/mf_pop,
+    ov16_prev_all_ages = ov16_pos_all_ages/ov16_pop_all_ages,
+    ov16_prev_children = ov16_pos_children/ov16_pop_children
+  )
+
+groupedVillageData$all_ages_lb <- c(44.1, 12.8, 9.2)
+groupedVillageData$all_ages_ub <- c(54.5, 44.3, 17.6)
+groupedVillageData$children_lb <- c(15.4, NA, 0)
+groupedVillageData$children_ub <- c(51.2, NA, 11.2)
+  
+togoVillageData <- togoVillageData %>% mutate(
+  mf_prev=mf_pos/mf_pop,
+  ov16_prev_all_ages = ov16_pos_all_ages/ov16_pop_all_ages,
+  ov16_prev_children = ov16_pos_children/ov16_pop_children
+)
+```
+
+### Exploring Sensitivity and Specificity Distributions
+Sensitivity and Specificity data pulled from a search of papers (see SI of Ramani et al. 2025). Using the data, we create a distribution to pull sens/spec from.
+```{r}
+fit_to_beta <- function(vals) {
+  mu <- mean(vals, na.rm=TRUE)
+  var <- var(vals, na.rm=TRUE)
+  if (mu + var > 1) {
+    max_var <- (mu * ( 1 - mu))
+    max_err <- 0.9999
+    t <- (max_var / (max_var * max_err)) - 1
+  } else {
+    t <- (mu * ( 1 - mu) / var) - 1
+  }
+  alpha <- mu * t
+  beta <- (1-mu) * t
+  return(list(
+    dbeta(seq(0, 1, 0.0001), alpha, beta),
+    alpha,
+    beta
+  ))
+}
+
+# sens and spec vals from the paper
+sens <- c(81, 95, 84, 60, 71.4, 53, 78, 83, 82.5) / 100
+spec <- c(75, 97, 71.1, 99.99, 99.99, 84.8, 55.7) / 100
+
+beta_params_sens <- fit_to_beta(sens)
+sens_scale <- (max(hist(sens, plot=FALSE, breaks = seq(0, 1, by = 0.025))$counts) / max(beta_params_sens[[1]]))
+sens_plot <- ggplot() +
+  geom_histogram(aes(x=sens, y=..density.., color="Count from\nliterature"), fill="white", binwidth = 0.025, boundary=0) +
+  geom_line(aes(x=seq(0, 1, 0.0001), y=beta_params_sens[[1]], color="Beta Density\nFit to Data")) +
+  theme_bw() +
+  scale_x_continuous("Sensitivity (%)", breaks=seq(.50, 1.00, 0.05), labels=seq(50, 100, 5), limits=c(0.5, 1.00)) +
+  ylab("Density") +
+  scale_color_manual("", values=c("sensitivity data count"="black", "Count from\nliterature"="black", "Beta Density\nFit to Data"="darkgreen", "Beta Density Fit"="red", "Beta Density using data"="darkgreen")) +
+  theme(
+    panel.grid.minor = element_blank()
+  )
+sens_plot
+
+beta_params_spec <- fit_to_beta(spec)
+spec_scale <- (max(hist(spec, plot=FALSE, breaks = seq(0, 1, by = 0.01))$counts) / max(beta_params_spec[[1]]))
+spec_plot <- ggplot() +
+  geom_histogram(aes(x=spec, y=..density.., color="Count from\nliterature"), fill="white", binwidth = 0.01, boundary=0) +
+  geom_line(aes(x=seq(0, 1, 0.0001), y=beta_params_spec[[1]], color="Beta Density\nFit to Data")) +
+  theme_bw() +
+  scale_x_continuous("Specificity (%)", breaks=seq(0.5, 1, 0.05), labels=seq(50, 100, 5), limits=c(0.5, NA)) +
+  scale_color_manual("", values=c("sensitivity data count"="black", "Count from\nliterature"="black", "Beta Density\nFit to Data"="darkgreen", "Beta Density Fit"="red", "Beta Density using data"="darkgreen")) +
+  ylab("Density") +
+  theme(
+    panel.grid.minor = element_blank()
+  )
+spec_plot
+
+sens_spec_plot <- (sens_plot | spec_plot) + 
+  plot_layout(guides = "collect") & theme(legend.position = "bottom")
+sens_spec_plot
+ggsave(paste0("images/images_", run_version, "/togo_sens_spec_dists_upd.svg"), sens_spec_plot, width=6000, height=3600, units="px", dpi=600)
+
+pull_from_beta <- function(params, n=1) {
+  return(
+    rbeta(n, params[[2]], params[[3]])
+  )
+}
+
+
+calc_mean_ci <- function(params, n) {
+  vals <- pull_from_beta(params, n)
+  mean_val <- mean(vals)
+  median_val <- median(vals)
+  sample_varience = var(vals)
+  se = sqrt(sample_varience / n)
+  lower_bound = mean_val - 1.96 * se
+  upper_bound = mean_val + 1.96 * se
+  lower_ui = quantile(vals, 0.025)[[1]]
+  upper_ui = quantile(vals, 0.975)[[1]]
+  list(
+    mean_val,
+    lower_bound,
+    upper_bound,
+    median_val,
+    lower_ui,
+    upper_ui
+  )
+}
+
+calc_mean_ci(beta_params_sens, 1500)
+calc_mean_ci(beta_params_spec, 1500)
+```
+
+## Simulation Data
+
+```{r simulation_processing_functions}
+calcSensSpecSeroPrev <- function(run_seropos_data, sens=1, spec=1, prob=c()) {
+  # Trust that the input is correct so we can vectorize the function
+  sens <- sens[1]
+  spec <- spec[1]
+  
+  new_seropos_data <- as.numeric(
+    (run_seropos_data == 1 & prob <= sens) |
+    (run_seropos_data == 0 & prob > spec)
+  )
+  
+  return(new_seropos_data)
+}
+
+summarizeSimulationDataHelper <- function(data, index, sensSpec, groupByCols1, hypNamesLoc, hypothesisNames, extra_summary) {
+  sens_val = sensSpec[1]
+  spec_val = sensSpec[2]
+  if (!("sens" %in% names(data)) | extra_summary) {
+    data[, `:=`(
+        sens = sens_val,
+        spec = spec_val
+    )]
+  }
+  
+  tmp <- data[, .(
+      age_groups,
+      vctr.ctrl.eff,
+      ov16_pos=calcSensSpecSeroPrev(ov16_pos, sens, spec, probs),
+      ov16_pos_l3=calcSensSpecSeroPrev(ov16_pos_l3, sens, spec, probs),
+      ov16_pos_l4=calcSensSpecSeroPrev(ov16_pos_l4, sens, spec, probs),
+      ov16_pos_mating_no_mf=calcSensSpecSeroPrev(ov16_pos_mating_no_mf, sens, spec, probs),
+      ov16_pos_mating_detectable_mf=calcSensSpecSeroPrev(ov16_pos_mating_detectable_mf, sens, spec, probs),
+      ov16_pos_mating_any_mf=calcSensSpecSeroPrev(ov16_pos_mating_any_mf, sens, spec, probs),
+      mf_prev
+    ), by = c("run_num", "sens", "spec")
+  ]
+  
+  tmp_summary <- tmp[, .(
+      ov16_any_worm_prev = mean(ov16_pos),
+      ov16_l3_prev = mean(ov16_pos_l3),
+      ov16_l4_prev = mean(ov16_pos_l4),
+      ov16_mating_no_mf_prev = mean(ov16_pos_mating_no_mf),
+      ov16_mating_any_mf_prev = mean(ov16_pos_mating_any_mf),
+      ov16_mating_detectable_mf_prev= mean(ov16_pos_mating_detectable_mf),
+      num_mf_pos = sum(mf_prev),
+      total_mf = .N,
+      mf_prev = mean(mf_prev)
+    ), by = groupByCols1
+  ]
+  if (extra_summary) {
+    tmp_summary <- tmp_summary[, .(
+        ov16_any_worm_prev = mean(ov16_any_worm_prev),
+        ov16_l3_prev = mean(ov16_l3_prev),
+        ov16_l4_prev = mean(ov16_l4_prev),
+        ov16_mating_no_mf_prev = mean(ov16_mating_no_mf_prev),
+        ov16_mating_any_mf_prev = mean(ov16_mating_any_mf_prev),
+        ov16_mating_detectable_mf_prev= mean(ov16_mating_detectable_mf_prev),
+        num_mf_pos = ceiling(mean(num_mf_pos)),
+        total_mf = ceiling(mean(total_mf)),
+        mf_prev = mean(mf_prev)
+      ), by = c(groupByCols1[groupByCols1 != "run_num"])
+    ]
+    tmp_summary[, run_num := index]
+    setcolorder(tmp_summary, c("run_num", setdiff(names(tmp_summary), "run_num")))
+  }
+  setcolorder(tmp, c(groupByCols1, setdiff(names(tmp), groupByCols1)))
+  setnames(tmp_summary, old = names(tmp_summary)[hypNamesLoc], new = hypothesisNames)
+  
+  return(
+    tmp_summary[, c(
+      ..groupByCols1,
+      "Mating worm pair with any mf",
+      "num_mf_pos",
+      "total_mf",
+      "mf_prev"
+    )]
+  )
+}
+
+summarizeSimulationDataHelper_2 <- function(df, groupByCols1, groupByCols2, hypNamesLoc, hypothesisNames, groupHyp) {
+
+  if("age_groups" %in% groupByCols2) {
+    df <- df %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+      dplyr::summarise(
+        ov16_q1=quantile(ov16_prev, probs=0.025),
+        ov16_q3=quantile(ov16_prev, probs=0.975),
+        ov16_prev=mean(ov16_prev),
+        mf_q1=quantile(mf_prev, probs=0.025),
+        mf_q3=quantile(mf_prev, probs=0.975),
+        mf_prev=mean(mf_prev),
+        mf_lb=wilson.ci(mean(num_mf_pos), mean(total_mf))[1],
+        mf_ub=wilson.ci(mean(num_mf_pos), mean(total_mf))[2],
+        sens_mean = mean(sens),
+        sens_lower = quantile(sens, probs=0.025),
+        sens_upper = quantile(sens, probs=0.975),
+        spec_mean = mean(spec),
+        spec_lower = quantile(spec, probs=0.025),
+        spec_upper = quantile(spec, probs=0.975),
+        .groups="drop") %>% as.data.frame() %>%
+      mutate(
+        mf_prev = case_when(
+          age_groups == 0 & mf_prev > 0 ~ 0,
+          TRUE ~ mf_prev
+        )
+      )
+  } else {
+    df <- df %>% dplyr::group_by(!!!syms(groupByCols2)) %>%
+    dplyr::summarise(
+      ov16_prev_lb=quantile(ov16_prev, probs=0.025), #q1
+      ov16_prev_ub=quantile(ov16_prev, probs=0.975), #q3
+      ov16_prev=mean(ov16_prev),
+      mf_q1=quantile(mf_prev, probs=0.025),
+      mf_q3=quantile(mf_prev, probs=0.975),
+      mf_prev=mean(mf_prev), 
+      sens_mean = mean(sens),
+      sens_lower = quantile(sens, probs=0.025),
+      sens_upper = quantile(sens, probs=0.975),
+      spec_mean = mean(spec),
+      spec_lower = quantile(spec, probs=0.025),
+      spec_upper = quantile(spec, probs=0.975),
+      .groups="drop"
+    ) %>% as.data.frame()
+  }
+  return(df)
+}
+
+summarizeSimulationData <- function(data, sensSpec=c(1,1), groupBySex=TRUE, sensAgeGroup=5, summary=FALSE, swapAgeGroups=TRUE, groupHyp=TRUE) {
+  hypothesisNames <- c("Any worm", "L3 exposure", "L4-L5 moult", "Mating worm pair", "Mating worm pair with detectable mf", "Mating worm pair with any mf")
+  groupByCols1 <- c("run_num", "age_groups", "vctr.ctrl.eff", "sens", "spec")
+  groupByCols2 <- c("age_groups", "vctr.ctrl.eff", "Hypothesis")
+  hypNamesLoc <- 6:11
+  if(groupBySex) {
+    groupByCols1 <- c("run_num", "age_groups", "sex", "vctr.ctrl.eff", "sens", "spec")
+    groupByCols2 <- c("age_groups", "sex", "Hypothesis", "vctr.ctrl.eff")
+    hypNamesLoc <- 7:12
+  }
+  if(summary) {
+    groupByCols1 <- c("run_num", "vctr.ctrl.eff", "sens", "spec")
+    groupByCols2 <- c("vctr.ctrl.eff", "Hypothesis")
+    hypNamesLoc <- 5:10
+  }
+  if(swapAgeGroups) {
+    data$age_groups <- data$age_groups_old
+  }
+  if (typeof(sensSpec) == "double") {
+    sensSpec = list(sensSpec)
+  }
+  
+  all_data <- vector("list", length(sensSpec))
+  if (summary) {
+    all_data_children <- vector("list", length(sensSpec))
+  }
+  
+  data$probs <- runif(dim(data)[1])
+  setDT(data)
+  for (index in seq_along(sensSpec)) {
+    t0 <- proc.time()[3]
+    sens_spec = sensSpec[[index]]
+    all_data[[index]] <- summarizeSimulationDataHelper(
+      data, index, sens_spec, groupByCols1,
+      hypNamesLoc, hypothesisNames, extra_summary=length(sensSpec) > 1
+    )
+    if (summary) {
+      all_data_children[[index]] <- summarizeSimulationDataHelper(
+        data[(age >= 5) & (age < 11)], index, sens_spec,
+        groupByCols1, hypNamesLoc, hypothesisNames,
+        extra_summary=length(sensSpec) > 1
+      )
+    }
+    t1 <- proc.time()[3]
+    cat(
+      sprintf(
+        "Iteration %d (%f, %f) took %.3f seconds. Extra Summary: %d\n", index, sens_spec[1], sens_spec[2], t1 - t0, length(sensSpec) > 1
+      )
+    )
+  }
+  
+  all_df <- rbindlist(all_data)
+  
+  df <- as.data.frame(melt(
+    all_df,
+    id.vars = c(groupByCols1, "mf_prev", "num_mf_pos", "total_mf"),
+    measure.vars = hypothesisNames[length(hypothesisNames)],
+    variable.name = "Hypothesis",
+    value.name = "ov16_prev"
+  ))
+  df$Hypothesis <- as.character(df$Hypothesis)
+  
+  justChildren <- NA
+  if(summary) {
+    underTenDf <- as.data.frame(melt(
+      rbindlist(all_data_children),
+      id.vars = c(groupByCols1, "mf_prev", "num_mf_pos", "total_mf"),
+      measure.vars = hypothesisNames[length(hypothesisNames)],
+      variable.name = "Hypothesis",
+      value.name = "ov16_prev"
+    ))
+    underTenDf$Hypothesis <- as.character(underTenDf$Hypothesis)
+    
+    print(paste("Total number of children under 10", dim(underTenDf)[1]))
+    justChildren <- summarizeSimulationDataHelper_2(underTenDf, groupByCols1, groupByCols2, hypNamesLoc, hypothesisNames, groupHyp & !summary)
+  }
+  
+  df <- summarizeSimulationDataHelper_2(df, groupByCols1, groupByCols2, hypNamesLoc, hypothesisNames, groupHyp & !summary)
+  
+  if(summary) {
+    returnVals <- list(df, justChildren)
+    names(returnVals) <- c("all_ages", "under10")
+    return(returnVals)
+  }
+  return(df)
+}
+
+selectRunsFromAllPrefectures <- function(df1, df2, df3, sampleNum=c(), originalData=list()) {
+  age_groups <- c(7.5, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58, 70.5)
+  sampleSize = c(172, 212, 95, 118, 195, 135, 105, 89, 90, 62, 61, 80)
+  sampleSizeList = list()
+  for(i in 1:length(age_groups)) {
+    sampleSizeList[[age_groups[i]]] = sampleSize[i]
+  }
+  if(length(sampleNum) == 3) {
+    df1 <- df1 %>% group_by(run_num) %>% slice_sample(n=sampleNum[1], replace=TRUE) %>% ungroup()
+    df2 <- df2 %>% group_by(run_num) %>% slice_sample(n=sampleNum[2], replace=TRUE) %>% ungroup()
+    df3 <- df3 %>% group_by(run_num) %>% slice_sample(n=sampleNum[3], replace=TRUE) %>% ungroup()
+  }
+  df1 <- df1 %>% mutate(prefecture="Oti/Kpendjal") %>% mutate(run_num = dense_rank(run_num))
+  df2 <- df2 %>% mutate(prefecture="Keran") %>% mutate(run_num = dense_rank(run_num))
+  df3 <- df3 %>%  mutate(prefecture="Bassar") %>% mutate(run_num = dense_rank(run_num))
+  df <- base::rbind(
+    df1, df2, df3
+  )
+  return_df <- df
+  if(length(originalData) > 1) {
+    return_df <- return_df %>% 
+      mutate(age_groups_lsr = case_when(
+        age < 1 ~ 0,
+        age < 5 ~ 2.5,
+        age < 11 ~ 7.5,
+        age < 16 ~ 13,
+        age < 21 ~ 18,
+        age < 26 ~ 23,
+        age < 31 ~ 28,
+        age < 36 ~ 33,
+        age < 41 ~ 38,
+        age < 46 ~ 43,
+        age < 51 ~ 48,
+        age < 56 ~ 53,
+        age < 61 ~ 58,
+        TRUE ~ 70.5
+      )) %>% 
+      filter(age_groups_lsr > 2.5) %>%
+      left_join(
+        originalData %>% dplyr::select(age_groups, total_pop), by=c("age_groups_lsr"="age_groups")
+        ) %>%
+      group_by(age_groups_lsr, ABR, Ke, run_num) %>%
+      do(sample_n(., .$total_pop[1], replace = TRUE)) %>%
+      ungroup()
+  }
+  return(return_df)
+}
+
+togo_sens_spec_vec <- c(0.714, 0.711)
+
+sens<-c(81, 95, 78, 97, 84, 60, 80, 71.4, 53, 78, 83, 82.5)
+print("Sens Vals")
+print(quantile(sens, probs=c(0.25, 0.50, 0.75)))
+print(mean(sens))
+sens_range <- c(0.70, 0.80, 0.85)
+
+spec<-c(94,75,97,71.1,100,84.8,55.7)
+print("Spec Vals")
+print(quantile(spec, probs=c(0.25, 0.50, 0.75)))
+print(mean(spec))
+spec_range <- c(0.70, 0.85, 0.95)
+sens_spec_options <- list()
+sens_spec_index <- 1
+for(sens in sens_range) {
+  for (spec in spec_range) {
+    sens_spec_options[[sens_spec_index]] <- c(sens, spec)
+    sens_spec_index <- sens_spec_index + 1
+  }
+}
+sens_spec_options_2 <- sens_spec_options
+sens_spec_options_2[[10]] <- c(-1, -1)
+```
+
+### Setup and Explore Simulation Data
+
+#### Checking Projected MFP
+```{r}
+look_at_mfp = TRUE
+all_places_to_pick <- c("_start_2015")
+if (look_at_mfp) {
+  tmp_oti_100_mount <- NA
+  all_mfp_df <- data.frame(matrix(ncol=9, nrow=0))
+  colnames(all_mfp_df) <- c("sample_point", "prefecture", "vctr.ctrl.eff", "Ke", "mf_prev", "lb", "ub", "q1", "q3")
+  for(prefecture in c("bassar", "oti", "keran")) {
+    for(pick in all_places_to_pick) {
+      print(paste(prefecture, pick))
+      prefecture_to_use = str_replace(prefecture, "oti", "oti/kpendjal")
+
+      tmp <- readRDS(paste(overall_data_folder, data_folder, "togo_", prefecture, "_100_mount_data", pick, ".RDS", sep=""))$allOutputs
+      
+      if (prefecture == "oti") {
+        tmp_oti_100_mount <- tmp
+        
+        if (use_oti_100) {
+          # If we are looking at Oti with 100% Vector Control
+          # We replace the simulations with 90% VC
+          # Note that while the official VC values say 0.6, 0.75, 0.9, etc.
+          # Each VC value comprises of 500 runs with each of 0.6, 0.75, 0.6
+          # It is labelled this way to make processing easier in the future.
+          tmp_oti_100 <- readRDS(
+            paste(overall_data_folder, data_folder, "togo_", "oti_vc_100_100_mount_data", pick, ".RDS", sep="")
+          )$allOutputs %>% 
+            mutate(
+              run_num = run_num * 3, 
+              vctr.ctrl.eff = case_when(
+                run_num <= 1500 ~ 0.6,
+                run_num <= 3000 ~ 0.75,
+                run_num <= 4500 ~ 0.90,
+                run_num <= 6000 ~ 0.6,
+                run_num <= 7500 ~ 0.75,
+                TRUE ~ 0.9
+              )
+            )
+          tmp[
+            tmp$run_num %in% seq(3, 9000, 3),
+          ] = tmp_oti_100
+          tmp_oti_100_mount <- tmp
+        }
+      }
+      
+      tmp <- tmp %>%
+        mutate(age_groups_lsr = case_when(
+          age < 1 ~ 0,
+          age < 5 ~ 2.5,
+          age < 11 ~ 7.5,
+          age < 16 ~ 13,
+          age < 21 ~ 18,
+          age < 26 ~ 23,
+          age < 31 ~ 28,
+          age < 36 ~ 33,
+          age < 41 ~ 38,
+          age < 46 ~ 43,
+          age < 51 ~ 48,
+          age < 56 ~ 53,
+          age < 61 ~ 58,
+          TRUE ~ 70.5
+        )) %>% 
+        filter(
+          age_groups_lsr > 2.5
+        ) %>%
+        left_join(
+          togoMFData %>% dplyr::select(age_groups, total_pop), by=c("age_groups_lsr"="age_groups")
+          ) %>%
+        group_by(age_groups_lsr, ABR, Ke, run_num) %>%
+        do(sample_n(., .$total_pop[1], replace = TRUE)) %>%
+        ungroup()
+      tmp <- tmp %>% filter(age >= 5) %>%
+        group_by(run_num, vctr.ctrl.eff, Ke) %>% 
+        summarize(num_pos = sum(mf_prev), total=n(), mf_prev=mean(mf_prev), .groups="drop") %>% 
+        group_by(vctr.ctrl.eff, Ke) %>% 
+        summarize(
+          q1 = quantile(mf_prev, probs=0.025)*100,
+          q3 = quantile(mf_prev, probs=0.975)*100,
+          mf_prev = mean(mf_prev)*100, 
+          lb=wilson.ci(mean(num_pos), mean(total))[1]*100, 
+          ub=wilson.ci(mean(num_pos), mean(total))[2]*100, .groups="drop") %>% 
+        mutate(prefecture=prefecture_to_use, sample_point=pick) %>% 
+        dplyr::select(sample_point, prefecture, everything()) %>% 
+        mutate(lb=ifelse(lb < 0, 0, lb))
+      all_mfp_df <- rbind(all_mfp_df, tmp)
+      rm(tmp)
+    }
+  }
+  
+  process_combined_mfp <- function(data, name="combined") {
+    return(data %>% filter(age >= 5) %>%
+      group_by(run_num, vctr.ctrl.eff, Ke) %>% 
+      summarize(num_pos = sum(mf_prev), total=n(), mf_prev=mean(mf_prev), .groups="drop") %>% 
+      group_by(vctr.ctrl.eff, Ke) %>% 
+      summarize(
+        q1 = quantile(mf_prev, probs=0.025)*100,
+        q3 = quantile(mf_prev, probs=0.975)*100,
+        mf_prev = mean(mf_prev)*100,
+        lb=wilson.ci(mean(num_pos), mean(total))[1]*100, 
+        ub=wilson.ci(mean(num_pos), mean(total))[2]*100, .groups="drop") %>%
+      mutate(prefecture=name, sample_point=pick) %>% 
+      dplyr::select(sample_point, prefecture, everything()) %>% 
+      mutate(lb=ifelse(lb < 0, 0, lb))
+    )
+  }
+  
+  for(pick in all_places_to_pick) {
+    combined_mfp_best_fit <- selectRunsFromAllPrefectures(
+      tmp_oti_100_mount %>% filter(vctr.ctrl.eff == 0.75) %>% mutate(run_num = run_num - 1500, vctr.ctrl.eff=-1),
+      readRDS(paste(overall_data_folder, data_folder, "togo_keran_100_mount_data", pick, ".RDS", sep=""))$allOutputs %>% filter(vctr.ctrl.eff == 0.90) %>% mutate(run_num = run_num - 2, vctr.ctrl.eff=-1),
+      readRDS(paste(overall_data_folder, data_folder, "togo_bassar_100_mount_data", pick, ".RDS", sep=""))$allOutputs %>% filter(vctr.ctrl.eff == 0.60) %>% mutate(vctr.ctrl.eff=-1),
+      sampleNum=c(500*0.22,500*0.37,500*0.41),
+      togoMFData
+      ) %>% process_combined_mfp()
+    all_mfp_df <- rbind(
+      all_mfp_df, 
+      combined_mfp_best_fit
+    )
+    rm(combined_mfp_best_fit)
+  }
+  
+  calc_sig_figs <- function(x, sig=num_sig_figs) {
+    return(ifelse(x == 0, "0.000", as.integer(x) + signif(x - as.integer(x), sig)))
+  }
+  
+  kable_all_mfp_df <- all_mfp_df %>% 
+    pivot_wider(id_cols=c(sample_point, prefecture, vctr.ctrl.eff), names_from=Ke, values_from=c(mf_prev, q1, q3)) %>%
+    mutate(
+      k3_vals = paste0(calc_sig_figs(mf_prev_0.3), "% (", calc_sig_figs(q1_0.3), "%-", calc_sig_figs(q3_0.3), "%)"),
+      k4_vals = paste0(calc_sig_figs(mf_prev_0.4), "% (", calc_sig_figs(q1_0.4), "%-", calc_sig_figs(q3_0.4), "%)"),
+      prefecture = factor(prefecture, levels=c("oti/kpendjal", "oti/kpendjal_100_vc", "keran", "bassar", "combined", "combined_oti_vc_100")),
+      sample_point = factor(sample_point, levels=c("_end_2015", "_mid_2015", "_start_2015"))
+    )  %>%
+    dplyr::select(sample_point, prefecture, vctr.ctrl.eff, k3_vals, k4_vals) %>%
+    arrange(sample_point, prefecture, vctr.ctrl.eff) %>%
+    filter(
+      (vctr.ctrl.eff == 0.60 & prefecture == "bassar") | 
+      (vctr.ctrl.eff == 0.90 & prefecture == "keran") |
+      (vctr.ctrl.eff == 0.75 & prefecture == "oti/kpendjal")
+    )
+  kable_all_mfp_df %>% kable('html', escape=FALSE) %>% kable_classic()
+  kable_all_mfp_df %>% write.csv(paste0("images/images_", run_version, "/mfp_tuning.csv"), row.names=FALSE)
+}
+```
+
+
+### New Runs Aggregation
+#### 100 Mount
+```{r}
+sample_num_ov16 = c(500*0.394,500*0.552,500*0.054)
+fix_age_groups <- function(df) {
+  return(df %>% mutate(
+    age_groups = case_when(
+      age <= 30 ~ ceiling(age/1)*1,
+      age <= 75 ~ ceiling(age/5)*5,
+      TRUE ~ 80
+    ),
+    age_groups_old = case_when(
+            age < 1 ~ 0,
+            age < 5 ~ 2.5,
+            age < 11 ~ 7.5,
+            age < 16 ~ 13,
+            age < 21 ~ 18,
+            age < 26 ~ 23,
+            age < 31 ~ 28,
+            age < 36 ~ 33,
+            age < 41 ~ 38,
+            age < 46 ~ 43,
+            age < 51 ~ 48,
+            age < 56 ~ 53,
+            age < 61 ~ 58,
+            age < 66 ~ 63,
+            TRUE ~ 73
+          ),
+    age_groups_lsr = case_when(
+          age < 11 ~ 7.5,
+          age < 16 ~ 13,
+          age < 21 ~ 18,
+          age < 26 ~ 23,
+          age < 31 ~ 28,
+          age < 36 ~ 33,
+          age < 41 ~ 38,
+          age < 46 ~ 48,
+          age < 51 ~ 53,
+          age < 56 ~ 58,
+          age < 61 ~ 63,
+          TRUE ~ 73
+      )
+    ))
+}
+place_to_pick = "_start_2015"
+k3_100_mount_simulation_summary_combined_sens_spec_list <- list()
+
+togo_bassar_100_mount_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_bassar_100_mount_data", place_to_pick, ".RDS", sep=""))
+simulatedBassar_k3_100_mount <- togo_bassar_100_mount_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_combined_sens_spec_list[[paste("bassar", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedBassar_k3_100_mount %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_oti_100_mount_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_oti_100_mount_data", place_to_pick, ".RDS", sep=""))
+simulatedOti_k3_100_mount <- togo_oti_100_mount_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+if (use_oti_100) {
+  togo_oti_100_mount_agg_vc_100 <- readRDS(paste(overall_data_folder, data_folder, "togo_oti_vc_100_100_mount_data", place_to_pick, ".RDS", sep=""))
+  simulatedOti_k3_100_mount_vc_100 <- togo_oti_100_mount_agg_vc_100$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups() %>% mutate(
+    run_num = run_num * 3, 
+    vctr.ctrl.eff = case_when(
+      run_num <= 1500 ~ 0.6,
+      run_num <= 3000 ~ 0.75,
+      TRUE ~ 0.9
+    )
+  )
+  simulatedOti_k3_100_mount[
+    simulatedOti_k3_100_mount$run_num %in% seq(3, 4500, 3),
+  ] = simulatedOti_k3_100_mount_vc_100
+}
+
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_combined_sens_spec_list[[paste("oti", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k3_100_mount %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_keran_100_mount_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_keran_100_mount_data", place_to_pick, ".RDS", sep=""))
+simulatedKeran_k3_100_mount <- togo_keran_100_mount_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_combined_sens_spec_list[[paste("keran", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedKeran_k3_100_mount %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+k3_100_mount_simulation_summary_age_group_combined_sens_spec_list <- list()
+combinedSimulation_k3_100_mount <- selectRunsFromAllPrefectures(
+  simulatedOti_k3_100_mount,
+  simulatedKeran_k3_100_mount,
+  simulatedBassar_k3_100_mount,
+  sampleNum=sample_num_ov16)
+for (sens_spec_val in sens_spec_options) {
+  k3_100_mount_simulation_summary_age_group_combined_sens_spec_list[[paste(sens_spec_val, collapse="_")]] <- summarizeSimulationData(combinedSimulation_k3_100_mount %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE)
+}
+
+if(use_oti_100) {
+  rm(togo_oti_100_mount_agg_vc_100)
+}
+rm(togo_bassar_100_mount_agg)
+rm(togo_oti_100_mount_agg)
+rm(togo_keran_100_mount_agg)
+```
+
+#### Instant Seroreversion Aggregated
+```{r}
+k3_instant_seroreversion_simulation_summary_combined_sens_spec_list <- list()
+
+togo_bassar_instant_seroreversion_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_bassar_instant_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedBassar_k3_instant_seroreversion <- togo_bassar_instant_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_instant_seroreversion_simulation_summary_combined_sens_spec_list[[paste("bassar", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedBassar_k3_instant_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_oti_instant_seroreversion_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_oti_instant_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedOti_k3_instant_seroreversion <- togo_oti_instant_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+if (use_oti_100) {
+  togo_oti_seroreversion_agg_vc_100 <- readRDS(paste(overall_data_folder, data_folder, "togo_oti_vc_100_finite_seroreversion_data", place_to_pick, ".RDS", sep=""))
+  simulatedOti_k3_instant_seroreversion_vc_100 <- togo_oti_seroreversion_agg_vc_100$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups() %>% mutate(
+    run_num = run_num * 3, 
+    vctr.ctrl.eff = case_when(
+      run_num <= 1500 ~ 0.6,
+      run_num <= 3000 ~ 0.75,
+      TRUE ~ 0.9
+    )
+  )
+  simulatedOti_k3_instant_seroreversion[
+    simulatedOti_k3_instant_seroreversion$run_num %in% seq(3, 4500, 3),
+  ] = simulatedOti_k3_instant_seroreversion_vc_100
+}
+for (sens_spec_val in sens_spec_options) {
+  k3_instant_seroreversion_simulation_summary_combined_sens_spec_list[[paste("oti", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k3_instant_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_keran_instant_seroreversion_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_keran_instant_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedKeran_k3_instant_seroreversion <- togo_keran_instant_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_instant_seroreversion_simulation_summary_combined_sens_spec_list[[paste("keran", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedKeran_k3_instant_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+
+k3_instant_seroreversion_simulation_summary_age_group_combined_sens_spec_list <- list()
+combinedSimulation_k3_instant_seroreversion <- selectRunsFromAllPrefectures(
+  simulatedOti_k3_instant_seroreversion,
+  simulatedKeran_k3_instant_seroreversion,
+  simulatedBassar_k3_instant_seroreversion,
+  sampleNum=sample_num_ov16)
+
+for (sens_spec_val in sens_spec_options) {
+  k3_instant_seroreversion_simulation_summary_age_group_combined_sens_spec_list[[paste(sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k3_instant_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE)
+}
+
+
+if(use_oti_100) {
+  rm(togo_oti_seroreversion_agg_vc_100)
+}
+rm(togo_bassar_instant_seroreversion_agg)
+rm(togo_oti_instant_seroreversion_agg)
+rm(togo_keran_instant_seroreversion_agg)
+
+```
+
+#### Gradual Seroreversion Aggregated
+```{r}
+k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list <- list()
+
+togo_bassar_gradual_seroreversion_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_bassar_finite_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedBassar_k3_gradual_seroreversion <- togo_bassar_gradual_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list[[paste("bassar", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedBassar_k3_gradual_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_oti_gradual_seroreversion_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_oti_finite_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedOti_k3_gradual_seroreversion <- togo_oti_gradual_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+if (use_oti_100) {
+  togo_oti_seroreversion_agg_vc_100 <- readRDS(paste(overall_data_folder, data_folder, "togo_oti_vc_100_finite_seroreversion_data", place_to_pick, ".RDS", sep=""))
+  simulatedOti_k3_gradual_seroreversion_vc_100 <- togo_oti_seroreversion_agg_vc_100$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups() %>% mutate(
+    run_num = run_num * 3, 
+    vctr.ctrl.eff = case_when(
+      run_num <= 1500 ~ 0.6,
+      run_num <= 3000 ~ 0.75,
+      TRUE ~ 0.9
+    )
+  )
+  simulatedOti_k3_gradual_seroreversion[
+    simulatedOti_k3_gradual_seroreversion$run_num %in% seq(3, 4500, 3),
+  ] = simulatedOti_k3_gradual_seroreversion_vc_100
+}
+for (sens_spec_val in sens_spec_options) {
+  k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list[[paste("oti", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedOti_k3_gradual_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+togo_keran_gradual_seroreversion_agg <- readRDS(paste(overall_data_folder, data_folder, "togo_keran_finite_seroreversion_data", place_to_pick, ".RDS", sep=""))
+simulatedKeran_k3_gradual_seroreversion <- togo_keran_gradual_seroreversion_agg$allOutputs %>% filter(Ke == 0.3) %>% fix_age_groups()
+
+for (sens_spec_val in sens_spec_options) {
+  k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list[[paste("keran", sens_spec_val, collapse="_")]] <- summarizeSimulationData(simulatedKeran_k3_gradual_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE, summary=TRUE)
+}
+
+
+k3_gradual_seroreversion_simulation_summary_age_group_combined_sens_spec_list <- list()
+combinedSimulation_k3_finite_seroreversion <- selectRunsFromAllPrefectures(
+  simulatedOti_k3_gradual_seroreversion,
+  simulatedKeran_k3_gradual_seroreversion,
+  simulatedBassar_k3_gradual_seroreversion,
+  sampleNum=sample_num_ov16)
+
+for (sens_spec_val in sens_spec_options) {
+  k3_gradual_seroreversion_simulation_summary_age_group_combined_sens_spec_list[[paste(sens_spec_val, collapse="_")]] <- summarizeSimulationData(combinedSimulation_k3_finite_seroreversion %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE)
+}
+
+if(use_oti_100) {
+  rm(togo_oti_seroreversion_agg_vc_100)
+}
+rm(togo_bassar_gradual_seroreversion_agg)
+rm(togo_oti_gradual_seroreversion_agg)
+rm(togo_keran_gradual_seroreversion_agg)
+```
+
+### Adjusting Simulation Data with a Distribution
+Sensitivity and Specificity data pulled from a search of papers (see SI of Ramani et al. 2025). Using the data, we create a distribution to pull sens/spec from for each run of the model, whereas above we use a range of static sens/spec for all 1500 runs of the model for a given parameter set.
+```{r distributions_sens_spec}
+num_sens_specs <- 1500
+sens_spec_from_dist <- c()
+if ("sens_spec_list_from_dist_togo.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  sens_spec_from_dist <- readRDS(paste0(overall_data_folder, analysis_folder, "/sens_spec_list_from_dist_togo.rds"))
+}
+if (length(sens_spec_from_dist) != num_sens_specs) {
+  sens_from_dist <- pull_from_beta(beta_params_sens, num_sens_specs)
+  spec_from_dist <- pull_from_beta(beta_params_spec, num_sens_specs)
+  sens_spec_from_dist <- Map(c, sens_from_dist, spec_from_dist)
+  sens_spec_from_dist %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/sens_spec_list_from_dist_togo.rds"))
+}
+
+if ("oti_k3_100_mount_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  oti_k3_100_mount_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/oti_k3_100_mount_summary_adjusted_with_dist.rds"))
+} else {
+  oti_k3_100_mount_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedOti_k3_100_mount, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  oti_k3_100_mount_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/oti_k3_100_mount_summary_adjusted_with_dist.rds"))
+}
+k3_100_mount_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "oti", " ",
+    round(oti_k3_100_mount_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "oti", " ",
+    round(oti_k3_100_mount_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- oti_k3_100_mount_simulation_summary_combined_dist_sens_spec
+
+
+if ("keran_k3_100_mount_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  keran_k3_100_mount_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/keran_k3_100_mount_summary_adjusted_with_dist.rds"))
+} else {
+  keran_k3_100_mount_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedKeran_k3_100_mount, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  keran_k3_100_mount_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/keran_k3_100_mount_summary_adjusted_with_dist.rds"))
+}
+k3_100_mount_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "keran", " ",
+    round(keran_k3_100_mount_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "keran", " ",
+    round(keran_k3_100_mount_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- keran_k3_100_mount_simulation_summary_combined_dist_sens_spec
+
+
+if ("bassar_k3_100_mount_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  bassar_k3_100_mount_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/bassar_k3_100_mount_summary_adjusted_with_dist.rds"))
+} else {
+  bassar_k3_100_mount_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedBassar_k3_100_mount, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  bassar_k3_100_mount_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/bassar_k3_100_mount_summary_adjusted_with_dist.rds"))
+}
+k3_100_mount_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "bassar", " ",
+    round(bassar_k3_100_mount_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "bassar", " ",
+    round(bassar_k3_100_mount_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- bassar_k3_100_mount_simulation_summary_combined_dist_sens_spec
+
+
+if ("comb_k3_100_mount_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  comb_k3_100_mount_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/comb_k3_100_mount_summary_adjusted_with_dist.rds"))
+} else {
+  comb_k3_100_mount_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(combinedSimulation_k3_100_mount, sens_spec_from_dist, groupBySex=FALSE)
+  comb_k3_100_mount_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/comb_k3_100_mount_summary_adjusted_with_dist.rds"))
+}
+k3_100_mount_simulation_summary_age_group_combined_sens_spec_list[[
+  paste0(
+    round(comb_k3_100_mount_simulation_summary_combined_dist_sens_spec$sens_mean[1], 2), "_",
+    round(comb_k3_100_mount_simulation_summary_combined_dist_sens_spec$spec_mean[1], 2)
+  )
+]] <- comb_k3_100_mount_simulation_summary_combined_dist_sens_spec
+
+if ("oti_k3_instant_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  oti_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/oti_k3_instant_sero_summary_adjusted_with_dist.rds"))
+} else {
+  oti_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedOti_k3_instant_seroreversion, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  oti_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/oti_k3_instant_sero_summary_adjusted_with_dist.rds"))
+}
+k3_instant_seroreversion_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "oti", " ",
+    round(oti_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "oti", " ",
+    round(oti_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- oti_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec
+
+if ("keran_k3_instant_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  keran_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/keran_k3_instant_sero_summary_adjusted_with_dist.rds"))
+} else {
+  keran_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedKeran_k3_instant_seroreversion, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  keran_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/keran_k3_instant_sero_summary_adjusted_with_dist.rds"))
+}
+k3_instant_seroreversion_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "keran", " ",
+    round(keran_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "keran", " ",
+    round(keran_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- keran_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec
+
+if ("bassar_k3_instant_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  bassar_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/bassar_k3_instant_sero_summary_adjusted_with_dist.rds"))
+} else {
+  bassar_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedBassar_k3_instant_seroreversion, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  bassar_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/bassar_k3_instant_sero_summary_adjusted_with_dist.rds"))
+}
+k3_instant_seroreversion_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "bassar", " ",
+    round(bassar_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "bassar", " ",
+    round(bassar_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- bassar_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec
+
+if ("comb_k3_instant_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  comb_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/comb_k3_instant_sero_summary_adjusted_with_dist.rds"))
+} else {
+  comb_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(combinedSimulation_k3_finite_seroreversion, sens_spec_from_dist, groupBySex=FALSE)
+  comb_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/comb_k3_instant_sero_summary_adjusted_with_dist.rds"))
+}
+k3_instant_seroreversion_simulation_summary_age_group_combined_sens_spec_list[[
+  paste0(
+    round(comb_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$sens_mean[1], 2), "_",
+    round(comb_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec$spec_mean[1], 2)
+  )
+]] <- comb_k3_instant_seroreversion_simulation_summary_combined_dist_sens_spec
+
+if ("oti_k3_gradual_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  oti_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/oti_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+} else {
+  oti_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedOti_k3_gradual_seroreversion, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  oti_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/oti_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+}
+k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "oti", " ",
+    round(oti_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "oti", " ",
+    round(oti_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- oti_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec
+
+if ("keran_k3_gradual_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  keran_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/keran_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+} else {
+  keran_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedKeran_k3_gradual_seroreversion, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  keran_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/keran_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+}
+k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "keran", " ",
+    round(keran_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "keran", " ",
+    round(keran_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- keran_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec
+
+if ("bassar_k3_gradual_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  bassar_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/bassar_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+} else {
+  bassar_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(simulatedBassar_k3_gradual_seroreversion, sens_spec_from_dist, groupBySex=FALSE, summary=TRUE)
+  bassar_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/bassar_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+}
+k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list[[
+  paste0(
+    "bassar", " ",
+    round(bassar_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$sens_mean[1], 2), "_",
+    "bassar", " ",
+    round(bassar_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$all_ages$spec_mean[1], 2)
+  )
+]] <- bassar_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec
+
+if ("comb_k3_gradual_sero_summary_adjusted_with_dist.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  comb_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- readRDS(paste0(overall_data_folder, analysis_folder, "/comb_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+} else {
+  comb_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec <- summarizeSimulationData(combinedSimulation_k3_finite_seroreversion, sens_spec_from_dist, groupBySex=FALSE)
+  comb_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec %>% saveRDS(paste0(overall_data_folder, analysis_folder, "/comb_k3_gradual_sero_summary_adjusted_with_dist.rds"))
+}
+k3_gradual_seroreversion_simulation_summary_age_group_combined_sens_spec_list[[
+  paste0(
+    round(comb_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$sens_mean[1], 2), "_",
+    round(comb_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec$spec_mean[1], 2)
+  )
+]] <- comb_k3_gradual_seroreversion_simulation_summary_combined_dist_sens_spec
+```
+
+
+## Plots and MSEs
+
+### Prefectures LSR Values
+```{r}
+use_calc_lsr_pref = TRUE
+custom_calc_resid_pref_sampled_sens_spec <- function(data, sampled_sens_spec_from_dist, original_data, desc) {
+  data$probs <- runif(dim(data)[1])
+  results <- vector("list", length(sampled_sens_spec_from_dist))
+  setDT(data)
+  setDT(original_data)
+  for (index in seq_along(sampled_sens_spec_from_dist)) {
+    t0 <- proc.time()[3]
+    sens_val <- sampled_sens_spec_from_dist[[index]][1]
+    spec_val <- sampled_sens_spec_from_dist[[index]][2]
+    
+    tmp <- data[
+      age_groups_lsr > 0, 
+      .(
+        sens = sens_val,
+        spec = spec_val,
+        H4 = calcSensSpecSeroPrev(ov16_pos_mating_any_mf, sens_val, spec_val, probs)
+      ),
+      by = .(run_num, prefecture, vctr.ctrl.eff)
+    ]
+    tmp_means <- tmp[, .(
+        H4 = mean(H4)
+      ), by = .(run_num, prefecture, vctr.ctrl.eff, sens, spec)
+    ]
+    tmp_means[original_data, on = "prefecture", `:=`(
+      all_ages_lb = i.all_ages_lb,
+      all_ages_ub = i.all_ages_ub,
+      ov16_prev_all_ages = i.ov16_prev_all_ages
+    )]
+    tmp_means[, `:=`(
+      in_ci = (H4 * 100 > all_ages_lb) & (H4 * 100 < all_ages_ub),
+      mse_value = ((H4 * 100) - (ov16_prev_all_ages * 100))^2
+    )]
+
+    tmp_summary <- tmp_means[, .(
+        in_ci = mean(in_ci),
+        mse_value = mean(mse_value)
+    ), by = .(prefecture, vctr.ctrl.eff, sens, spec)]
+  
+    results[[index]] <- tmp_summary[, .(
+        mse_value,
+        in_ci,
+        vctr.ctrl.eff, 
+        sens, 
+        spec,
+        prefecture,
+        Hypothesis = "H4",
+        run_num = index,
+        Descriptor = desc
+    )]
+    t1 <- proc.time()[3]
+    cat(
+      sprintf(
+        "Iteration %d (%f, %f) took %.3f seconds.\n", index, sens_val, spec_val, t1 - t0
+      )
+    )
+  }
+  all_results <- rbindlist(results)
+  return(as.data.frame(all_results))
+}
+data_manip_resid_pref <- function(data, sens_spec, prefecture_name) {
+  data$probs <- runif(dim(data)[1])
+  data$sens <- sens_spec[1]
+  data$spec <- sens_spec[2]
+  if (sens_spec[1] < 0 | sens_spec[2] < 0) {
+    data <- data %>% 
+      group_by(run_num) %>%
+      mutate(
+        sens = first(pull_from_beta(beta_params_sens)),
+        spec = first(pull_from_beta(beta_params_spec))
+      )
+  }
+  return(
+    data %>%
+      filter(age_groups_lsr > 0) %>%
+      group_by(run_num, vctr.ctrl.eff) %>% mutate(
+      H4=calcSensSpecSeroPrev(ov16_pos_mating_any_mf, sens, spec, probs)
+    ) %>% pivot_longer(
+      cols=c(H4), names_to="Hypothesis", values_to = "ov16_prev"
+    ) %>%
+    group_by(run_num, vctr.ctrl.eff, Hypothesis, sens, spec) %>%
+    summarise(
+      ov16_prev = mean(ov16_prev),
+      .groups="drop"
+    ) %>%
+    mutate(prefecture=prefecture_name)
+  ) 
+}
+custom_calc_resid_pref <- function(original_data, new_data, desc) {
+  merged_data <- merge(original_data, new_data, by=c("prefecture"))
+  lsr_calculation <- merged_data %>%
+    group_by(prefecture, Hypothesis, vctr.ctrl.eff, run_num) %>%
+    mutate(
+      in_ci = (
+        (ov16_prev*100 > all_ages_lb) & 
+        (ov16_prev*100 < all_ages_ub)
+        ),
+      mse_value = (
+      ((ov16_prev*100) - (ov16_prev_all_ages*100))**2
+      )
+    ) %>%
+    dplyr::select(prefecture, Hypothesis, vctr.ctrl.eff, run_num, mse_value) %>%
+    mutate(Descriptor = desc)
+  return(lsr_calculation)
+}
+
+process_resids_pref <- function(resids, display_cis, combine_prefectures=list("oti/kpendjal"=-1, "keran"=-1, "bassar"=-1), normalize=FALSE, return_raw=FALSE) {
+  final_columns <- c("spec", "sens", "Hypothesis", "oti/kpendjal_No Seroreversion", "oti/kpendjal_Instant Seroreversion", "oti/kpendjal_Finite Seroreversion", "keran_No Seroreversion", "keran_Instant Seroreversion","keran_Finite Seroreversion", "bassar_No Seroreversion", "bassar_Instant Seroreversion","bassar_Finite Seroreversion")
+  oti_vc_eff_combined <- 0.75
+  final_resids <- resids %>%
+    group_by(prefecture, vctr.ctrl.eff, sens_spec, Descriptor, Hypothesis) %>%
+    summarise(
+      sample_mean = mean(mse_value),
+      sample_varience = var(mse_value),
+      se = sqrt(sample_varience / n_distinct(run_num)),
+      lower_bound = sample_mean - 1.96 * se,
+      upper_bound = sample_mean + 1.96 * se,
+      .groups="drop"
+    ) %>%
+    mutate(
+      output_val = paste0(signif(sample_mean, num_sig_figs)),
+      Hypothesis = factor(Hypothesis, levels=c("H1", "H2", "H3", "H4"))
+    ) %>%
+    separate(sens_spec, into = c("sens", "spec"), sep = ",", convert = TRUE)
+  if (all(combine_prefectures > 0)) {
+    final_resids <- final_resids %>%
+      mutate(
+        Descriptor = factor(Descriptor, levels=c("No Seroreversion", "Instant Seroreversion", "Finite Seroreversion")),
+        prefecture = factor(prefecture, levels=c("oti/kpendjal", 'keran', 'bassar'))
+      ) %>% 
+      dplyr::select(prefecture, Descriptor, Hypothesis, vctr.ctrl.eff, spec, sens, sample_mean, lower_bound, upper_bound) %>%
+      filter(
+            (prefecture == "oti/kpendjal" & vctr.ctrl.eff==oti_vc_eff_combined) |
+            (prefecture == "keran" & vctr.ctrl.eff==0.90) |
+            (prefecture == "bassar" & vctr.ctrl.eff==0.60)
+      ) %>%
+      mutate(
+        sample_mean = sample_mean * sapply(prefecture, function(x) combine_prefectures[[x]]),
+        lower_bound = lower_bound * sapply(prefecture, function(x) combine_prefectures[[x]]),
+        upper_bound = upper_bound * sapply(prefecture, function(x) combine_prefectures[[x]]),
+      ) %>% 
+      group_by(Descriptor, Hypothesis, sens, spec) %>%
+      summarise(
+        sample_mean = sum(sample_mean),
+        lower_bound = sum(lower_bound),
+        upper_bound = sum(upper_bound),
+        .groups="drop"
+      ) %>%
+      mutate(output_val = paste0(signif(sample_mean, num_sig_figs)))
+    if (return_raw) {
+      return(
+        final_resids %>%
+          dplyr::select(Descriptor, sens, spec, Hypothesis, sample_mean, lower_bound, upper_bound)
+      )
+    }
+    if (normalize) {
+      final_resids <- final_resids %>%
+        mutate(
+          sample_mean = (sample_mean - min(sample_mean)) / (max(sample_mean) - min(sample_mean)),
+          lower_bound = (lower_bound - min(lower_bound)) / (max(lower_bound) - min(lower_bound)),
+          upper_bound = (upper_bound - min(upper_bound)) / (max(upper_bound) - min(upper_bound))
+        ) %>%
+        mutate(output_val = paste0(signif(sample_mean, num_sig_figs)))
+    }
+    if (display_cis) {
+      final_resids <- final_resids %>%
+        mutate(
+          output_val = paste0(signif(sample_mean, num_sig_figs), " (", signif(lower_bound, num_sig_figs)," - ", signif(upper_bound, num_sig_figs),")")
+        )
+    }
+    return (
+      final_resids %>%
+        pivot_wider(id_cols=c(spec, sens, Hypothesis), names_from=c(Descriptor), values_from=c(output_val)) %>%
+        arrange(desc(spec), sens, Hypothesis)
+    )
+  }
+  if(display_cis) {
+    final_resids <- final_resids %>% 
+      mutate(
+        output_val = paste0(signif(sample_mean, num_sig_figs), " (", signif(lower_bound, num_sig_figs)," - ", signif(upper_bound, num_sig_figs),")")
+      )
+  }
+  final_resids_df <- final_resids %>% 
+    mutate(
+      Descriptor = factor(Descriptor, levels=c("No Seroreversion", "Instant Seroreversion", "Finite Seroreversion")),
+      prefecture = ifelse(prefecture == "oti/kpendjal" & vctr.ctrl.eff == 1, "oti/kpendjal_vc_100", prefecture),
+      prefecture = factor(prefecture, levels=c("oti/kpendjal", 'keran', 'bassar', 'oti/kpendjal_vc_100'))
+    ) %>%
+    dplyr::select(prefecture, Descriptor, Hypothesis, vctr.ctrl.eff, spec, sens, sample_mean, lower_bound, upper_bound, output_val) %>%
+    filter(
+          (prefecture == "oti/kpendjal" & vctr.ctrl.eff==0.75) |
+          (prefecture == "keran" & vctr.ctrl.eff==0.90) |
+          (prefecture == "bassar" & vctr.ctrl.eff==0.60) |
+          (prefecture == "oti/kpendjal_vc_100" & vctr.ctrl.eff==1)
+    )
+  if (return_raw) {
+    return(
+      final_resids_df %>%
+        dplyr::select(Descriptor, prefecture, sens, spec, Hypothesis, sample_mean, lower_bound, upper_bound)
+    )
+  }
+  final_resids_df <- final_resids_df %>%
+    dplyr::select(
+      -sample_mean, -lower_bound, -upper_bound
+    ) %>%
+    pivot_wider(id_cols=c(spec, sens, Hypothesis), names_from=c(prefecture, Descriptor), values_from=c(output_val)) %>% group_by(Hypothesis) %>% 
+    ungroup() %>% 
+    dplyr::select(all_of(final_columns)) %>%
+    arrange(desc(spec), sens, Hypothesis)
+  
+  return(
+     final_resids_df
+  )
+}
+
+if ("raw_resids_pref.csv" %in% list.files(paste0(overall_data_folder, analysis_folder)) | !use_calc_lsr_pref) {
+  resids_pref <- read.csv(paste0(overall_data_folder, analysis_folder, "/raw_resids_pref.csv"))
+} else {
+  resids_pref = c()
+  for(sens_spec in sens_spec_options_2) {
+    print(sens_spec)
+    if (all(sens_spec == c(-1, -1))) {
+      new_result <- rbind(
+        custom_calc_resid_pref_sampled_sens_spec(
+          rbind(
+            simulatedOti_k3_100_mount %>% mutate(prefecture ="oti/kpendjal"),
+            simulatedKeran_k3_100_mount %>% mutate(prefecture ="keran"),
+            simulatedBassar_k3_100_mount %>% mutate(prefecture ="bassar")
+          ),
+          sens_spec_from_dist,
+          groupedVillageData %>% mutate(prefecture=tolower(prefecture)),
+          "No Seroreversion"
+        ),
+        custom_calc_resid_pref_sampled_sens_spec(
+          rbind(
+            simulatedOti_k3_instant_seroreversion %>% mutate(prefecture ="oti/kpendjal"),
+            simulatedKeran_k3_instant_seroreversion %>% mutate(prefecture ="keran"),
+            simulatedBassar_k3_instant_seroreversion %>% mutate(prefecture ="bassar")
+          ),
+          sens_spec_from_dist,
+          groupedVillageData %>% mutate(prefecture=tolower(prefecture)),
+          "Instant Seroreversion"
+        ),
+        custom_calc_resid_pref_sampled_sens_spec(
+          rbind(
+            simulatedOti_k3_gradual_seroreversion %>% mutate(prefecture ="oti/kpendjal"),
+            simulatedKeran_k3_gradual_seroreversion %>% mutate(prefecture ="keran"),
+            simulatedBassar_k3_gradual_seroreversion %>% mutate(prefecture ="bassar")
+          ),
+          sens_spec_from_dist,
+          groupedVillageData %>% mutate(prefecture=tolower(prefecture)),
+          "Finite Seroreversion"
+        )
+      )
+    } else {
+      new_result <- rbind(
+          custom_calc_resid_pref(
+            groupedVillageData %>% mutate(prefecture=tolower(prefecture)),
+            rbind(
+              data_manip_resid_pref(simulatedOti_k3_100_mount, sens_spec, "oti/kpendjal"),
+              data_manip_resid_pref(simulatedKeran_k3_100_mount, sens_spec, "keran"),
+              data_manip_resid_pref(simulatedBassar_k3_100_mount, sens_spec, "bassar")#,
+            ),
+            "No Seroreversion"),
+          custom_calc_resid_pref(
+            groupedVillageData %>% mutate(prefecture=tolower(prefecture)),
+            rbind(
+              data_manip_resid_pref(simulatedOti_k3_instant_seroreversion, sens_spec, "oti/kpendjal"),
+              data_manip_resid_pref(simulatedKeran_k3_instant_seroreversion, sens_spec, "keran"),
+              data_manip_resid_pref(simulatedBassar_k3_instant_seroreversion, sens_spec, "bassar")#,
+            ),
+            "Instant Seroreversion"),
+          custom_calc_resid_pref(
+            groupedVillageData %>% mutate(prefecture=tolower(prefecture)),
+            rbind(
+              data_manip_resid_pref(simulatedOti_k3_gradual_seroreversion, sens_spec, "oti/kpendjal"),
+              data_manip_resid_pref(simulatedKeran_k3_gradual_seroreversion, sens_spec, "keran"),
+              data_manip_resid_pref(simulatedBassar_k3_gradual_seroreversion, sens_spec, "bassar")#,
+            ),
+            "Finite Seroreversion")
+      )
+    }
+    new_result$sens_spec <- paste0(sens_spec, collapse=", ")
+    if (length(resids_pref) == 0) {
+      resids_pref <- new_result
+    } else {
+      resids_pref <- rbind(
+        resids_pref,
+        new_result
+      )
+    }
+  }
+  
+  resids_pref %>% write.csv(paste0(overall_data_folder, analysis_folder, "/raw_resids_pref.csv"), row.names=FALSE)
+}
+
+
+resids <- process_resids_pref(resids_pref, TRUE)
+resids %>% kable('html', escape=FALSE) %>% kable_classic() %>% print()
+resids %>% write.csv(paste0("images/images_", run_version, "/base_resids_togo.csv"), row.names=FALSE)
+resids <- process_resids_pref(resids_pref, TRUE, combine_prefectures = c(0.394, 0.552, 0.054))
+resids %>% kable('html', escape=FALSE) %>% kable_classic() %>% print()
+resids %>% write.csv(paste0("images/images_", run_version, "/combined_resids_togo.csv"), row.names=FALSE)
+resids <- process_resids_pref(resids_pref, TRUE, combine_prefectures = c(0.394, 0.552, 0.054), normalize=TRUE)
+resids %>% kable('html', escape=FALSE) %>% kable_classic() %>% print()
+resids %>% write.csv(paste0("images/images_", run_version, "/combined_and_normalized_resids_togo.csv"), row.names=FALSE)
+
+raw_resids_df <- read.csv(paste0(overall_data_folder, analysis_folder, "/raw_resids_pref.csv")) 
+
+combined_raw_resids <- process_resids_pref(raw_resids_df, TRUE, combine_prefectures = c(0.394, 0.552, 0.054), return_raw=TRUE) %>%
+  mutate(
+    serorev_hyp = case_when(
+      grepl("Finite", Descriptor) ~ "(iii)",
+      grepl("Instant", Descriptor) ~ "(ii)",
+      TRUE ~ "(i)"
+    )
+  ) %>%
+  filter(sens == -1 & serorev_hyp != "(i)") %>%
+  mutate(
+    min_val = min(sample_mean, lower_bound, upper_bound),
+    max_val = max(sample_mean, lower_bound, upper_bound),
+    normalized_mean_mse = (
+      (sample_mean - min_val) / (max_val - min_val)
+    ),
+    normalized_lower_bound = (
+      (lower_bound - min_val) / (max_val - min_val)
+    ),
+    normalized_upper_bound = (
+      (upper_bound - min_val) / (max_val - min_val)
+    ),
+    normalized_lower_bound = case_when(
+      normalized_lower_bound == 0 ~ paste0(format(0, nsmall = 3)),
+      TRUE ~ paste0(signif(normalized_lower_bound, num_sig_figs))
+    ),
+    normalized_upper_bound = case_when(
+      normalized_upper_bound == 1 ~ paste0(format(1, nsmall = 2)),
+      TRUE ~ paste0(signif(normalized_upper_bound, num_sig_figs))
+    ),
+    label_val = paste0(
+      signif(normalized_mean_mse, num_sig_figs), "\n(",
+      normalized_lower_bound, " - ",
+      normalized_upper_bound, ")"
+    )
+  )
+
+combined_heat_map <- ggplot(
+  data = combined_raw_resids
+) +
+  geom_tile(
+    aes(
+      x=serorev_hyp,
+      y=1,
+      fill=normalized_mean_mse
+    )
+  ) +
+  geom_text(
+    aes(
+      x=serorev_hyp,
+      y=1,
+      label=label_val,
+      color=ifelse(normalized_mean_mse > 0.5, "black", "white")
+    ),
+    size=5
+  ) +
+  scale_color_identity() +
+  # scale_fill_viridis_c("Normalized MSE", option = "rocket", breaks=seq(0, 1, 0.5)) + 
+  scale_fill_gradientn(
+    "Normalized MSE",
+    colours = c("black", "grey20", "grey50", "grey70", "white"),# "#f58a1f"),
+    breaks=seq(0, 1, 0.5),
+    limits=c(0, 1)
+  ) +
+  theme_bw() +
+  theme(
+    panel.border = element_blank(),
+    strip.background = element_blank(),
+    axis.text = element_text(face="bold"),
+    legend.direction = "horizontal",
+    legend.position = "bottom",
+    axis.line.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank()
+  ) +
+  guides(
+    fill=guide_colorbar(title.position = "top", title.hjust=0.5)
+  ) +
+  xlab("") +
+  ylab("")
+combined_heat_map
+
+prefecture_raw_resids <- process_resids_pref(raw_resids_df, TRUE, return_raw=TRUE) %>%
+  mutate(
+    prefecture = factor(
+      case_when(
+        grepl("oti", prefecture) ~ "Oti/Kpendjal",
+        grepl("keran", prefecture) ~ "Keran",
+        TRUE ~ "Bassar"
+      ),
+      levels = c("Oti/Kpendjal", "Keran", "Bassar")
+    ),
+    serorev_hyp = case_when(
+      grepl("Finite", Descriptor) ~ "(iii)",
+      grepl("Instant", Descriptor) ~ "(ii)",
+      TRUE ~ "(i)"
+    )
+  ) %>%
+  filter(sens == -1 & serorev_hyp != "(i)") %>%
+  group_by(prefecture) %>%
+  mutate(
+    min_val = min(sample_mean, lower_bound, upper_bound),
+    max_val = max(sample_mean, lower_bound, upper_bound),
+    normalized_mean_mse = (
+      (sample_mean - min_val) / (max_val - min_val)
+    ),
+    normalized_lower_bound = (
+      (lower_bound - min_val) / (max_val - min_val)
+    ),
+    normalized_upper_bound = (
+      (upper_bound - min_val) / (max_val - min_val)
+    ),
+    normalized_lower_bound = case_when(
+      normalized_lower_bound == 0 ~ paste0(format(0, nsmall = 3)),
+      TRUE ~ paste0(signif(normalized_lower_bound, num_sig_figs))
+    ),
+    normalized_upper_bound = case_when(
+      normalized_upper_bound == 1 ~ paste0(format(1, nsmall = 2)),
+      TRUE ~ paste0(signif(normalized_upper_bound, num_sig_figs))
+    ),
+    label_val = paste0(
+      signif(normalized_mean_mse, num_sig_figs), "\n(",
+      normalized_lower_bound, " - ",
+      normalized_upper_bound, ")"
+    )
+  )
+
+prefecture_heat_map <- ggplot(
+  data = prefecture_raw_resids
+) +
+  geom_tile(
+    aes(
+      x=prefecture,
+      y=serorev_hyp,
+      fill=normalized_mean_mse
+    )
+  ) +
+  geom_text(
+    aes(
+      x=prefecture,
+      y=serorev_hyp,
+      label=label_val,
+      color=ifelse(normalized_mean_mse > 0.5, "black", "white")
+    ),
+    size=5
+  ) +
+  scale_color_identity() +
+  scale_fill_gradientn(
+    "Normalized MSE",
+    colours = c("black", "grey20", "grey50", "grey70", "white"),# "#f58a1f"),
+    breaks=seq(0, 1, 0.5),
+    limits=c(0, 1)
+  ) +
+  theme_bw() +
+  theme(
+    panel.border = element_blank(),
+    strip.background = element_blank(),
+    axis.text = element_text(face="bold"),
+    legend.direction = "horizontal",
+    legend.position = "bottom"
+  ) +
+  guides(
+    fill=guide_colorbar(title.position = "top", title.hjust=0.5)
+  ) +
+  xlab("") +
+  ylab("")
+prefecture_heat_map
+
+
+ggsave(
+  paste0("images/images_", run_version, "/togo_combined_normalized_mse.svg"),
+  combined_heat_map,
+  width=4250, height=3000, units="px", dpi=600
+)
+
+
+```
+
+### Plots Using Best Fit Treatment Scenarios
+
+#### Prefecture Bar Charts
+```{r}
+makePrefectureBarSensSpecBestFit <- function(original_data, projection_df_list, use_all_age=TRUE, descriptor="", sero_dfs=list(), use_dist_sens_spec=FALSE, sero_val=FALSE, hyps=c("H4i", "H4iii")) {
+  ylab <- "all ages"
+  if (grepl("under10", descriptor)) {
+    ylab <- "under 10 year-old"
+  }
+
+  pattern_vals <- c("none", "none", "stripe")
+  names(pattern_vals) <- c("Observed", hyps[1], hyps[2])
+  fill_vals <- c("grey", "white", "white")
+  names(fill_vals) <- c("Observed", hyps[1], hyps[2])
+  
+  error_bar_colors <- c("Observed Error Bar"="black", "Error Bar"="black")
+  combined_df <- NA
+  if (use_dist_sens_spec) {
+    projection_df_list <- tail(projection_df_list, 3)
+    sero_dfs <- tail(sero_dfs, 3)
+    if (length(sero_dfs) == length(projection_df_list)) {
+      names(sero_dfs) <- names(projection_df_list)
+    }
+  } else {
+    projection_df_list <- head(projection_df_list, length(projection_df_list)-3)
+  }
+  for(sens_spec_val in names(projection_df_list)) {
+    df_to_use <- projection_df_list[[sens_spec_val]]$all_ages
+    if(length(sero_dfs) > 0) {
+      df_to_use <- df_to_use %>% mutate(seroreversion = FALSE)
+      df_to_use <- rbind(df_to_use, sero_dfs[[sens_spec_val]]$all_ages %>% mutate(seroreversion = TRUE))
+    } else {
+      df_to_use <- df_to_use %>% mutate(seroreversion = sero_val)
+    }
+    if (!use_all_age) {
+      df_to_use <- projection_df_list[[sens_spec_val]]$under10
+      if(length(sero_dfs) > 0) {
+        df_to_use <- df_to_use %>% mutate(seroreversion = FALSE)
+        df_to_use <- rbind(df_to_use, sero_dfs[[sens_spec_val]]$under10 %>% mutate(seroreversion = TRUE))
+      } else {
+        df_to_use <- df_to_use %>% mutate(seroreversion = sero_val)
+      }
+    }
+    df_to_use <- df_to_use %>% dplyr::select(-sens_mean, -sens_lower, -sens_upper, -spec_mean, -spec_lower, -spec_upper)
+    sens_spec_val_to_use = str_replace_all(sens_spec_val, "oti", "oti/kpendjal")
+    if(!is.data.frame(combined_df)) {
+      combined_df <- df_to_use %>% mutate(sens_spec = sens_spec_val_to_use)
+    } else {
+      combined_df <- rbind(combined_df, df_to_use %>% mutate(sens_spec = sens_spec_val_to_use))
+    }
+
+    filtered_original_df <- original_data %>% mutate(prefecture=tolower(prefecture)) %>% filter(str_detect(sens_spec_val_to_use, prefecture))
+    if(use_all_age) {
+      combined_df <- rbind(
+        combined_df,
+        list(
+          c(-1, -1),
+          rep("Observed", 2), 
+          rep(filtered_original_df$all_ages_lb, 2) / 100,
+          rep(filtered_original_df$all_ages_ub, 2) / 100,
+          rep(filtered_original_df$ov16_prev_all_ages, 2),
+          rep(NA, 2),
+          rep(NA, 2),
+          rep(NA, 2),
+          c(FALSE, TRUE),
+          rep(sens_spec_val_to_use, 2)
+        )
+      )
+    } else {
+      combined_df <- rbind(
+        combined_df,
+        list(
+          # ov16 lb, ub, prev, mf q1, q3, prev, sero, sens spec
+          c(-1, -1), 
+          rep("Observed", 2), 
+          rep(filtered_original_df$children_lb, 2) / 100,
+          rep(filtered_original_df$children_ub, 2) / 100,
+          rep(filtered_original_df$ov16_prev_children, 2),
+          rep(NA, 2),
+          rep(NA, 2),
+          rep(NA, 2),
+          c(FALSE, TRUE),
+          rep(sens_spec_val_to_use, 2)
+        )
+      )
+    }
+  }
+  combined_df_2 <- combined_df %>% 
+    separate_wider_delim(sens_spec, delim="_", names=c("sens", "spec")) %>%
+    separate_wider_delim(sens, delim=" ", names=c("prefecture", "sens")) %>%
+    separate_wider_delim(spec, delim=" ", names=c("to_drop", "spec")) %>%
+    dplyr::select(-to_drop) %>% 
+    filter(
+      Hypothesis %in% c(
+        "Observed", 
+        "Mating worm pair with any mf"
+      )
+    ) %>%
+    mutate(
+      prefecture = factor(str_to_title(prefecture), levels=c("Oti/Kpendjal", "Keran", "Bassar")),
+      Hypothesis = factor(Hypothesis,
+                          c(
+                            "Observed", 
+                            "Mating worm pair with any mf"
+                          )),
+      error_bar_colors = ifelse(vctr.ctrl.eff < 0, "Observed Error Bar", "Error Bar"),
+      seroreversion = ifelse(seroreversion, hyps[2], hyps[1]),
+      seroreversion = ifelse(vctr.ctrl.eff < 0, "Observed", seroreversion),
+      seroreversion = factor(seroreversion, levels=c("Observed", hyps[1], hyps[2])),
+      sens = paste(as.numeric(sens)*100, "%", sep=""),
+      spec = paste(as.numeric(spec)*100, "%", sep="")
+    )
+
+  if(!use_all_age) {
+    combined_df_2 <- combined_df_2 %>% filter(prefecture != "Bassar")
+  }
+
+  combined_df_2 <- combined_df_2 %>% filter(
+    (prefecture == "Oti/Kpendjal" & vctr.ctrl.eff==0.75) |
+    (prefecture == "Keran" & vctr.ctrl.eff==0.90) |
+    (prefecture == "Bassar" & vctr.ctrl.eff==0.60) |
+    vctr.ctrl.eff == -1
+  )
+  
+  plot <- ggplot(data=combined_df_2) +
+    geom_bar_pattern(aes(x=prefecture, y=ov16_prev*100, pattern=seroreversion, fill=seroreversion, group=seroreversion), pattern_fill="black", position=position_dodge(width=0.9), width=0.6, stat="identity", color="black", pattern_key_scale_factor=0.25) + 
+    geom_errorbar(aes(x=prefecture, ymin=ov16_prev_lb*100, ymax=ov16_prev_ub*100, group=seroreversion, color=error_bar_colors), width=0.3, position=position_dodge(width=0.9)) +
+    scale_fill_manual("Model", values=fill_vals) +
+    scale_pattern_manual("Model", values=pattern_vals) +
+    scale_color_manual("", values=error_bar_colors) +
+    xlab("Prefecture") +
+    guides(
+      color="none",
+      fill = guide_legend(title = ""),
+      pattern = guide_legend(title = "")
+    ) +
+    theme_bw() +
+    theme(
+        plot.title = element_text(size=10, hjust = 0.5),
+        axis.title.y = element_text(size=10),
+        title = element_text(size=10),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=8),
+        legend.key.size = unit(0.8, 'lines'),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        axis.text.y = element_text(size=6),
+        axis.text.x = element_text(size=6, angle=70, vjust=0.5),
+        strip.placement = "outside",
+        panel.border = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.line.x = element_line(color = "black"),
+        axis.line.y = element_line(color = "black"),
+        strip.text.y = element_text(angle=0),
+        axis.line.y.right = element_blank()
+    ) +
+    geom_segment(aes(x=0.55, xend=1.45, y=-5, yend=-5), color="black", size=0.1) +
+    geom_segment(aes(x=0.55, xend=0.55, y=0, yend=-5), color="black", size=0.1) +
+    geom_segment(aes(x=1.45, xend=1.45, y=0, yend=-5), color="black", size=0.1) + 
+    geom_segment(aes(x=1.55, xend=2.45, y=-5, yend=-5), color="black", size=0.1) +
+    geom_segment(aes(x=1.55, xend=1.55, y=0, yend=-5), color="black", size=0.1) +
+    geom_segment(aes(x=2.45, xend=2.45, y=0, yend=-5), color="black", size=0.1)
+  if (!use_dist_sens_spec) {
+    plot <- plot +
+      ggtitle("Specificity") +
+      facet_grid(sens ~ spec) +
+      scale_y_continuous(
+        paste("Anti-Ov16", ylab, "seroprevalence (%)"),
+        limits = c(-5, max(combined_df_2$ov16_prev_ub*100)),
+        breaks=seq(0, 60, 20),
+        sec.axis = sec_axis(~ . , name = "Sensitivity", breaks = NULL, labels = NULL)
+      )
+  } else {
+    plot <- plot +
+      scale_y_continuous(
+        paste("Anti-Ov16", ylab, "seroprevalence (%)"),
+        limits = c(-5, max(combined_df_2$ov16_prev_ub*100)),
+        breaks=seq(0, 60, 20)
+      )
+  }
+  if(use_all_age) {
+    plot <- plot + 
+      geom_segment(aes(x=2.55, xend=3.45, y=-5, yend=-5), color="black", size=0.1) +
+      geom_segment(aes(x=2.55, xend=2.55, y=0, yend=-5), color="black", size=0.1) +
+      geom_segment(aes(x=3.45, xend=3.45, y=0, yend=-5), color="black", size=0.1)
+  }
+  print(plot)
+  ggsave(paste("images/images_", run_version, "/togo_sens_spec_analysis_bar_", descriptor, ".svg", sep=""), plot, units="in", height=5, width=6, dpi=300)
+}
+
+makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, TRUE, "both_all_ages_best_vc", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, hyps=c("H4ii", "H4iii"))
+
+makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, TRUE, "both_all_ages_best_vc_dist_sens_spec", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, use_dist_sens_spec=TRUE, hyps=c("H4ii", "H4iii"))
+
+makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, FALSE, "both_under_10_best_vc", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, hyps=c("H4ii", "H4iii"))
+
+makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, FALSE, "both_under_10_best_vc_dist_sens_spec", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, use_dist_sens_spec=TRUE, hyps=c("H4ii", "H4iii"))
+
+```
+
+#### Age Groups Using Just Best Fit VCs
+```{r}
+makeAgeGroupGraphsSensSpecBestFit <- function(originalData, projection_df_list, descriptor, facet_value="sens ~ spec", facet_1, facet_2, best_fit_sens_spec) {
+  originalData <- originalData %>% filter(age_groups != 0.0)
+  combined_df <- NA
+  for(sens_spec_val in names(projection_df_list)) {
+    if(!is.data.frame(combined_df)) {
+      combined_df <- projection_df_list[[sens_spec_val]] %>% mutate(sens_spec = sens_spec_val)
+    } else {
+      combined_df <- rbind(combined_df, projection_df_list[[sens_spec_val]] %>% mutate(sens_spec = sens_spec_val))
+    }
+  }
+
+  combined_df_2 <- combined_df %>% separate_wider_delim(sens_spec, delim="_", names=c("sens", "spec"))
+
+  tmp_projection_data <- combined_df_2 %>% 
+    mutate(vctr.ctrl.eff = paste(as.numeric(vctr.ctrl.eff)*100, "%", sep="")) %>% 
+    mutate(
+      sens = paste(as.numeric(sens)*100, "%", sep=""),
+      spec = paste(as.numeric(spec)*100, "%", sep="")
+    ) %>%
+    mutate(
+      sero_type = factor(sero_type, levels=c("H4i", "H4ii", "Midpoint", "H4iii")),
+      sens_spec = paste0(sens, ", ", spec)
+    ) %>% filter(
+      sens_spec %in% best_fit_sens_spec
+    )
+  
+    
+
+    color_vals <- c("H4i"="black", "H4ii"="black", "Midpoint"="black", "H4iii"="black")
+    linetype_vals <- c("H4i"="solid", "H4ii"="dotted", "Midpoint"="dashed", "H4iii"="solid")
+    p1 <- ggplot() + 
+      geom_line(
+        aes(x=age_groups, y=ov16_prev*100, 
+            linetype=sero_type,
+            color=sero_type
+            ), 
+        size=0.5, data=tmp_projection_data
+      ) +
+      geom_ribbon(
+        aes(x=age_groups, ymin=ov16_q1*100, ymax=ov16_q3*100,
+            fill=sero_type,
+            linetype=sero_type
+            ),
+        alpha=0.1,
+        size=0.1,
+        data=tmp_projection_data
+      ) +
+      geom_point(
+        aes(x=age_groups, y=ov16_seroprev*100), 
+        color="black", alpha=0.5, data=originalData, size=0.5
+      ) +
+      geom_errorbar(
+        aes(x=age_groups, ymin=ov16_wilson_lb*100, ymax=ov16_wilson_ub*100), 
+        width=2.5, alpha=0.5, color="black", data=originalData
+      ) +
+      xlab("Age (years)") + ylab("Anti-Ov16 seroprevalence (%)") +
+      scale_color_manual("", values=color_vals) +
+      scale_fill_manual("", values=color_vals) +
+      scale_linetype_manual("", values=linetype_vals) +
+      theme_bw() +
+      scale_y_continuous(
+        limits=c(0, 101), 
+        breaks=seq(0, 100, 25), 
+        sec.axis = sec_axis(~ . , name = facet_1, breaks = NULL, labels = NULL)
+      ) +
+      scale_x_continuous(
+        limits=c(0, 81), 
+        breaks=seq(0, 100, 20) 
+      ) +
+      theme_bw() +
+      theme(
+        plot.title = element_text(size=10, hjust = 0.5),
+        axis.title.y = element_text(size=10),
+        title = element_text(size=10),
+        legend.text = element_text(size=6),
+        legend.title = element_text(size=8),
+        legend.key.size = unit(0.8, 'lines'),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        axis.text.y = element_text(size=6),
+        axis.text.x = element_text(size=6),
+        strip.placement = "outside",
+        panel.grid.minor = element_blank(),
+        axis.line.x = element_line(color = "black"),
+        axis.line.y = element_line(color = "black"),
+        strip.text.y = element_text(angle=0),
+        axis.line.y.right = element_blank()
+      )
+    ggsave(paste("images/images_", run_version, "/togo_sens_spec_analysis_", descriptor, ".svg", sep=""), p1, units="in", height=4, width=5.5, dpi=300)
+    print(p1)
+}
+
+# best fit with scenarios from Luis' paper
+if ("togo_combined_best_fit_data.rds" %in% list.files(paste0(overall_data_folder, analysis_folder))) {
+  best_fit_vc <- readRDS(paste(overall_data_folder, analysis_folder, "/togo_combined_best_fit_data.rds", sep=""))
+} else {
+  best_fit_vc <- list()
+  best_fit_vc_100_mount <- selectRunsFromAllPrefectures(
+   simulatedOti_k3_100_mount %>% filter(vctr.ctrl.eff == 0.75) %>% mutate(run_num = run_num - 1500, vctr.ctrl.eff=0.6),
+   (simulatedKeran_k3_100_mount %>% filter(vctr.ctrl.eff == 0.90) %>% mutate(run_num = run_num - 2, vctr.ctrl.eff=0.6)),
+   simulatedBassar_k3_100_mount %>% filter(vctr.ctrl.eff == 0.60),
+   sampleNum=sample_num_ov16) %>% mutate(sero_type="i")
+  
+  best_fit_vc_instant_seroreversion <- selectRunsFromAllPrefectures(
+   simulatedOti_k3_instant_seroreversion %>% filter(vctr.ctrl.eff == 0.75) %>% mutate(run_num = run_num - 1500, vctr.ctrl.eff=0.75),
+   (simulatedKeran_k3_instant_seroreversion %>% filter(vctr.ctrl.eff == 0.90) %>% mutate(run_num = run_num - 2, vctr.ctrl.eff=0.75)),
+   simulatedBassar_k3_instant_seroreversion %>% filter(vctr.ctrl.eff == 0.60) %>% mutate(vctr.ctrl.eff=0.75),
+   sampleNum=sample_num_ov16) %>% mutate(sero_type="ii")
+  
+  best_fit_vc_finite_seroreversion <- selectRunsFromAllPrefectures(
+   simulatedOti_k3_gradual_seroreversion %>% filter(vctr.ctrl.eff == 0.75) %>% mutate(run_num = run_num - 1500, vctr.ctrl.eff=0.90),
+   (simulatedKeran_k3_gradual_seroreversion %>% filter(vctr.ctrl.eff == 0.90) %>% mutate(run_num = run_num - 2, vctr.ctrl.eff=0.90)),
+   simulatedBassar_k3_gradual_seroreversion %>% filter(vctr.ctrl.eff == 0.60) %>% mutate(vctr.ctrl.eff=0.90),
+   sampleNum=sample_num_ov16) %>% mutate(sero_type="iii")
+  best_fit_total = rbind(
+    best_fit_vc_100_mount,
+    best_fit_vc_instant_seroreversion,
+    best_fit_vc_finite_seroreversion
+  )
+  for (sens_spec_val in sens_spec_options) {
+    print(sens_spec_val)
+    tmp <- summarizeSimulationData(best_fit_total %>% mutate(sens = sens_spec_val[1], spec=sens_spec_val[2]), sens_spec_val, groupBySex=FALSE) %>% mutate(sero_type=case_when(
+      vctr.ctrl.eff == 0.6 ~ "H4i",
+      vctr.ctrl.eff == 0.75 ~ "H4ii",
+      TRUE ~ "H4iii")
+    )
+    tmp_hi <- tmp %>% filter(sero_type == "H4i")
+    tmp_hii <- tmp %>% filter(sero_type == "H4ii")
+    tmp_hiii <- tmp %>% filter(sero_type == "H4iii") %>% dplyr::select(age_groups, Hypothesis, ov16_prev)
+    tmp_midpoint <- tmp_hii %>% left_join(tmp_hiii, by=c("age_groups", "Hypothesis")) %>% mutate(ov16_prev = (ov16_prev.x + ov16_prev.y) / 2, sero_type="Midpoint") %>% dplyr::select(-ov16_prev.x, -ov16_prev.y) %>% mutate(
+      ov16_q1=NaN, ov16_q3=NaN
+    )
+   best_fit_vc[[paste(sens_spec_val, collapse="_")]] <- rbind(tmp, tmp_midpoint)
+  }
+  tmp <- summarizeSimulationData(best_fit_total, sens_spec_from_dist, groupBySex=FALSE) %>% mutate(sero_type=case_when(
+    vctr.ctrl.eff == 0.6 ~ "H4i",
+    vctr.ctrl.eff == 0.75 ~ "H4ii",
+    TRUE ~ "H4iii")
+  )
+  tmp_hi <- tmp %>% filter(sero_type == "H4i")
+  tmp_hii <- tmp %>% filter(sero_type == "H4ii")
+  tmp_hiii <- tmp %>% filter(sero_type == "H4iii") %>% dplyr::select(age_groups, Hypothesis, ov16_prev)
+  tmp_midpoint <- tmp_hii %>% left_join(tmp_hiii, by=c("age_groups", "Hypothesis")) %>% mutate(ov16_prev = (ov16_prev.x + ov16_prev.y) / 2, sero_type="Midpoint") %>% dplyr::select(-ov16_prev.x, -ov16_prev.y) %>% mutate(ov16_q1=NaN, ov16_q3=NaN)
+  best_fit_vc[[
+    paste0(round(tmp$sens_mean[1], 2), "_", round(tmp$spec_mean[1], 2))
+  ]] <- rbind(tmp, tmp_midpoint)
+  
+  saveRDS(best_fit_vc, paste(overall_data_folder, analysis_folder, "/togo_combined_best_fit_data.rds", sep=""))
+}
+
+best_fit_sens <- as.numeric(str_split(tail(names(best_fit_vc), 1), "_")[[1]][1]) * 100
+best_fit_spec <- as.numeric(str_split(tail(names(best_fit_vc), 1), "_")[[1]][2]) * 100
+
+makeAgeGroupGraphsSensSpecBestFit(togoOv16Data, lapply(best_fit_vc, function(x) {filter(x, sero_type != "H4i" & age_groups != 2.5)}), "best_vc_all", "~sens_spec", "", "Sensitivity, Specificity", best_fit_sens_spec = paste0(best_fit_sens, "%, ", round(best_fit_spec), "%"))
+
+best_fit_vc_h4ii <- lapply(best_fit_vc, function(df) {
+  df %>% filter(sero_type == "H4iii")
+})
+makeAgeGroupGraphsSensSpecBestFit(togoOv16Data, best_fit_vc_h4ii, "best_vc_h4iii", "~sens_spec", "", "Sensitivity, Specificity", best_fit_sens_spec = paste0(best_fit_sens, "%, ", best_fit_spec, "%"))
+```

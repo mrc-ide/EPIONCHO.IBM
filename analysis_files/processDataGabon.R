@@ -1,5 +1,5 @@
 library(dplyr)
-processRCSFiles <- function (files='/', verbose=TRUE, onlyCalcMFP=FALSE, useSerorevert=FALSE, onlyCalcOv16Trends=FALSE) {
+processDataGabon <- function (files='raw_data/gabon_output/', verbose=TRUE, onlyCalcMFP=FALSE, useSerorevert=FALSE, onlyCalcOv16Trends=FALSE) {
   allOutputs <- data.frame()
   fileToUse <- files
 
@@ -32,25 +32,15 @@ processRCSFiles <- function (files='/', verbose=TRUE, onlyCalcMFP=FALSE, useSero
     abr_vals <- c(abr_vals, tmpRDSData$ABR)
     if(onlyCalcOv16Trends) {
       sero_prev_vals <- tmpRDSData$ov16_seroprevalence[c(1,seq(from=183, to=length(tmpRDSData$ov16_seroprevalence), by=183))]
-      serorev_prev_vals <- tmpRDSData$ov16_seroprevalence_sero[c(1,seq(from=183, to=length(tmpRDSData$ov16_seroprevalence_sero), by=183))]
       total_sero_vals <- length(sero_prev_vals)
       if(i == 1) {
-        ov16_trend_df <- matrix(ncol=5, nrow=total_files*total_sero_vals)
-        colnames(ov16_trend_df) <- c("ABR", "vctr.ctrl.eff", "Ke", "run_num", "ov16_vals")
-        ov16_serorevert_trend_df <- matrix(ncol=5, nrow=total_files*total_sero_vals)
-        colnames(ov16_serorevert_trend_df) <- c("ABR", "vctr.ctrl.eff", "Ke", "run_num", "ov16_vals")
+        ov16_trend_df <- matrix(ncol=4, nrow=total_files*length(sero_prev_vals))
+        colnames(ov16_trend_df) <- c("ABR", "Ke", "run_num", "ov16_vals")
       }
       ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),1] <- rep(tmpRDSData$ABR, total_sero_vals)
-      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),2] <- rep(vctr.ctrl.val, total_sero_vals)
-      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),3] <- rep(tmpRDSData$Ke, total_sero_vals)
-      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),4] <- rep(run_num, total_sero_vals)
-      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),5] <- sero_prev_vals
-
-      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),1] <- rep(tmpRDSData$ABR, total_sero_vals)
-      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),2] <- rep(vctr.ctrl.val, total_sero_vals)
-      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),3] <- rep(tmpRDSData$Ke, total_sero_vals)
-      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),4] <- rep(run_num, total_sero_vals)
-      ov16_serorevert_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),5] <- serorev_prev_vals
+      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),2] <- rep(tmpRDSData$Ke, total_sero_vals)
+      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),3] <- rep(i,total_sero_vals)
+      ov16_trend_df[(1+(total_sero_vals*(i-1))):(i*total_sero_vals),4] <- sero_prev_vals
       i <- i + 1
       next
     }
@@ -112,8 +102,8 @@ processRCSFiles <- function (files='/', verbose=TRUE, onlyCalcMFP=FALSE, useSero
   print(paste("Avg MDA Years:", mean(mda_vals)))
 
   if(onlyCalcOv16Trends) {
-    ov16Return <- list(ov16_trend_df, ov16_serorevert_trend_df)
-    names(ov16Return) <- c("ov16_trend_df", "ov16_serorevert_trend_df")
+    ov16Return <- list(ov16_trend_df)
+    names(ov16Return) <- c("ov16_trend_df")
     return(ov16Return)
   }
 
@@ -143,10 +133,19 @@ processRCSFiles <- function (files='/', verbose=TRUE, onlyCalcMFP=FALSE, useSero
   return(returnVal)
 }
 
-saveRDS(processRCSFiles(onlyCalcMFP = TRUE), "ov16_test/gabon_agg_data/gabon_mfp_abr_all_age_data.RDS")
+saveRDS(processRCSFiles(onlyCalcMFP = TRUE), "data/model_processed_data/rdt_gabon_mfp_data.RDS")
 
-saveRDS(processRCSFiles(onlyCalcOv16Trends=TRUE), "ov16_test/gabon_agg_data/gabon_ov16_trends.RDS")
+saveRDS(processRCSFiles(onlyCalcOv16Trends=TRUE), "data/model_processed_data/rdt_gabon_ov16_trends.RDS")
 
-saveRDS(processRCSFiles(), "ov16_test/gabon_agg_data/gabon_mfp_abr_data.RDS")
+saveRDS(processRCSFiles(), "data/model_processed_data/rdt_gabon_100_mount_data.RDS")
 
-saveRDS(processRCSFiles(useSerorevert=TRUE), "gabon_agg_data/gabon_seroreversion_data.RDS")
+saveRDS(processRCSFiles(useSerorevert=TRUE), "data/model_processed_data/rdt_gabon_seroreversion_data.RDS")
+
+# Uncomment if you have also run the onchosim simulations
+# saveRDS(processRCSFiles(files='raw_data/gabon_output_onchosim/', onlyCalcMFP = TRUE), "data/model_processed_data_onchosim/rdt_gabon_mfp_data.RDS")
+
+# saveRDS(processRCSFiles(files='raw_data/gabon_output_onchosim/', onlyCalcOv16Trends=TRUE), "data/model_processed_data_onchosim/rdt_gabon_ov16_trends.RDS")
+
+# saveRDS(processRCSFiles(files='raw_data/gabon_output_onchosim/', ), "data/model_processed_data_onchosim/rdt_gabon_100_mount_data.RDS")
+
+# saveRDS(processRCSFiles(files='raw_data/gabon_output_onchosim/', useSerorevert=TRUE), "data/model_processed_data_onchosim/rdt_gabon_seroreversion_data.RDS")

@@ -1,5 +1,5 @@
 library(dplyr)
-processRCSFiles <- function (files='/', which_timestep=2, verbose=TRUE, onlyCalcMFP=FALSE, useSerorevert="none", onlyCalcOv16Trends=FALSE) {
+processDataTogo <- function (files='raw_data/togo_output/', which_timestep=2, verbose=TRUE, onlyCalcMFP=FALSE, useSerorevert="none", onlyCalcOv16Trends=FALSE, min_index = 0, max_index = 100000) {
   allOutputs <- data.frame()
   fileToUse <- files
 
@@ -7,7 +7,7 @@ processRCSFiles <- function (files='/', which_timestep=2, verbose=TRUE, onlyCalc
   mda_vals <- c()
   abr_vals <- c()
   mf_prev_vals <- c()
-  total_files <- length(list.files(fileToUse))
+  total_files <- min(length(list.files(fileToUse)), max_index - min_index)
   start_time <- Sys.time() 
   mf_prev_df <- data.frame()
   ov16_trend_df <- matrix(ncol=5, nrow=0)
@@ -19,18 +19,22 @@ processRCSFiles <- function (files='/', which_timestep=2, verbose=TRUE, onlyCalc
         gc()
       }
     }
-    tryCatch(
-    {
-      tmpRDSData <- readRDS(paste(fileToUse, file,sep=""))
-    },
-    error = function(e) {
-      message(paste("Error occurred while reading:", fileToUse))
-    }
-    )
-    
     file_parts <- unlist(strsplit(file, "_"))
     run_num <- as.numeric(sub("\\.rds$", "", file_parts[length(file_parts)]))
+    if (run_num >= max_index | run_num < min_index) {
+      next
+    }
+    tryCatch(
+        {
+        tmpRDSData <- readRDS(paste(fileToUse, file, sep=""))
+        },
+        error = function(e) {
+        message(paste("Error occurred while reading:", fileToUse))
+        }
+    )
 
+
+    
     mf_prev_vals <- c(mf_prev_vals, tmpRDSData$mf_prev[(119/(1/366))])
     mda_vals <- c(mda_vals, tmpRDSData$MDA)
     abr_vals <- c(abr_vals, tmpRDSData$ABR)
@@ -63,10 +67,13 @@ processRCSFiles <- function (files='/', which_timestep=2, verbose=TRUE, onlyCalc
       curr_mf_prev_vals <- tmpRDSData$mf_prev[c(1,seq(from=183, to=length(tmpRDSData$mf_prev), by=183))]
       total_mf_prev_vals <- length(curr_mf_prev_vals)
       if(i == 1) {
+        # mf_prev_df <- data.frame(matrix(ncol=7, nrow=total_files))
+        # colnames(mf_prev_df) <- c("ABR", "Ke", "vctr.ctrl.eff", "run_num", "mf_prev_start_2015", "mf_prev_mid_2015", "mf_prev_after_2015")
         mf_prev_df <- data.frame(matrix(ncol=5, nrow=total_files*total_mf_prev_vals))
         colnames(mf_prev_df) <- c("ABR", "Ke", "vctr.ctrl.eff", "run_num", "mf_prev")
       
       }
+      #mf_prev_df[i,] <- list(tmpRDSData$ABR, tmpRDSData$Ke, vctr.ctrl.val, i, tmpRDSData$mf_prev[(119/(1/366) - 1)], tmpRDSData$mf_prev[(119/(1/366) + 0.5/(1/366))], tmpRDSData$mf_prev[(119/(1/366) + 1/(1/366))])
       mf_prev_df[(1+(total_mf_prev_vals*(i-1))):(i*total_mf_prev_vals),1] <- rep(tmpRDSData$ABR, total_mf_prev_vals)
       mf_prev_df[(1+(total_mf_prev_vals*(i-1))):(i*total_mf_prev_vals),2] <- rep(tmpRDSData$Ke, total_mf_prev_vals)
       mf_prev_df[(1+(total_mf_prev_vals*(i-1))):(i*total_mf_prev_vals),3] <- rep(vctr.ctrl.val, total_mf_prev_vals)
@@ -132,6 +139,9 @@ processRCSFiles <- function (files='/', which_timestep=2, verbose=TRUE, onlyCalc
     return(mfpReturn)
   }
 
+  #abr_vs_mf_prev <- ggplot() + geom_boxplot(aes(x=factor(abr_vals), y=mf_prev_vals)) +
+  #  scale_y_continuous(breaks=seq(0, 0.3, 0.05), limits = c(0, 0.3))
+
   allOutputs <- allOutputs %>% mutate(age_groups = case_when(
                                                 age <= 30 ~ ceiling(age/1)*1,
                                                 age <= 75 ~ ceiling(age/5)*5,
@@ -167,31 +177,31 @@ processRCSFiles <- function (files='/', which_timestep=2, verbose=TRUE, onlyCalc
                                               TRUE ~ 73
                                           )
                                       )
-  returnVal <- list(allOutputs, mf_prev_vals, abr_vals, mda_vals)
-  names(returnVal) <- c("allOutputs", "mf_prev", "abr_vals", "mda_vals")
+  returnVal <- list(allOutputs, mf_prev_vals, abr_vals, mda_vals)#, abr_vs_mf_prev)
+  names(returnVal) <- c("allOutputs", "mf_prev", "abr_vals", "mda_vals")#, "abr_vs_mf_prev")
   return(returnVal)
 }
 
-saveRDS(processRCSFiles(onlyCalcMFP = TRUE), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_mfp_trends_data.RDS")
+saveRDS(processDataTogo(onlyCalcMFP = TRUE), "data/model_processed_data/togo_keran_mfp_data.RDS", max_index = 4500)
 
-saveRDS(processRCSFiles(onlyCalcOv16Trends=TRUE), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_ov16_trends.RDS")
+saveRDS(processDataTogo(which_timestep=2), "data/model_processed_data/togo_keran_100_mount_data_start_2015.RDS", max_index = 4500)
 
-saveRDS(processRCSFiles(onlyCalcMFP = TRUE), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_mfp_data.RDS")
+saveRDS(processDataTogo(which_timestep=2, useSerorevert="finite"), "data/model_processed_data/togo_keran_finite_seroreversion_data_start_2015.RDS", max_index = 4500)
 
-saveRDS(processRCSFiles(which_timestep=2), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_100_mount_data_start_2015.RDS")
+saveRDS(processDataTogo(which_timestep=2, useSerorevert="instant"), "data/model_processed_data/togo_keran_instant_seroreversion_data_start_2015.RDS", max_index = 4500)
 
-saveRDS(processRCSFiles(which_timestep=2, useSerorevert="finite"), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_finite_seroreversion_data_start_2015.RDS")
+saveRDS(processDataTogo(onlyCalcMFP = TRUE), "data/model_processed_data/togo_bassar_mfp_data.RDS", min_index = 4500, max_index = 9000)
 
-saveRDS(processRCSFiles(which_timestep=2, useSerorevert="instant"), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_instant_seroreversion_data_start_2015.RDS")
+saveRDS(processDataTogo(which_timestep=2), "data/model_processed_data/togo_bassar_100_mount_data_start_2015.RDS", min_index = 4500, max_index = 9000)
 
-saveRDS(processRCSFiles(which_timestep=3), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_100_mount_data_mid_2015.RDS")
+saveRDS(processDataTogo(which_timestep=2, useSerorevert="finite"), "data/model_processed_data/togo_bassar_finite_seroreversion_data_start_2015.RDS", min_index = 4500, max_index = 9000)
 
-saveRDS(processRCSFiles(which_timestep=3, useSerorevert="finite"), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_finite_seroreversion_data_mid_2015.RDS")
+saveRDS(processDataTogo(which_timestep=2, useSerorevert="instant"), "data/model_processed_data/togo_bassar_instant_seroreversion_data_start_2015.RDS", min_index = 4500, max_index = 9000)
 
-saveRDS(processRCSFiles(which_timestep=3, useSerorevert="instant"), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_instant_seroreversion_data_mid_2015.RDS")
+saveRDS(processDataTogo(onlyCalcMFP = TRUE), "data/model_processed_data/togo_oti_mfp_data.RDS", min_index = 9000, max_index = 13500)
 
-saveRDS(processRCSFiles(which_timestep=4), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_100_mount_data_end_2015.RDS")
+saveRDS(processDataTogo(which_timestep=2), "data/model_processed_data/togo_oti_100_mount_data_start_2015.RDS", min_index = 9000, max_index = 13500)
 
-saveRDS(processRCSFiles(which_timestep=4, useSerorevert="finite"), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_finite_seroreversion_data_end_2015.RDS")
+saveRDS(processDataTogo(which_timestep=2, useSerorevert="finite"), "data/model_processed_data/togo_oti_finite_seroreversion_data_start_2015.RDS", min_index = 9000, max_index = 13500)
 
-saveRDS(processRCSFiles(which_timestep=4, useSerorevert="instant"), "ov16_test_togo/oti_agg_data_final_worm_revert/togo_oti_instant_seroreversion_data_end_2015.RDS")
+saveRDS(processDataTogo(which_timestep=2, useSerorevert="instant"), "data/model_processed_data/togo_oti_instant_seroreversion_data_start_2015.RDS", min_index = 9000, max_index = 13500)
