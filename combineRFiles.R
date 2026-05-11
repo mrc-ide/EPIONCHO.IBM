@@ -23,13 +23,13 @@ combineRFiles <- function(folderName="R/", outputFileName="all_funcs_combined.R"
 outputFileName <- commandArgs(trailingOnly = TRUE)[1]
 modelRunFileName <- commandArgs(trailingOnly = TRUE)[2]
 
-if(outputFileName != "") {
-  if(modelRunFileName != "") {
+if(!is.na(outputFileName) && outputFileName != "") {
+  if(!is.na(modelRunFileName) && modelRunFileName != "") {
     combineRFiles(outputFileName=outputFileName, modelRunFileName=modelRunFileName)
   } else {
     combineRFiles(outputFileName=outputFileName)
   }
-} else if (modelRunFileName != "") {
+} else if (!is.na(modelRunFileName) && modelRunFileName != "") {
   combineRFiles(modelRunFileName=modelRunFileName)
 } else {
   combineRFiles()

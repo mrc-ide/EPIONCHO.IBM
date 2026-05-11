@@ -6,7 +6,7 @@ helpval="Usage: $0 [-f file to run] [-n number of runs] [-c clean output and log
 clean=false
 numberofruns=200
 outputprefix="test_"
-while getopts ":f:m:o:n:c" opt; do
+while getopts ":f:m:o:n:c:p" opt; do
   case $opt in
     c) 
       echo "Cleaning folders before running"
@@ -65,9 +65,14 @@ dos2unix $HOME/EPIONCHO.IBM/${file}
 dos2unix $HOME/EPIONCHO.IBM/run.sh
 
 numrunoption="1-${numberofruns}"
+if [[ $numberofruns == *-* ]]; then
+  numrunoption="${numberofruns}"
+fi
+
+echo "qsub -J value: ${numrunoption}"
 
 if [ $(pwd) == "$HOME/${folder}" ]; then
-  qsub -J "$numrunoption" run.sh -v OUTPUTFOLDERNAME="${outputfolder}" FILETORUN="${file}" OUTPUTPREFIX="${outputprefix}"
+  qsub -J "$numrunoption" -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix}" run.sh
 else
    echo "Not in the right folder"
 fi
