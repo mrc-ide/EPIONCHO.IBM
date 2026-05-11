@@ -2,9 +2,10 @@
 folder="EPIONCHO.IBM"
 outputfolder="output"
 file=""
-helpval="Usage: $0 [-f file to run] [-n number of runs] [-c clean output and logs folder] [-m model folder (default: EPIONCHO.IBM)] [-o output folder (default: output)]"
+helpval="Usage: $0 [-f file to run] [-n number of runs] [-c clean output and logs folder] [-m model folder (default: EPIONCHO.IBM)] [-o output folder (default: output)] [-p output prefix (defailt: test_)]"
 clean=false
 numberofruns=200
+outputprefix="test_"
 while getopts ":f:m:o:n:c" opt; do
   case $opt in
     c) 
@@ -15,6 +16,7 @@ while getopts ":f:m:o:n:c" opt; do
     n) numberofruns="$OPTARG" ;;
     m) folder="$OPTARG" ;;
     o) outputfolder="$OPTARG" ;;
+    p) outputprefix="$OPTARG" ;;
     :)
       if [[ "$OPTARG" == "f" ]]; then
         echo "Error: Option -f requires an argument." >&2
@@ -36,7 +38,7 @@ if [[ -z "$file" ]]; then
 fi
 
 if [[ "$clean" == true ]]; then
-    echo "Should be cleaning"
+    echo "TODO: Should be cleaning"
 fi
 
 if ! [ -d "${outputfolder}" ]; then
@@ -53,7 +55,7 @@ if ! [ -d "rout" ]; then
     mkdir -p $HOME/${folder}/rout/
 fi
 
-module load anaconda3/personal
+eval "$(~/anaconda3/bin/conda shell.bash hook)"
 source ~/anaconda3/etc/profile.d/conda.sh
 
 conda activate myenv 
@@ -65,8 +67,7 @@ dos2unix $HOME/EPIONCHO.IBM/run.sh
 numrunoption="1-${numberofruns}"
 
 if [ $(pwd) == "$HOME/${folder}" ]; then
-   qsub -J "$numrunoption" run.sh 
-   qstat
+  qsub -J "$numrunoption" run.sh -v OUTPUTFOLDERNAME="${outputfolder}" FILETORUN="${file}" OUTPUTPREFIX="${outputprefix}"
 else
    echo "Not in the right folder"
 fi

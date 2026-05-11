@@ -1,24 +1,13 @@
-
-output_prefix = "test_"
+output_prefix = Sys.getenv("OUTPUT_PREFIX")
+output_folder = Sys.getenv("OUTPUT_FOLDER")
 iter <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
 set.seed(iter + (iter*3758))
 
+num_iters_per_paramset = 200
 DT_in <- 1/366
 
-kEs = c(rep(0.2, 200), rep(0.3, 200))
+kEs = c(rep(0.2, num_iters/2), rep(0.3, num_iters/2))
 kE <- kEs[iter]
-
-if(kE == 0.2) {
-  delta_hz_in_val =  0.385
-  delta_hinf_in_val = 0.003
-  c_h_in_val = 0.008
-  gam_dis_in_val = 0.2
-} else {
-  delta_hz_in_val =  0.186
-  delta_hinf_in_val = 0.003
-  c_h_in_val = 0.005
-  gam_dis_in_val = 0.3
-}
 
 
 if (kE == 0.2) {
@@ -40,7 +29,7 @@ total_timesteps = treatment_stop_year + years_post_treatment #final duration
 output <- ep.equi.sim(
   time.its = total_timesteps,
   ABR = ABR_in,
-  N.in = 440,
+  N.in = 400,
   treat.int = treatment_interval,
   treat.prob = 0.65,
   give.treat = give_treat,
@@ -53,12 +42,13 @@ output <- ep.equi.sim(
   run_equilibrium = TRUE,
   morbidity_module = "YES",
   equilibrium = NA,
-  print_progress = TRUE
+  print_progress = TRUE,
+  prob_serorevert_fast = 0.5
 )
 
 params <- list(ABR_in, kE)
 names(params) <- c('ABR', 'Ke')
 output <- append(output, params)
 tmp_dir <- Sys.getenv("TMPDIR")
-saveRDS(output, paste(tmp_dir, "/output/",
-                      output_prefix , iter, ".rds", sep = ""))
+saveRDS(output, paste(tmp_dir, "/", output_folder, "/",
+                      output_prefix , "_", iter, ".rds", sep = ""))
