@@ -14,11 +14,12 @@ eval "$(~/anaconda3/bin/conda shell.bash hook)"
 source ~/anaconda3/etc/profile.d/conda.sh
 
 cp "$HOME/EPIONCHO.IBM/${filetorun}" $TMPDIR
-mkdir $TMPDIR/data
+mkdir -p $TMPDIR/inst/extdata
 mkdir $TMPDIR/rfils
 mkdir $TMPDIR/rout
 mkdir $TMPDIR/output
-cp $HOME/EPIONCHO.IBM/data/eye_disease_probabilties_updated.rds $TMPDIR/data
+
+cp $HOME/EPIONCHO.IBM/inst/extdata/eye_disease_probabilties_updated.rds $TMPDIR/inst/extdata
 
 mkdir -p $HOME/EPIONCHO.IBM/rfils
 mkdir -p $HOME/EPIONCHO.IBM/rout
