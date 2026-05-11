@@ -4,11 +4,14 @@
 #PBS -o /rds/general/user/{short_username}/home/EPIONCHO.IBM/logs/
 #PBS -e /rds/general/user/{short_username}/home/EPIONCHO.IBM/logs/
 
-filetorun="run_model_oae.R" # change this as needed
-outputname="oem_test" # change this as needed
+filetorun="${FILETORUN}" # change this as needed
+# outputname="${}" # change this as needed
 
-module load intel-suite
-module load anaconda3/personal
+export OUTPUT_PREFIX="${OUTPUTPREFIX}"
+export OUTPUT_FOLDER="${OUTPUTFOLDERNAME}"
+
+eval "$(~/anaconda3/bin/conda shell.bash hook)"
+source ~/anaconda3/etc/profile.d/conda.sh
 
 cp "$HOME/EPIONCHO.IBM/${filetorun}" $TMPDIR
 mkdir $TMPDIR/data
@@ -32,7 +35,7 @@ cp -r $TMPDIR/rfils $HOME/EPIONCHO.IBM/
 cp -r $TMPDIR/rout $HOME/EPIONCHO.IBM/
 
 echo "Copying R output files to ${HOME}/EPIONCHO.IBM/output/"
-cp $TMPDIR/output/${outputname}_${PBS_ARRAY_INDEX}.rds $HOME/EPIONCHO.IBM/output/
+cp $TMPDIR/output/${OUTPUTPREFIX}_${PBS_ARRAY_INDEX}.rds $HOME/EPIONCHO.IBM/output/
 
 
 echo "R has finished running"
