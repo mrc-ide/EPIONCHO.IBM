@@ -104,7 +104,7 @@ The output from run_EPIONCHO_IBM is a list with 21 elements.
 names(output_equilibrium)
 ```
 
-Within the first 10 elements, there are 5 main outputs (`mf_prev`, `mf_intens`, `ov16_seroprevalence_no_seroreversion`, `ov16_seroprevalence_finite_seroreversion`, `L3`, and `blackfly_l3_prevalence`) which contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/o and w/ seroreverstion), the mean number of L3 larvae in the blackfly population, and the estimated prevalence of l3 in the blackfly population. To plot these over time, use: 
+Within the first 10 elements, there are 4 main outputs (`mf_prev`, `mf_intens`, `ov16_seroprevalence_combined_seroreversion`, `L3`, and `blackfly_l3_prevalence`) which contain the temporal dynamics (at 1 day increments) for the microfilarial prevalence (individuals age > 5), the population mean microfilarial intensity (individuals age > 5), the temporal dynamics for seroprevalence (w/ seroreverstion), the mean number of L3 larvae in the blackfly population, and the estimated prevalence of l3 in the blackfly population. To plot these over time, use: 
 
 ```{r}
 years <- output_equilibrium$years
@@ -113,8 +113,7 @@ plot(years, output_equilibrium$mf_prev, type = 'l', xlab = 'time (years)', ylab 
 
 plot(years, output_equilibrium$mf_intens, type = 'l', xlab = 'time (years)', ylab = 'mean microfilarial intensity')
 
-plot(years, output_equilibrium$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_equilibrium$ov16_seroprevalence_finite_seroreversion, col="red")
+plot(years, output_equilibrium$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 
 plot(years, output_equilibrium$L3, type = 'l', xlab = 'time (years)', ylab = 'mean L3 in blackfly population')
 
@@ -184,8 +183,7 @@ plot(years, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'me
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
-plot(years, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_treat_annual$ov16_seroprevalence_finite_seroreversion, col="red")
+plot(years, output_treat_annual$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
@@ -239,8 +237,7 @@ plot(years, output_treat_biannual$mf_intens, type = 'l', xlab = 'time', ylab = '
 
 abline(v = seq(1, 25, 0.5), col = 'grey', lwd = 0.1)
 
-plot(years, output_treat_biannual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_treat_biannual$ov16_seroprevalence_finite_seroreversion, col="red")
+plot(years, output_treat_biannual$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 
 plot(years, output_treat_biannual$percent_never_treated, type = 'l', xlab = 'time', ylab = 'Percent never treated')
 

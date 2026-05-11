@@ -136,9 +136,7 @@ plot(years, output_treat_annual$mf_intens, type = 'l', xlab = 'time', ylab = 'me
 
 abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
 
-plot(years, output_treat_annual$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_treat_annual$ov16_seroprevalence_finite_seroreversion, col="red")
-abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+plot(years, output_treat_annual$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 ```
 
 ### 3.2.2 Variable timing (or frequency) of MDA
@@ -184,9 +182,7 @@ plot(years, output_treat_variable$mf_intens, type = 'l', xlab = 'time', ylab = '
 
 abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
 
-plot(years, output_treat_variable$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_treat_variable$ov16_seroprevalence_finite_seroreversion, col="red")
-abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+plot(years, output_treat_variable$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 ```
 
 ### 3.2.3 Compliance
@@ -237,9 +233,7 @@ plot(years, output_treat_correlation$percent_never_treated, type = 'l', xlab = '
 
 abline(v = treat.timing.in, col = 'grey', lwd = 0.1)
 
-plot(years, output_treat_correlation$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_treat_correlation$ov16_seroprevalence_finite_seroreversion, col="red")
-abline(v = seq(1, 25), col = 'grey', lwd = 0.1)
+plot(years, output_treat_correlation$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 ```
 
 ### 3.2.2 Moxidectin vs Ivermectin
@@ -293,8 +287,7 @@ plot(years, output_treat_drugtype$mf_intens, type = 'l', xlab = 'time', ylab = '
 abline(v = seq(1, 20), col = 'grey', lwd = 0.1)
 abline(v = seq(21, 25), col = 'grey', lwd = 0.3)
 
-plot(years, output_treat_drugtype$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_treat_drugtype$ov16_seroprevalence_finite_seroreversion, col="red")
+plot(years, output_treat_drugtype$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 abline(v = seq(1, 20), col = 'grey', lwd = 0.1)
 abline(v = seq(21, 25), col = 'grey', lwd = 0.3)
 
@@ -358,8 +351,7 @@ plot(years, output_VC$mf_intens, type = 'l', xlab = 'time', ylab = 'mean microfi
 abline(v = c(3, 17), col = 'grey', lwd = 0.1) # lines specifying where VC period
 mtext("Vector control period", side=3, line=0.5, at=9.5, col="darkgrey") # Rotated y axis label
 
-plot(years, output_VC$ov16_seroprevalence_no_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence w/ no (black) and w/ finite (red) seroreversion', ylim = c(0, 1))
-lines(years, output_VC$ov16_seroprevalence_finite_seroreversion, col="red")
+plot(years, output_VC$ov16_seroprevalence_combined_seroreversion, type = 'l', xlab = 'time (years)', ylab = 'seroprevalence', ylim = c(0, 1))
 abline(v = c(3, 17), col = 'grey', lwd = 0.1) # lines specifying where VC period
 mtext("Vector control period", side=3, line=0.5, at=9.5, col="darkgrey") # Rotated y axis label
 

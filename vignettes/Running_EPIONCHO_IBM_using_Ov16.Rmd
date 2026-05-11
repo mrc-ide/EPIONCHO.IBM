@@ -92,7 +92,7 @@ The entire vignette should take ~30 minutes to run, with most of the time taken 
 
 If you do not want to test out ABR values, skip to 3.3 to see how to simulate the model to get Ov16 outputs. This is also the most time consuming part of the vignette, as it takes ~12 minutes on average to compute.  
 This is done by simulating the model to endemic equilibrium (which should occur by ~100 years of simulation). Note that running the model to the equilibrium can be slow, taking in excess of 5 minutes (depending on machine performance) per ABR/k~E. Parallel processing (not implemented below) can significantly decrease the run time. To reduce run-time, the code below will only test for 1 run of 2 ABRs for each kE value, over 50 years (typically we use 80-100 years). See section 3.1.1 for a parallel processing version with more ABRs, over a longer period of time. 
-Use the following code to test the ABRs and k~E values that represent a hypoendemic area, with a microfilarial prevalence of around 8%.
+Use the following code to test the ABRs and k~E values that represent a hypoendemic area, with a microfilarial prevalence of around 8%. You can use the `prob_serorevert_fast` parameter to choose how quickly people's Ov16 status seroreverts, with a value of 1 assuming individuals serorevert as soon as the seroconversion stimulus is lost, and a value of 0 assuming individuals serorevert only upon complete infection clearence.
 
 ```{r, abr-mfp-sim}
 time_start <- Sys.time()
@@ -140,7 +140,8 @@ for(iter in 1:total_sims) {
                         vector.control.strt = NA,
                         gam.dis.in = kE,
                         run_equilibrium = TRUE,
-                        print_progress=TRUE)
+                        print_progress=TRUE,
+                        prob_serorevert_fast = 0.5)
 
   # save outputs for analysis
   params <- list(ABR.in, kE)
@@ -291,11 +292,12 @@ process_multiple_runs <- function (files='', morbidity_runs = FALSE, verbose=TRU
     
     # Used for Ov16 individual matrix processing
     ov16_indiv_matrix <- tmpRDSData$ov16_indiv_matrix
-    age <- ov16_indiv_matrix[, (ov16_indiv_location*5)-4]
-    sex <- ifelse(ov16_indiv_matrix[,(ov16_indiv_location*5)-3] == 1, "Male", "Female")
-    mf_status <- ov16_indiv_matrix[,(ov16_indiv_location*5)-2]
-    ov16_status_mating_any_mf <- ov16_indiv_matrix[,(ov16_indiv_location*5)-1]
-    ov16_status_any_mf_finite_seroreversion <- ov16_indiv_matrix[,(ov16_indiv_location*5)]
+    age <- ov16_indiv_matrix[, (ov16_indiv_location*6)-5]
+    sex <- ifelse(ov16_indiv_matrix[,(ov16_indiv_location*6)-4] == 1, "Male", "Female")
+    mf_status <- ov16_indiv_matrix[,(ov16_indiv_location*6)-3]
+    mf_load <- ov16_indiv_matrix[,(ov16_indiv_location*6)-2]
+    ov16_seroreversion_type <- ov16_indiv_matrix[,(ov16_indiv_location*6)-1]
+    ov16_status <- ov16_indiv_matrix[,(ov16_indiv_location*6)]
     num_individuals <- length(age)
     if(i == 1) {
       mf_prev_df <- matrix(ncol=ncol(tmpRDSData$all_mf_prevalence_age_grouped)+4, nrow=total_files*num_vals)
@@ -318,8 +320,8 @@ process_multiple_runs <- function (files='', morbidity_runs = FALSE, verbose=TRU
       ov16_adj_trends_df <- matrix(ncol=ncol(tmpRDSData$ov16_timetrend_outputs_adj)+4, nrow=total_files*num_vals)
       colnames(ov16_adj_trends_df) <- c(colnames(tmpRDSData$ov16_timetrend_outputs_adj), "Ke", "ABR", "year", 'run_num')
       
-      ov16_indiv_df <- data.frame(matrix(ncol=8, nrow=num_individuals*total_files))
-      colnames(ov16_indiv_df) <- c("age", "sex", "ov16_status_no_seroreversion", "ov16_status_finite_seroreversion", "mf_status", "ABR", "Ke", "run_num")
+      ov16_indiv_df <- data.frame(matrix(ncol=9, nrow=num_individuals*total_files))
+      colnames(ov16_indiv_df) <- c("age", "sex", "ov16_seroreversion_type", "ov16_status", "mf_status", "mf_load", "ABR", "Ke", "run_num")
     }
     
     kE <- -1
@@ -368,8 +370,8 @@ process_multiple_runs <- function (files='', morbidity_runs = FALSE, verbose=TRU
     
     start_index <- 1+num_individuals*(i-1)
     end_index <- num_individuals*i
-    ov16_indiv_df[start_index:end_index,-8] <- list(age, sex, ov16_status_mating_any_mf, ov16_status_any_mf_finite_seroreversion, mf_status, rep(tmpRDSData$ABR, num_individuals), rep(kE, num_individuals))
-    ov16_indiv_df[start_index:end_index,8] <- i
+    ov16_indiv_df[start_index:end_index,-9] <- list(age, sex, ov16_seroreversion_type, ov16_status, mf_status, mf_load, rep(tmpRDSData$ABR, num_individuals), rep(kE, num_individuals))
+    ov16_indiv_df[start_index:end_index,9] <- i
 
     i <- i + 1
 
@@ -377,6 +379,10 @@ process_multiple_runs <- function (files='', morbidity_runs = FALSE, verbose=TRU
 
   ov16_indiv_df <- ov16_indiv_df %>% as.data.frame() %>%
     mutate(
+      age = as.numeric(age),
+      mf_status = as.numeric(mf_status),
+      mf_load = as.numeric(mf_load),
+      ov16_status = as.numeric(ov16_status),
       age_groups = case_when(
         ceiling(age*5)/5 == 0 ~ 0,
         age <= 75 ~ ceiling(age/5)*5 - 2.5,
@@ -406,7 +412,7 @@ gabon_mfp_data_df <- readRDS("test_output_folder/mfp_abr_all_age_data.RDS")$mf_p
 gabon_mfp_data_df_mutated <- gabon_mfp_data_df %>% group_by(ABR, Ke, year) %>% summarize(mean_mfp = mean(prev)*100, .groups="drop") %>% filter(year == max(year))
 
 mfp_vs_abr_plot <- ggplot(data=gabon_mfp_data_df_mutated) + 
-  geom_bar(aes(x=factor(ABR), y=mean_mfp), stat="identity") +
+  geom_point(aes(x=factor(ABR), y=mean_mfp), stat="identity") +
   facet_wrap(~ Ke, scales = "free_x") +
   ylab("Mean Microfilarial Prevalence (%) at Equilibrium") +
   labs(
@@ -424,11 +430,8 @@ mfp_vs_abr_plot
 
 ## 3.3 Simulating for Ov16 seroprevalence outputs
 
-This section will explain how to output Ov16 seroprevalence in the model, using the following two hypotheses:
-1) With a mating worm pair and any (modelled) microfilarae and no seroreversion
-2) With a mating worm pair and any (modelled) microfilarae and finite seroreversion*
+This section will explain how to output Ov16 seroprevalence in the model. You can use the `prob_serorevert_fast` parameter to choose how quickly people's Ov16 status seroreverts, with a value of 1 assuming individuals serorevert as soon as the seroconversion stimulus is lost, and a value of 0 assuming individuals serorevert only upon complete infection clearence.
 
-*Finite seroreversion is defined as the absence of any larvae or adult worms in a host.
 ### 3.3.1 No MDA
 
 To output Ov16 values for the hypotheses in a scenario where there is no MDA, we can do the same thing as we did in step 3.1, simulating for a hypoendemic region.
@@ -468,7 +471,8 @@ output <- ep.equi.sim(time.its = timesteps,
                       vector.control.strt = NA,
                       gam.dis.in = kE,
                       run_equilibrium = TRUE,
-                      print_progress=TRUE)
+                      print_progress=TRUE,
+                      prob_serorevert_fast = 0.5)
 
 # save outputs for analysis
 params <- list(ABR.in, kE)
@@ -480,14 +484,15 @@ dir.create(file.path("test_output_folder/test_ov16_no_mda_output_folder/"), recu
 saveRDS(output, paste("test_output_folder/test_ov16_no_mda_output_folder/testing_no_mda_outputs", kE, "_", iter,".rds", sep=""))
 ```
 
-The main value of the `output` that will have the seroprevalence values is `ov16_seropositive_matrix` (or `ov16_seropositive_matrix_serorevert` if you used seroreversion). This is a matrix with N x (9*i) rows, with N being the number of individuals in the population. The number of columns is a multiple of 9, defined by i, where i is the number of output times in `ov16_store_times`.
+The main value of the `output` that will have the seroprevalence values is `ov16_indiv_matrix`. This is a matrix with N x (6*i) rows, with N being the number of individuals in the population. The number of columns is a multiple of 6, defined by i, where i is the number of output times in `ov16_store_times`.
 The columns (by index) contain the following information for the given individual in that row:
 Column:
 1 - Age
 2 - Sex (1 = Male)
-3 - Skin Snip Result
-4 - Ov16 Seroprevalence with No Seroreversion (Hypothesis 1)
-5 - Ov16 Seroprevalence with Finite Seroreversion (Hypothesis 2)
+3 - Skin Snip Result (positive or negative)
+4 - Skin Snip Load
+5 - Type of seroreversion used for a given individual
+6 - Ov16 Seroprevalence with Seroreversion based upon parameter `prob_serorevert_fast`
 
 The order of the columns will always be the same, and in the case of multiple timesteps of output, will be ordered by the earliest output.
 I.e: with ```ov16_store_times = c(50, 100)```, column 1 = age at year 50, column 6 = age at year 100, etc. 
@@ -552,22 +557,18 @@ sens = 0.43; spec = 0.998
 seroprevalence_data$probs <- runif(dim(seroprevalence_data)[1])
 seroprevalence_data_adj <- seroprevalence_data %>% group_by(run_num) %>%
   mutate(
-          ov16_status_no_seroreversion=calcSensSpecSeroPrev(ov16_status_no_seroreversion, sens, spec, probs),
-          ov16_status_finite_seroreversion=calcSensSpecSeroPrev(ov16_status_finite_seroreversion, sens, spec, probs),
+          ov16_status=calcSensSpecSeroPrev(ov16_status, sens, spec, probs),
         ) %>% ungroup() %>% as.data.frame()
 
 # find average seroprevalence by age group
 seroprevalence_data_adj <- seroprevalence_data_adj %>% group_by(run_num, age_groups) %>% summarise(
-                     ov16_status_no_seroreversion=mean(ov16_status_no_seroreversion),
-                     ov16_status_finite_seroreversion=mean(ov16_status_finite_seroreversion),
+                     ov16_prev=mean(ov16_status),
                      mf_prev=mean(mf_status), .groups="drop") %>% as.data.frame()
-# Name the hypotheses
-colnames(seroprevalence_data_adj)[3:4] <- list("Mating worm pair with any mf", "Mating worm pair with any mf and finite seroreversion")
 
 # Calculate Mean
 seroprevalence_data_summary <- seroprevalence_data_adj %>%
-  as.data.frame() %>% tidyr::pivot_longer(cols=all_of(3:4), names_to="Hypothesis", values_to = "ov16_prev") %>%
-  group_by(age_groups, Hypothesis) %>%
+  as.data.frame() %>%
+  group_by(age_groups) %>%
   summarise(
     ov16_q1 = quantile(ov16_prev, probs=0.25),
     ov16_q3 = quantile(ov16_prev, probs=0.75),
@@ -578,9 +579,7 @@ seroprevalence_data_summary <- seroprevalence_data_adj %>%
 
 # plot the data
 plot <- ggplot() +
-    geom_line(aes(x=age_groups, y=ov16_prev*100, color=Hypothesis), linewidth=1.1, data=seroprevalence_data_summary) +    
-    scale_color_manual(name="Hypotheses", 
-                       values=c("Mating worm pair with any mf"="brown", "Mating worm pair with any mf and finite seroreversion"="orange")) +
+    geom_line(aes(x=age_groups, y=ov16_prev*100), linewidth=1.1, data=seroprevalence_data_summary) +    
     theme_bw() +
     xlab("Age (years)") +
     ylab("Ov16 Seroprevalence (%)")
@@ -603,7 +602,7 @@ names(processed_no_mda_data)
 colnames(processed_no_mda_data$ov16_trends_df)
 
 sero_trend <- as.data.frame(processed_no_mda_data$ov16_trends_df) %>%
-              group_by(Ke, year) %>% summarize(no_seroreversion_prev=mean(ov16_seroprevalence_no_seroreversion), finite_seroreversion_prev=mean(ov16_seroprevalence_finite_seroreversion), .groups="drop")
+              group_by(Ke, year) %>% summarize(ov16_prev=mean(ov16_seroprevalence_combined_seroreversion), .groups="drop")
 
 mfp_trend <- as.data.frame(processed_no_mda_data$mf_prev_df) %>% group_by(Ke, run_num)
 
@@ -612,11 +611,7 @@ time_plot <- ggplot() + geom_line(
   aes(x=year, y=prev*100, color="MF Prevalence")) + 
   geom_line(
     data=sero_trend,
-    aes(x=year, y=no_seroreversion_prev*100, color="Ov16 Seroprevalence No Seroreversion")
-  ) +
-  geom_line(
-    data=sero_trend,
-    aes(x=year, y=finite_seroreversion_prev*100, color="Ov16 Seroprevalence Finite Seroreversion")
+    aes(x=year, y=ov16_prev*100, color="Ov16 Seroprevalence")
   ) +
   scale_y_continuous("Prevalence (%)", breaks=seq(0, 100, 10)) +
   theme_bw()
@@ -735,22 +730,17 @@ sens = 0.43; spec = 0.998
 seroprevalence_data_mda$probs <- runif(dim(seroprevalence_data_mda)[1])
 seroprevalence_data_mda_adj <- seroprevalence_data_mda %>% group_by(run_num) %>%
   mutate(
-          ov16_status_no_seroreversion=calcSensSpecSeroPrev(ov16_status_no_seroreversion, sens, spec, probs),
-          ov16_status_finite_seroreversion=calcSensSpecSeroPrev(ov16_status_finite_seroreversion, sens, spec, probs),
+          ov16_status=calcSensSpecSeroPrev(ov16_status, sens, spec, probs),
         ) %>% ungroup() %>% as.data.frame()
 
 # find average seroprevalence by age group
 seroprevalence_data_mda_adj <- seroprevalence_data_mda_adj %>% group_by(run_num, age_groups) %>% summarise(
-                     ov16_status_no_seroreversion=mean(ov16_status_no_seroreversion),
-                     ov16_status_finite_seroreversion=mean(ov16_status_finite_seroreversion),
+                     ov16_prev=mean(ov16_status),
                      mf_prev=mean(mf_status), .groups="drop") %>% as.data.frame()
-# Name the hypotheses
-colnames(seroprevalence_data_mda_adj)[3:4] <- list("Mating worm pair with any mf", "Mating worm pair with any mf and finite seroreversion")
 
 # Calculate Mean
 seroprevalence_data_mda_summary <- seroprevalence_data_mda_adj %>%
-  as.data.frame() %>% pivot_longer(cols=all_of(3:4), names_to="Hypothesis", values_to = "ov16_prev") %>%
-  group_by(age_groups, Hypothesis) %>%
+  group_by(age_groups) %>%
   summarise(
     ov16_q1 = quantile(ov16_prev, probs=0.25),
     ov16_q3 = quantile(ov16_prev, probs=0.75),
@@ -761,9 +751,7 @@ seroprevalence_data_mda_summary <- seroprevalence_data_mda_adj %>%
 
 # plot the data
 plot_mda <- ggplot() +
-    geom_line(aes(x=age_groups, y=ov16_prev*100, color=Hypothesis), linewidth=1.1, data=seroprevalence_data_mda_summary) +    
-    scale_color_manual(name="Hypotheses", 
-                       values=c("Mating worm pair with any mf"="brown", "Mating worm pair with any mf and finite seroreversion"="orange")) +
+    geom_line(aes(x=age_groups, y=ov16_prev*100), linewidth=1.1, data=seroprevalence_data_mda_summary) +    
     theme_bw() +
     xlab("Age (years)") +
     ylab("Ov16 Seroprevalence (%)")
@@ -782,7 +770,7 @@ library(ggplot2)
 output_mda_data <- process_multiple_runs(file="test_output_folder/test_ov16_mda_output_folder/")
 names(output_mda_data)
 sero_trend_mda <- as.data.frame(output_mda_data$ov16_trends_df) %>%
-              group_by(Ke, year) %>% summarize(no_seroreversion_prev=mean( ov16_seroprevalence_no_seroreversion), finite_seroreversion_prev=mean( ov16_seroprevalence_finite_seroreversion), .groups="drop")
+              group_by(Ke, year) %>% summarize(ov16_prev=mean( ov16_seroprevalence_combined_seroreversion), .groups="drop")
 
 mfp_trend_mda <- as.data.frame(output_mda_data$mf_prev_df)
 
@@ -791,11 +779,7 @@ time_plot_mda <- ggplot() + geom_line(
   aes(x=year, y=prev*100, color="MF Prevalence")) + 
   geom_line(
     data=sero_trend_mda,
-    aes(x=year, y=no_seroreversion_prev*100, color="Ov16 Seroprevalence No Seroreversion")
-  ) +
-  geom_line(
-    data=sero_trend_mda,
-    aes(x=year, y=finite_seroreversion_prev*100, color="Ov16 Seroprevalence Finite Seroreversion")
+    aes(x=year, y=ov16_prev*100, color="Ov16 Seroprevalence")
   ) +
   scale_y_continuous("Prevalence (%)", breaks=seq(0, 100, 10)) +
   theme_bw()

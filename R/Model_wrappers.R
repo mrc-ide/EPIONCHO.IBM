@@ -17,6 +17,7 @@
 #' @param ABR annual biting rate (this input is a single value)
 #' @param N.in human population size
 #' @param DT timestep (must be one day e.g., 1/366)
+#' @param days_per_year number of days in a year (typically either 366 or 365), based off of timestep
 #' @param treat.int treatment interval in years e.g., 1 is every 1 year, 0.5 is every 6 months (this input is a single value)
 #' @param treat.timing specific timing of treatment rounds (default is NA)
 #' @param treat.prob total population coverage (this input is a single value between 0 - 1)
@@ -29,6 +30,7 @@
 #' @param vector.control.strt start year for vector control
 #' @param vector.control.duration duration in years for vector control
 #' @param vector.control.efficacy efficacy of vector (proportion of original ABR value)
+#' @param vector.control.timing years in which vector control will be applied.
 #' @param delta.hz.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to 0)
 #' @param delta.hinf.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (proportion of L3 larvae establishing/ developing to adult stage within human host, per bit, when ATP tends to infinity)
 #' @param c.h.in (if gam.dis.in is 0.2, 0.3, or 0.4, this will not be used) this is a new user-input for density-dependence in humans (severity of transmission intensity - dependent parasite establishment within humans)
@@ -47,11 +49,13 @@
 #' @param treat.type If you are not using treat.switch, this should be the drug to be used for treatment. Can be "MOX" or "IVM". Default is "IVM"
 #' @param ov16_store_times The timesteps at which you want to store the ov16 status for each individual. Provide in terms of actual time (i.e year 10). Default is c(). ex: c(50, 100)
 #' @param ov16_diagnostic_adjustment The diagnostic adjustment to provide for the adjusted ov16 seroprevalence output. Must be a vector of exactly 2 values. Default is c(0.8, 0.99)
+#' @param prob_serorevert_fast The probability an individual seroreverts fast. A value of 0 assumes all individuals serorevert in the absence of infection, 1 assumes all individuals serorever when the stimulus is lost.
 #'
 #' @export
 
 ep.equi.sim <- function(time.its,
                         DT.in = 1 / 366,
+                        days_per_year = 366,
                         ABR,
                         N.in=440,
                         treat.int,
@@ -66,6 +70,7 @@ ep.equi.sim <- function(time.its,
                         vector.control.strt,
                         vector.control.duration,
                         vector.control.efficacy,
+                        vector.control.timing = NA,
                         delta.hz.in=0.186, # these inputs are new (matt) for testing DD
                         delta.hinf.in=0.003,
                         c.h.in=0.005,
@@ -85,7 +90,8 @@ ep.equi.sim <- function(time.its,
                         treat.switch = NA,
                         treat.type = "IVM",
                         ov16_store_times = c(),
-                        ov16_diagnostic_adjustment = c(0.8, 0.99)) {
+                        ov16_diagnostic_adjustment = c(0.8, 0.99),
+                        prob_serorevert_fast = 0.5) {
 
   output_age_groups_as_strings <- rep("", length(output_age_groups))
   for (output_age_group_index in 1:length(output_age_groups)) {
@@ -99,7 +105,7 @@ ep.equi.sim <- function(time.its,
   DT <- DT.in # default timestep
   if ((treat.type == "MOX") || (all(!is.na(treat.switch)) && "MOX" %in% treat.switch)) {
     # half-day timestep required for MOX dynamics
-    DT <- min(DT.in / 2, (1 / 366) / 2)
+    DT <- min(DT.in / 2, (1 / days_per_year) / 2)
   }
 
   time.its <- round(time.its / (DT))
@@ -153,6 +159,22 @@ ep.equi.sim <- function(time.its,
     vc.iter.strt <- NA
     vc.iter.stp <- NA
     vector.control.duration <- NA
+  }
+
+  vc.iter.index <- 1
+  if (any(!is.na(vector.control.timing))) {
+    vc.iter.strt <- round(vector.control.timing / (DT))
+    # Assume that if a list/vector is given, each index represents
+    # 1 full year
+    vc.iter.stp <- round((vector.control.timing + 1) / (DT))
+    if (length(vector.control.efficacy) != length(vector.control.timing)) {
+      stop(paste0(
+        "Param vector.control.efficacy (", length(vector.control.efficacy),
+        ") should be the same length as param vector.control.timing (",
+        length(vector.control.timing), ")")
+      )
+    }
+    print(paste0("Vector Control given from ", vc.iter.strt, " to ", vc.iter.stp))
   }
 
 
@@ -239,10 +261,10 @@ ep.equi.sim <- function(time.its,
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
 
-    if(all(!is.na(treat.timing))) {treat.timing <- treat.timing + ((treat.start - (1/DT)+round((1/DT)/366)) * DT)} # # 1 day dt
+    if(all(!is.na(treat.timing))) {treat.timing <- round(treat.timing / DT) + treat.start} # # 1 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
-    else {times.of.treat.in <- round((treat.timing) / (DT)) + 1}
+    else {times.of.treat.in <- treat.timing + (1 / (days_per_year * DT))}
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
@@ -337,24 +359,23 @@ ep.equi.sim <- function(time.its,
   coverage.recorded <- rep(NA, time.its - 1)
 
   # Ov16 Variables
-  ov16_timetrend_outputs <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 2)
+  ov16_timetrend_outputs <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1))
   colnames(ov16_timetrend_outputs) <- c(
-    "ov16_seroprevalence_no_seroreversion",
-    paste0("ov16_seroprevalence_no_seroreversion", output_age_groups_as_strings),
-    "ov16_seroprevalence_finite_seroreversion",
-    paste0("ov16_seroprevalence_finite_seroreversion", output_age_groups_as_strings)
+    "ov16_seroprevalence_combined_seroreversion",
+    paste0("ov16_seroprevalence_combined_seroreversion", output_age_groups_as_strings)
   )
-  ov16_timetrend_outputs_adj <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1) * 2)
+  ov16_timetrend_outputs_adj <-  matrix(NA, nrow = time.its - 1, ncol = (length(output_age_groups) + 1))
   colnames(ov16_timetrend_outputs_adj) <- c(
-    "ov16_seroprevalence_no_seroreversion_adj",
-    paste0("ov16_seroprevalence_no_seroreversion_adj", output_age_groups_as_strings),
-    "ov16_seroprevalence_finite_seroreversion_adj",
-    paste0("ov16_seroprevalence_finite_seroreversion_adj", output_age_groups_as_strings)
+    "ov16_seroprevalence_combined_seroreversion_adj",
+    paste0("ov16_seroprevalence_combined_seroreversion_adj", output_age_groups_as_strings)
   )
 
-  ov16_seropositive_no_seroreversion <- rep(0, N)
-  ov16_seropositive_finite_serorevert <- rep(0, N)
-  ov16_indiv_matrix <- matrix(0, nrow = N, ncol = length(ov16_store_times) * 5)
+  ov16_seropositive_combined_serorevert <- rep(0, N)
+  ov16_type_of_seroreverison <- sample(
+    c("instant", "finite"), N,
+    prob=c(prob_serorevert_fast, 1-prob_serorevert_fast), replace=TRUE
+  )
+  ov16_indiv_matrix <- matrix(0, nrow = N, ncol = length(ov16_store_times) * 6)
   matrix_index <- 1
 
   if (morbidity_module == "YES") {
@@ -602,8 +623,8 @@ ep.equi.sim <- function(time.its,
     }
 
     # Ov16 Variables
-    ov16_seropositive_no_seroreversion <- equilibrium$ov16_equilibrium$ov16_seropositive_no_seroreversion
-    ov16_seropositive_finite_serorevert <- equilibrium$ov16_equilibrium$ov16_seropositive_finite_serorevert
+    ov16_seropositive_combined_serorevert <- equilibrium$ov16_equilibrium$ov16_seropositive_combined_serorevert
+    ov16_type_of_seroreverison <- equilibrium$ov16_equilibrium$ov16_type_of_seroreverison
   }
 
   i <- 1
@@ -734,7 +755,7 @@ ep.equi.sim <- function(time.its,
       CovTotal = hostsTreated / N * 100
 
     }
-    if (i >= treat.start & give.treat == 1 ) {
+    if (any(i >= times.of.treat.in) & give.treat == 1 ) {
       has_been_treated <- has_been_treated | (cov.in == 1)
     }
     #         TODO: Update print output here with new coverage vals from compliance structure                       #
@@ -800,9 +821,21 @@ ep.equi.sim <- function(time.its,
 
 
     # change m based on ABR change due to vector control if called (during vector control duration iteration period)
-    if(!is.na(vector.control.strt)){
-
+    do_vector_control = FALSE
+    if (any(!is.na(vector.control.timing)) & vc.iter.index <= length(vc.iter.strt)) {
+      if (i >= vc.iter.strt[vc.iter.index] & i < vc.iter.stp[vc.iter.index]) {
+        do_vector_control = TRUE
+        
+        ABR_updated <- ABR - (ABR * vector.control.efficacy[vc.iter.index]) # proportional reduction in ABR (x efficacy) during VC
+        m = ABR_updated * ((1/104) / 0.63) # update m
+        
+        if (i + 1 >= vc.iter.stp[vc.iter.index]) {
+          vc.iter.index <- vc.iter.index + 1
+        }
+      }
+    } else if(!is.na(vector.control.strt)){
       if (i >= vc.iter.strt && i < vc.iter.stp) {
+      do_vector_control = TRUE
 
       ABR_updated <- ABR - (ABR * vector.control.efficacy) # proportional reduction in ABR (x efficacy) during VC
 
@@ -811,12 +844,8 @@ ep.equi.sim <- function(time.its,
     }
 
     # change m back to original after VC finishes (can change when this occurs i.e, one year after VC ends)
-    if(!is.na(vector.control.strt)){
-
-      if (i >= vc.iter.stp) {
-
-        m = ABR * ((1/104) / 0.63) # update m
-      }
+    if(do_vector_control == FALSE){
+      m = ABR * ((1/104) / 0.63) # update m
     }
 
 
@@ -1057,23 +1086,24 @@ ep.equi.sim <- function(time.its,
     any_worms <- (rowSums(all.mats.temp[,worms.start:fw.end]) > 0)
     mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
     mating_worm_any_mf <- (mating_worm & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
-
-    ov16_seropositive_no_seroreversion <- determine_serostatus(
-      exposure_array = mating_worm_any_mf,
-      curr_array = ov16_seropositive_no_seroreversion
+    combned_seroreversion <- which(
+      ov16_type_of_seroreverison == "instant",
+      mating_worm == FALSE,
+      any_worms == FALSE & any_larvae == FALSE
     )
-    ov16_seropositive_finite_serorevert <- determine_serostatus(
-      exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_finite_serorevert, do_serorevert=TRUE,
-      seroreversion_arrays = list("any_larvae_arr" = any_larvae, "any_worms_arr" = any_worms)
+
+    ov16_seropositive_combined_serorevert <- determine_serostatus(
+      exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_combined_serorevert, do_serorevert="combined",
+      seroreversion_arrays = list("custom_seroreversion_status" = combned_seroreversion)
     )
 
     ov16_timetrend_outputs[i, ] <- calculate_seroprevalence_across_age_groups(
-      ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
+      ov16_seropositive_combined_serorevert,
       ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
       diagnostic_adjustments = c(1, 1)
     )
     ov16_timetrend_outputs_adj[i, ] <- calculate_seroprevalence_across_age_groups(
-      ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert,
+      ov16_seropositive_combined_serorevert,
       ages = all.mats.temp[,2], age_groups = append(list(c(min.mont.age, 81)), output_age_groups),
       diagnostic_adjustments = ov16_diagnostic_adjustment
     )
@@ -1096,8 +1126,11 @@ ep.equi.sim <- function(time.its,
       has_been_treated[to.die] <- FALSE
 
       # Ov16 reset dead individuals
-      ov16_seropositive_no_seroreversion[to.die] <- 0
-      ov16_seropositive_finite_serorevert[to.die] <- 0
+      ov16_seropositive_combined_serorevert[to.die] <- 0
+      ov16_type_of_seroreverison[to.die] <- sample(
+        c("instant", "finite"), length(to.die),
+        prob=c(prob_serorevert_fast, 1-prob_serorevert_fast), replace=TRUE
+      )
 
       if(correlated_compliance == "YES" & any(i > times.of.treat.in)){
         compliance.mat[to.die, 3] <- 0
@@ -1133,11 +1166,12 @@ ep.equi.sim <- function(time.its,
 
     # Ov16 add individual data to matrix
     if(!is.na(match(i, ov16_store_times))) {
-      ov16_indiv_matrix[,5*matrix_index-4] <- all.mats.temp[,2]
-      ov16_indiv_matrix[,5*matrix_index-3] <- all.mats.temp[,3]
-      ov16_indiv_matrix[,5*matrix_index-2] <- as.integer(temp.mf[[2]] > 0)
-      ov16_indiv_matrix[,5*matrix_index-1] <- ov16_seropositive_no_seroreversion
-      ov16_indiv_matrix[,5*matrix_index] <- ov16_seropositive_finite_serorevert
+      ov16_indiv_matrix[,6*matrix_index-5] <- all.mats.temp[,2]
+      ov16_indiv_matrix[,6*matrix_index-4] <- all.mats.temp[,3]
+      ov16_indiv_matrix[,6*matrix_index-3] <- as.integer(temp.mf[[2]] > 0)
+      ov16_indiv_matrix[,6*matrix_index-2] <- rowSums(all.mats.temp[,mf.start:mf.end])
+      ov16_indiv_matrix[,6*matrix_index-1] <- ov16_type_of_seroreverison
+      ov16_indiv_matrix[,6*matrix_index] <- ov16_seropositive_combined_serorevert
       matrix_index <- matrix_index + 1
     }
 
@@ -1163,8 +1197,7 @@ ep.equi.sim <- function(time.its,
 
   general_outputs <- list(
     'mf_prev' = mf_prevalence_outputs[,'prev'], 'mf_intens' = mf_intensity_outputs[,'mean.mf.per.snip'],
-    "ov16_seroprevalence_no_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_no_seroreversion"],
-    "ov16_seroprevalence_finite_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_finite_seroreversion"],
+    "ov16_seroprevalence_combined_seroreversion" = ov16_timetrend_outputs[,"ov16_seroprevalence_combined_seroreversion"],
     'L3' = L3_vec, 'ABR' = ABR, 'all_infection_burdens' = all.mats.temp, "Ke" = gam.dis,
     'blackfly_l3_prevalence' = l3_prev_blackflies, 'years' = mfp_recorded_year_tracker, 'all_mf_prevalence_age_grouped' = mf_prevalence_outputs,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
@@ -1186,8 +1219,8 @@ ep.equi.sim <- function(time.its,
   {
     equilibrium_outputs <- list(all.mats.temp, ex.vec, treat.vec.in, l.extras, mf.delay, l1.delay, ABR, exposure.delay, has_been_treated)
     # Ov16 Equilibrium Values
-    ov16_equib <- list(ov16_seropositive_no_seroreversion, ov16_seropositive_finite_serorevert)
-    names(ov16_equib) <- c('ov16_seropositive_no_seroreversion', 'ov16_seropositive_finite_serorevert')
+    ov16_equib <- list(ov16_seropositive_combined_serorevert, ov16_type_of_seroreverison)
+    names(ov16_equib) <- c('ov16_seropositive_combined_serorevert', "ov16_type_of_seroreverison")
     equilibrium_outputs[["ov16_equilibrium_outputs"]] <- ov16_equib
 
     if (morbidity_module == "YES") {
