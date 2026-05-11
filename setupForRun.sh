@@ -6,7 +6,7 @@ helpval="Usage: $0 [-f file to run] [-n number of runs] [-c clean output and log
 clean=false
 numberofruns=200
 outputprefix="test_"
-while getopts ":f:m:o:n:c:p" opt; do
+while getopts ":f:m:o:n:c:p:" opt; do
   case $opt in
     c) 
       echo "Cleaning folders before running"
@@ -70,6 +70,8 @@ if [[ $numberofruns == *-* ]]; then
 fi
 
 echo "qsub -J value: ${numrunoption}"
+echo "output prefix: ${outputprefix}"
+echo "output folder name: ${outputfolder}"
 
 if [ $(pwd) == "$HOME/${folder}" ]; then
   qsub -J "$numrunoption" -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix}" run.sh
