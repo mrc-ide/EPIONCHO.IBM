@@ -6,6 +6,7 @@ process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs 
   total_files <- length(list.files(fileToUse))
   start_time <- Sys.time() 
   mf_prev_df <- NA
+  atp_df <- NA
   mf_intensity_df <- NA
   morbidity_df <- NA
   oae_incidence_df <- NA
@@ -19,23 +20,24 @@ process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs 
         gc()
       }
     }
+    iter = -1
     tryCatch(
       {
-        tmpRDSData <- readRDS(paste(fileToUse, file,sep=""))
+        # Assume that the iter number is always the last value before '.rds'
+        # I.e output_...._17.rds, 17 is the iter number
+        all_vals <- strsplit(file, "_")[[1]]
+        iter <- as.numeric(strsplit(all_vals[length(all_vals)], "\\.")[[1]][1])
+        print(paste0("i: ", i, " Iter: ", iter))
+        if (iter > max_iter | iter < min_iter) {
+          next
+        }
+        tmpRDSData <- readRDS(paste(fileToUse, file, sep=""))
       },
       error = function(e) {
         message(paste("Error occurred while reading:", fileToUse))
       }
     )
 
-    # Assume that the iter number is always the last value before '.rds'
-    # I.e output_...._17.rds, 17 is the iter number
-    iter <- strsplit(file, "_")[[1]]
-    iter <- as.numeric(strsplit(all_vals[length(all_vals)], "\\.")[[1]][1])
-    print(paste0("i: ", i, " Iter: ", iter))
-    if (iter > max_iter | iter < min_iter) {
-      next
-    }
     
     print(file)
     selector <- which(tmpRDSData$years %% 1 == 0)
@@ -47,7 +49,7 @@ process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs 
     num_individuals <- length(age)
     ov16_indiv_df_cols <- ncol(ov16_indiv_matrix) + 3
     if(i == 1) {
-      mf_prev_df <- matrix(ncol=(ncol(tmpRDSData$all_mf_prevalence_age_grouped)*2)+4, nrow=total_files*num_vals)
+      mf_prev_df <- matrix(ncol=(ncol(tmpRDSData$all_mf_prevalence_age_grouped)*1)+4, nrow=total_files*num_vals)
       colnames(mf_prev_df) <- c(
         colnames(tmpRDSData$all_mf_prevalence_age_grouped), 
         # paste0("30-", colnames(tmpRDSData$all_mf_prevalence_age_grouped)), - TODO: need to update model
@@ -57,7 +59,7 @@ process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs 
       atp_df <- matrix(ncol=11, nrow=total_files*num_vals)
       colnames(atp_df) <- c("l3_per_blackfly", "l3_prevalence_per_blackfly", "recorded_abr", "atp", "Ke", "ABR", "h", "m", "beta", "year", 'run_num')
 
-      mf_intensity_df <- matrix(ncol=(ncol(tmpRDSData$all_mf_intensity_age_grouped)*2)+4, nrow=total_files*num_vals)
+      mf_intensity_df <- matrix(ncol=(ncol(tmpRDSData$all_mf_intensity_age_grouped)*1)+4, nrow=total_files*num_vals)
       colnames(mf_intensity_df) <- c(
         colnames(tmpRDSData$all_mf_intensity_age_grouped), 
         # paste0("30-", colnames(tmpRDSData$all_mf_intensity_age_grouped)), - TODO: need to update model
@@ -179,4 +181,10 @@ process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs 
   return(all_return)
 }
 
-saveRDS(process_multiple_runs(file="path/to/outputs/"), "path/to/save/file.RDS")
+outputs_folder = Sys.getenv("OUTPUT_FOLDER")
+
+processed_file_folder = Sys.getenv("PROCESS_DATA_FOLDER")
+print(outputs_folder)
+print(processed_file_folder)
+
+saveRDS(process_multiple_runs(file=paste0(outputs_folder, "/"), morbidity_runs=TRUE), paste0(processed_file_folder, "/processed_output.RDS"))
