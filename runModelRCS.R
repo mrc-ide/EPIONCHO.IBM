@@ -16,7 +16,7 @@ kE <- kEs[iter]
 
 # 200x50, 200x70, ... 200x50000, then starts again at 200x50... 3 sets of 200 for each ABR
 abrs_to_test_iter = rep(rep(abrs_to_test, each=iters_per_paramset), length(unique(kEs)))
-
+ABR_in <- abrs_to_test[iter]
 # no treatment to be given
 give_treat = 0
 treatment_interval = 1
