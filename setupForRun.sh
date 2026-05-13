@@ -16,7 +16,7 @@ while getopts ":f:m:o:n:cp:g:b" opt; do
       runandpostprocess=true
       ;;
     c) 
-      echo "Cleaning folders before running"
+      echo "Cleaning folders before running (this may take a long time)"
       clean=true
       ;;
     f) file="$OPTARG" ;;
