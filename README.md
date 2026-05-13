@@ -81,13 +81,13 @@ Running EPIONCHO-IBM on an hpc cluster is not too complicated, but scripts have 
 2. The run script, where you can define model parameters, intervention, run time, etc. is located in [runModelRCS.R](runModelRCS.R). It is important to note that you should not change the first 4 lines, or the last 3, otherwise the model output may not be saved. Everything else can be edited in this file though.
 3. In your terminal/console, make sure that you are in the model directory. You can type `pwd`, which should tell you the current directory your terminal/console is at. You can use `cd folder_name/` to move forwards into a child folder or `cd ../` to move backwards into a parent.
 4. One you have completed setting up your run script, then run [create_single_model_run_script.sh](create_single_model_run_script.sh) (this can be run by typing `./create_single_model_run_script.sh` into your terminal). This will create a single file that contains both the EPIONCHO-IBM model code and the run script you created. This file is what will be used by the cluster.
-5. In [run.sh](run.sh), you may need to change the top 4 lines based on what you need. Below is a description of each line and what may need to change
+5. In [run.sh](run.sh), you may need to change the top 2 lines based on what you need. Below is a description of each line and what may need to change
 ```
 #PBS -l walltime=00:40:00 - This tells the cluster how long each run of the model will take
 #PBS -l select=1:ncpus=1:mem=5gb - This tells the cluster how many CPUs and RAM each run of the model will use
 ```
 6. Now you can set the model to run in the cluster. This can be done with the [setupForRun.sh](setupForRun.sh) script. Certain arguments are needed for the model to run, while others are optional, only if you have deviated from the default build of the model. A typical call to setupForRun.sh will look like:
-`./setupForRun.sh -n 300 -p 'model_output'`
+`./setupForRun.sh -n 300 -o "output" -p 'model_output'`
 
 This will run the model 300 times, and will store the output in a folder called `output/`. Logs will be stored in the `logs/` folder, and the output for each r script will be saved in `rout/`. These folders should all be created once you run `setupForRun.sh`.
 
@@ -98,17 +98,20 @@ The other input parameters for setupForRun are described below:
 -m: Model folder name, what you have named the github repo. The default is `EPIONCHO.IBM`.
 -o: Name of the output folder you want the results saved into. The default is `output`
 -p: The prefix you want to label your results in. The default is `test`.
--g: The path to the output folder you want to save your processed data in. Set this if you want to process the data from files located in `-o`, to combine into a single file.
+-g: The path to the output file you want to save your processed data in. This should include the name of the file as well (see example in step 8, must have `.rds` extension). Set this if you want to process the data from files located in `-o`, to combine into a single file.
+-b: Flag to designate if you want to automate running a post-processing job after running your normal model run. No need for any input.
 
 **IMPORTANT:** If you have not run the model in the cluster before, this script will installed anaconda via miniforge, and create a new environment called `my_r_env`, which will be used for running the model. You may need to provide user input in the terminal (typing `y` to accept the install and creation of the conda environment).
 
 7. Assuming there are no errors, the job will be submitted and a job ID will be printed out, something like `123456[].pbs-7` or `123456.pbs-7`. To simplify the process, you can just use the `./get_job_status.sh` command to see the status of all jobs submitted. You can also use the job id to check the status for a specific job on the cluster with the command `qstat -t [job_id]`. Note that if you have submitted a lot of jobs (i.e -n > 500), using `./get_job_status.sh` will be more useful.
 
-8. For processing the data, you can use the -g and -o parameters as mentioned above. If you want to customize the processing, please look at [process_multiple_runs.R](process_multiple_runs.R). An example command would be:
-`./setupForRun.sh -g "processed_data" -o "output"`
+8. For processing the data, you can use the -g and -o parameters as mentioned above. If you want to customize the processing, please look at [process_multiple_runs.R](process_multiple_runs.R). The default time period of output is 4 times a year. An example command would be:
+`./setupForRun.sh -g "processed_data/post_processed_data.rds" -o "output"`
 
 Note: Similar to the run.sh file, you may need to modify the header of [run_process_files.sh] to adjust the amount of resources requested. 
 
+9. If you want to automate the process a bit more, the script allows you to both set the model to run, and automatically post-process the data after the model run simulations are done. This can be done via the `-b` flag. In addition to this, you will need to input the same information you inupt for both running the model (step 6) and processing the model (step 8). An example command doing this is:
+`./setupForRun.sh -n 300 -o "output" -p "model_output" -g "processed_data/post_processed_data.rds" -b`
 
 ## Using EPIONCHO-IBM
 

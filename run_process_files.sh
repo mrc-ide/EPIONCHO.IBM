@@ -5,15 +5,14 @@
 filetorun="${FILETORUN}"
 export OUTPUT_PREFIX="${OUTPUTPREFIX}"
 export OUTPUT_FOLDER="${OUTPUTFOLDERNAME}"
-export PROCESS_DATA_FOLDER="${PROCESSDATAFOLDER}"
+export PROCESS_DATA_PATH="${PROCESSDATAPATH}"
 echo "${OUTPUT_PREFIX}"
 echo "${OUTPUT_FOLDER}"
-echo "${PROCESS_DATA_FOLDER}"
+echo "${PROCESS_DATA_PATH}"
 
-
-eval "$(~/anaconda3/bin/conda shell.bash hook)"
-source ~/anaconda3/etc/profile.d/conda.sh
-conda activate myenv 
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+source ~/miniforge3/etc/profile.d/conda.sh
+conda activate my_r_env
 
 mkdir -p $HOME/${MODELFOLDER}/rfils
 mkdir -p $HOME/${MODELFOLDER}/rout

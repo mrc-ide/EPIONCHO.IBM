@@ -1,4 +1,4 @@
-#PBS -l walltime=00:40:00
+#PBS -l walltime=01:00:00
 #PBS -l select=1:ncpus=1:mem=5gb
 
 filetorun="${FILETORUN}" # change this as needed
@@ -12,6 +12,7 @@ echo "${OUTPUT_FOLDER}"
 
 eval "$(~/miniforge3/bin/conda shell.bash hook)"
 source ~/miniforge3/etc/profile.d/conda.sh
+conda activate my_r_env 
 
 cp "$HOME/${MODELFOLDER}/${filetorun}" $TMPDIR
 mkdir -p $TMPDIR/inst/extdata
