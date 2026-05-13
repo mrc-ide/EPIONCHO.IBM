@@ -261,10 +261,10 @@ ep.equi.sim <- function(time.its,
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
 
-    if(all(!is.na(treat.timing))) {treat.timing <- round(treat.timing / DT) + treat.start} # # 1 day dt
+    if(all(!is.na(treat.timing))) {treat.timing <- ceiling(treat.timing / DT) + treat.start} # # 1 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
-    else {times.of.treat.in <- treat.timing + (1 / (days_per_year * DT))}
+    else {times.of.treat.in <- treat.timing}
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
