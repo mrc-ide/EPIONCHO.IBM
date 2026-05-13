@@ -10,8 +10,8 @@ export OUTPUT_FOLDER="${OUTPUTFOLDERNAME}"
 echo "${OUTPUT_PREFIX}"
 echo "${OUTPUT_FOLDER}"
 
-eval "$(~/anaconda3/bin/conda shell.bash hook)"
-source ~/anaconda3/etc/profile.d/conda.sh
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+source ~/miniforge3/etc/profile.d/conda.sh
 
 cp "$HOME/${MODELFOLDER}/${filetorun}" $TMPDIR
 mkdir -p $TMPDIR/inst/extdata

@@ -54,6 +54,7 @@ if [[ "$clean" == true ]]; then
     rm -rf "$HOME/${folder}/logs/"
     echo "Cleaning rout/$file"
     rm -rf "$HOME/${folder}/logs/$file"*
+    exit 0
 fi
 
 if ! [ -d "${outputfolder}" ]; then
@@ -70,10 +71,26 @@ if ! [ -d "rout" ]; then
     mkdir -p $HOME/${folder}/rout/
 fi
 
-eval "$(~/anaconda3/bin/conda shell.bash hook)"
-source ~/anaconda3/etc/profile.d/conda.sh
+if [ -f "$HOME/miniforge3/bin/conda" ]; then
+  echo "conda is installed in miniforge3: $(~/miniforge3/bin/conda --version)"
+else
+  echo "conda not found in miniforge3, loading miniforge3 and setting up conda"
+  module load miniforge/3
+  miniforge-setup
+fi
 
-conda activate myenv 
+eval "$(~/miniforge3/bin/conda shell.bash hook)"
+source ~/miniforge3/etc/profile.d/conda.sh
+
+if conda env list | grep -q "^my_r_env "; then
+    echo "environment 'my_r_env' exists"
+else
+    echo "environment 'my_r_env' not found, creating it now."
+    # R version likely could be updated, this is the last version the 
+    # model was verified on
+    conda create -n my_r_env r-base=4.4.3 -c conda-forge
+fi
+conda activate my_r_env 
 
 dos2unix $HOME/EPIONCHO.IBM/${file}
 
@@ -87,25 +104,25 @@ if [[ $numberofruns == *-* ]]; then
   numrunoption="${numberofruns}"
 fi
 
-if [ $(pwd) == "$HOME/${folder}" ]; then
-  if [[ -n "${processdatafolder}" ]]; then
-    echo "qsub for processing outputs"
-    qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAFOLDER=${processdatafolder}" \
-      -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
-      run_process_files.sh
-    exit 0
-  fi
-  if [[ $numberofruns == "1" ]]; then
-    echo "qsub for single run"
-    qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAFOLDER=${processdatafolder}" \
-      -o $HOME/$MODELFOLDER/logs/ -e $HOME/$folder/logs/ \
-      run.sh
-    exit 0
-  fi
-  qsub -J "$numrunoption" -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder}" \
-    -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
-    run.sh
-  exit 0
-else
-   echo "Not in the right folder"
-fi
+# if [ $(pwd) == "$HOME/${folder}" ]; then
+#   if [[ -n "${processdatafolder}" ]]; then
+#     echo "qsub for processing outputs"
+#     qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAFOLDER=${processdatafolder}" \
+#       -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+#       run_process_files.sh
+#     exit 0
+#   fi
+#   if [[ $numberofruns == "1" ]]; then
+#     echo "qsub for single run"
+#     qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAFOLDER=${processdatafolder}" \
+#       -o $HOME/$MODELFOLDER/logs/ -e $HOME/$folder/logs/ \
+#       run.sh
+#     exit 0
+#   fi
+#   qsub -J "$numrunoption" -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder}" \
+#     -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+#     run.sh
+#   exit 0
+# else
+#    echo "Not in the right folder"
+# fi
