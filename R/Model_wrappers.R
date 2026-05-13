@@ -261,10 +261,10 @@ ep.equi.sim <- function(time.its,
 
     #times.of.treat.in <- seq(treat.start, treat.stop - (treat.int / DT), treat.int / DT)
 
-    if(all(!is.na(treat.timing))) {treat.timing <- round(treat.timing / DT) + treat.start} # # 1 day dt
+    if(all(!is.na(treat.timing))) {treat.timing <- ceiling(treat.timing / DT) + treat.start} # # 1 day dt
     if(all(is.na(treat.timing)))
       {times.of.treat.in <- seq(treat.start, treat.stop, treat.int / DT)}
-    else {times.of.treat.in <- treat.timing + (1 / (days_per_year * DT))}
+    else {times.of.treat.in <- treat.timing}
 
     print(paste(length(times.of.treat.in), 'MDA rounds to be given', sep = ' '))
 
@@ -1203,7 +1203,7 @@ ep.equi.sim <- function(time.its,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
     "ov16_timetrend_outputs" = ov16_timetrend_outputs, 'ov16_timetrend_outputs_adj' = ov16_timetrend_outputs_adj,
     "worm_burden_outputs" = worm_burden_outputs, 'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded,
-    'percent_never_treated' = never_treated_values
+    'percent_never_treated' = never_treated_values, 'timestep_used' = DT
   )
 
   if (morbidity_module == "YES"){
