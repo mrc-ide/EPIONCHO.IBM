@@ -45,7 +45,7 @@ output <- ep.equi.sim(
   equilibrium = NA,
   print_progress = TRUE,
   prob_serorevert_fast = 0.5,
-  output_age_groups = list(c(0, 5), c(5, 10), c(10, 15), c(15, 20), c(20, 30), c(30, 40) c(40, 50), c(50, 60), c(60, 70), c(70, 81))
+  output_age_groups = list(c(0, 5), c(5, 10), c(10, 15), c(15, 20), c(20, 30), c(30, 40), c(40, 50), c(50, 60), c(60, 70), c(70, 81))
 )
 
 params <- list(ABR_in, kE)

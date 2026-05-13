@@ -2,13 +2,19 @@
 folder="EPIONCHO.IBM"
 outputfolder="output"
 file="all_funcs_combined.R"
-helpval="Usage: $0 [-f file to run (default: all_funcs_combined.R)] [-n number of runs] [-c clean output and logs folder] [-m model folder (default: EPIONCHO.IBM)] [-o output folder (default: output)] [-p output prefix (defailt: test_)] [-g folder to save processed data]"
+postprocessfile="process_multiple_runs.R"
+helpval="Usage: $0 [-f file to run (default: all_funcs_combined.R)] [-n number of runs] [-c clean output and logs folder] [-m model folder (default: EPIONCHO.IBM)] [-o output folder (default: output)] [-p output prefix (defailt: test)] [-g path to save processed data. Must include filename, and end in .rds] [-b run model and post process]"
 clean=false
 numberofruns=200
 outputprefix="test"
-processdatafolder=""
-while getopts ":f:m:o:n:c:p:g:" opt; do
+processdatapath=""
+runandpostprocess=false
+while getopts ":f:m:o:n:cp:g:b" opt; do
   case $opt in
+    b) 
+      echo "Running model and post-processing"
+      runandpostprocess=true
+      ;;
     c) 
       echo "Cleaning folders before running"
       clean=true
@@ -18,7 +24,7 @@ while getopts ":f:m:o:n:c:p:g:" opt; do
     m) folder="$OPTARG" ;;
     o) outputfolder="$OPTARG" ;;
     p) outputprefix="$OPTARG" ;;
-    g) processdatafolder="$OPTARG" ;;
+    g) processdatapath="$OPTARG" ;;
     :)
       if [[ "$OPTARG" == "f" ]]; then
         echo "Error: Option -f requires an argument." >&2
@@ -33,11 +39,12 @@ while getopts ":f:m:o:n:c:p:g:" opt; do
   esac
 done
 
-if [[ -n "${processdatafolder}" ]]; then
-  file="process_multiple_runs.R"
-  numberofruns="1"
-  mkdir -p ${processdatafolder}
-  if ! [ -d "${outputfolder}" ]; then
+if [[ -n "${processdatapath}" ]]; then
+  if [[ "$runandpostprocess" == false ]]; then
+    numberofruns="1"
+  fi
+  mkdir -p $(dirname "${processdatapath}")
+  if ! [ -d "${outputfolder}" ] && [ "$runandpostprocess" == false ]; then
     echo "Folder containing outputs does not exist."
     exit 1
   fi
@@ -53,7 +60,7 @@ if [[ "$clean" == true ]]; then
     echo "Cleaning logs/"
     rm -rf "$HOME/${folder}/logs/"
     echo "Cleaning rout/$file"
-    rm -rf "$HOME/${folder}/logs/$file"*
+    rm -rf "$HOME/${folder}/rout/$file"*
     exit 0
 fi
 
@@ -104,25 +111,33 @@ if [[ $numberofruns == *-* ]]; then
   numrunoption="${numberofruns}"
 fi
 
-# if [ $(pwd) == "$HOME/${folder}" ]; then
-#   if [[ -n "${processdatafolder}" ]]; then
-#     echo "qsub for processing outputs"
-#     qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAFOLDER=${processdatafolder}" \
-#       -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
-#       run_process_files.sh
-#     exit 0
-#   fi
-#   if [[ $numberofruns == "1" ]]; then
-#     echo "qsub for single run"
-#     qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAFOLDER=${processdatafolder}" \
-#       -o $HOME/$MODELFOLDER/logs/ -e $HOME/$folder/logs/ \
-#       run.sh
-#     exit 0
-#   fi
-#   qsub -J "$numrunoption" -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder}" \
-#     -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
-#     run.sh
-#   exit 0
-# else
-#    echo "Not in the right folder"
-# fi
+if [ $(pwd) == "$HOME/${folder}" ]; then
+  if [[ -n "${processdatapath}" && "$runandpostprocess" == false ]]; then
+    echo "qsub for processing outputs"
+    job_id=$(qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${postprocessfile},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAPATH=${processdatapath}" \
+      -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+      run_process_files.sh)
+  elif [[ $numberofruns == "1" ]]; then
+    echo "qsub for single run"
+    job_id=$(qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder}" \
+      -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+      run.sh)
+    exit 0
+  else
+    job_id=$(qsub -J "$numrunoption" -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder}" \
+      -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+      run.sh)
+  fi
+  echo "Job ID: $job_id"
+  if [[ "$runandpostprocess" == true ]]; then 
+    dashWstring="depend=afterok:$job_id"
+    echo "qsub for processing outputs"
+    new_job_id=$(qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${postprocessfile},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAPATH=${processdatapath}" \
+      -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+      -W $dashWstring \
+      run_process_files.sh)
+    echo "Post Process Job ID: $new_job_id"
+  fi
+else
+   echo "Not in the right folder"
+fi

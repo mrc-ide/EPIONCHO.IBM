@@ -1,4 +1,4 @@
-process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs = FALSE, verbose=TRUE, ov16_indiv_locations=c(1), ov16_indiv_location_names=c("baseline"), min_iter=0, max_iter=100000) {
+process_multiple_runs <- function(files='', outputs_per_year = 4, timesteps_in_year=366, ov16_indiv = FALSE, morbidity_runs = FALSE, verbose=TRUE, ov16_indiv_locations=c(1), ov16_indiv_location_names=c("baseline"), min_iter=0, max_iter=100000) {
   allOutputs <- data.frame()
   fileToUse <- files
 
@@ -40,7 +40,13 @@ process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs 
 
     
     print(file)
-    selector <- which(tmpRDSData$years %% 1 == 0)
+    # selector <- which(tmpRDSData$years %% 1 == 0)
+    total_timesteps <- 1:(length(tmpRDSData$years))
+    year_position <- total_timesteps %% timesteps_in_year
+    year_position[year_position == 0] <- timesteps_in_year
+    output_locs_year <- floor(seq(1, timesteps_in_year, length.out=(outputs_per_year+1))[2:(outputs_per_year+1)])
+    selector <- total_timesteps[year_position %in% output_locs_year]
+
     num_vals <- length(selector)
     
     # Used for Ov16 individual matrix processing
@@ -183,8 +189,8 @@ process_multiple_runs <- function (files='', ov16_indiv = FALSE, morbidity_runs 
 
 outputs_folder = Sys.getenv("OUTPUT_FOLDER")
 
-processed_file_folder = Sys.getenv("PROCESS_DATA_FOLDER")
+processed_file_path = Sys.getenv("PROCESS_DATA_PATH")
 print(outputs_folder)
 print(processed_file_folder)
 
-saveRDS(process_multiple_runs(file=paste0(outputs_folder, "/"), morbidity_runs=TRUE), paste0(processed_file_folder, "/processed_output.RDS"))
+saveRDS(process_multiple_runs(file=paste0(outputs_folder, "/"), morbidity_runs=TRUE), processed_file_path)
