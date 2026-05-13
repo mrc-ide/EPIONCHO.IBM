@@ -1203,7 +1203,7 @@ ep.equi.sim <- function(time.its,
     'all_mf_intensity_age_grouped' = mf_intensity_outputs, 'ov16_indiv_matrix' = ov16_indiv_matrix,
     "ov16_timetrend_outputs" = ov16_timetrend_outputs, 'ov16_timetrend_outputs_adj' = ov16_timetrend_outputs_adj,
     "worm_burden_outputs" = worm_burden_outputs, 'ABR_recorded' = ABR_recorded, 'coverage.recorded' = coverage.recorded,
-    'percent_never_treated' = never_treated_values
+    'percent_never_treated' = never_treated_values, 'timestep_used' = DT
   )
 
   if (morbidity_module == "YES"){
