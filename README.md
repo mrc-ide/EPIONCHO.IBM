@@ -11,7 +11,7 @@
 
 ------------------------------------------------------------------------
 
-## Overview
+## General Overview
 
 A individual-based, stochastic model of the *Onchocerca volvulus*
 transmission system.
@@ -22,6 +22,8 @@ dependence in onchocerciasis using a novel individual-based transmission
 model, EPIONCHO-IBM: Implications for elimination and data needs. PLoS
 Negl Trop Dis 13(12):
 e0007557](https://doi.org/10.1371/journal.pntd.0007557)
+
+## Model Update Overview
 
 EPIONCHO-IBM has been extended to output Ov16 seroprevalence. This README will describe the `Ov16` branch, and how to recreate the model simulations and analyses published (reference to be inserted after publishing) in Nature Communications. To see the original model, please switch to the `master` branch.
 
@@ -36,9 +38,30 @@ The analysis done in the paper follows the following steps:
 5. Running simulations for Togo
 6. Analysing simulations for Togo
 
+## How to Replicate the Analysis
+
 Running the full analysis will take a significantly long time, even when done on high performance clusters. To overcome that, the processed data from running the model are already provided. The processed data is located in [Zenodo](must-add-link). Download the [data.zip](must-add-link) file, and save it in the root directory of the project. Then unzip it. There should now be a `data/` folder, with the following subfolders: `model_processed_data/`, `model_processed_data_onchosim/`, `analysis_processed_data/`, `analysis_processed_data_onchosim/`, and `analysis_processed_data_oti_100/`. Next, download the Gabon data from the following link: https://data.mendeley.com/datasets/vtvmrzs9ch/2. Be sure to save it in the same `data` folder as above. Finally, run [analysis_for_gabon.Rmd](analysis_files/analysis_for_gabon.Rmd) to reproduce the analysis for Gabon, and run [analysis_for_togo.Rmd](analysis_files/analysis_for_togo.Rmd) to reproduce the analysis for Togo. Note that while the scripts are running, input may be required (usually typing `1` in the console) to allow the script to create folders for the outputs.
 
-To run the full analysis:
+### Summary of how to run each file to produce the figures in the manuscript:
+
+<strong>File: [analysis_for_gabon.Rmd](analysis_files/analysis_for_gabon.Rmd)</strong>
+Figure(s) created: Figure 1, 3, 4, and Supplementary Figures 2, 4-8.
+
+To create Figures 1, 3, 4 and Supplementary Figures 4 and 5. You do not need to change any of the default settings. Just run the full script. The figures will be found in the folder `images_v1_onchosim/`, and will be named "gabon_rdt_mfp_graph_new_quartiles_k2.svg", "k2_normalized_mses_3_sigfigs.svg", "best_fitting_hyp_using_sampled_diagnostic_performance.svg", "weighted_mfp_vs_abr_plot_gabon_rdt.svg", "gabon_sens_spec_dists_upd.svg", and "all_hyp_using_sampled_diagnostic_performance.svg" respectively.
+
+To create Supplementary Figures 6-8, set `use_onchosim = FALSE`. Then run the full script. The images will be saved in the folder `images_v1/`, and will be caleld "point_estimate_diagnostic_seroreversion(i).svg", "point_estimate_diagnostic_seroreversion(ii).svg", and "point_estimate_diagnostic_seroreversion(iii).svg" respectively.
+
+<strong>File [analysis_for_togo.Rmd](analysis_files/analysis_for_togo.Rmd)</strong>
+Figure(s) created: Figure 5-7, Supplementary Figure 9.
+
+To create all of the figures, you do not need to change any of the default settings. Just run the full script, and the figures will be found in the folder `images_v1/`. The files will be called "togo_sens_spec_analysis_bar_both_all_ages_best_vc.svg", "togo_combined_normalized_mse.svg", "togo_sens_spec_analysis_best_vc_all.svg", and "togo_sens_spec_dists_upd.svg" respectively.
+
+<strong>File [create_abr_dist.Rmd](analysis_files/create_abr_dist.Rmd)</strong>
+Figure(s) created: Supplementary Figure 3.
+
+To create Supplementary Figure you, you do not need to change any of the default settings. Just run the full script, and the figure will be created in the folder `images_v1/`. The file will be called "final_gamma_abr_dist_k3_mfp_70_85.png".
+
+### Steps to run the full analysis:
 
 - Step 1: The code for the ABR tuning of Gabon is outlined in step 3.1 of the [Running EPIONCHO-IBM Ov16 vignette](vignettes/Running_EPIONCHO_IBM_Ov16.Rmd). Note that the default iterations per abr in the script is 1, however for the model, 100 was the minimum used, then with the narrowed down ABRs, 500 simulations were run.
 
@@ -56,7 +79,7 @@ Old Code -> New Code
 `kEs = c(rep(0.2, length(abrs_k2)), rep(0.3, length(abrs_k3)))` -> `kEs = rep(0.3, length(abrs_k3))`
 Additionally, change `test_output_folder/test_mfp_abr_output_folder/` to a path of your choosing.
 
-Once all the simulations have completed, run [create_abr_dist.Rmd](analysis_files/create_abr_dist.Rmd), updated the `data_folder` path to point to where the outputs are located.
+    - Once all the simulations have completed, run [create_abr_dist.Rmd](analysis_files/create_abr_dist.Rmd). Be sure to update the `data_folder` path to point to where the simulation outputs have been saved.
 
 - Step 5: For the simulations for Togo, the model code to be run is located in [all_funcs_combined_togo.R](all_funcs_combined_togo.R). This script needs to be run a total of 13,500 times, each time providing a new iter value from 1-13,500. Be sure to create the `raw_data/togo_output/` folder path.
 
