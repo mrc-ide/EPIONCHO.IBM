@@ -1,4 +1,4 @@
-process_multiple_runs <- function(files='', outputs_per_year = 4, timesteps_in_year=366, ov16_indiv = FALSE, morbidity_runs = FALSE, verbose=TRUE, ov16_indiv_locations=c(1), ov16_indiv_location_names=c("baseline"), min_iter=0, max_iter=100000) {
+process_multiple_runs <- function(files='', outputs_per_year = 4, ov16_indiv = FALSE, morbidity_runs = FALSE, verbose=TRUE, ov16_indiv_locations=c(1), ov16_indiv_location_names=c("baseline"), min_iter=0, max_iter=100000) {
   allOutputs <- data.frame()
   fileToUse <- files
 
@@ -40,6 +40,7 @@ process_multiple_runs <- function(files='', outputs_per_year = 4, timesteps_in_y
 
     
     print(file)
+    timesteps_in_year = 1/tmpRDSData$timestep_used
     # selector <- which(tmpRDSData$years %% 1 == 0)
     total_timesteps <- 1:(length(tmpRDSData$years))
     year_position <- total_timesteps %% timesteps_in_year
