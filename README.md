@@ -113,6 +113,8 @@ Note: Similar to the run.sh file, you may need to modify the header of [run_proc
 9. If you want to automate the process a bit more, the script allows you to both set the model to run, and automatically post-process the data after the model run simulations are done. This can be done via the `-b` flag. In addition to this, you will need to input the same information you inupt for both running the model (step 6) and processing the model (step 8). An example command doing this is:
 `./setupForRun.sh -n 300 -o "output" -p "model_output" -g "processed_data/post_processed_data.rds" -b`
 
+10. For example code on how to visualize the post-processed data, please see the code in [analyze_post_processed_data.R](analyze_post_processed_data.R). Small tweaks may be needed to the code based on the individual model scenarios, but the general structure of the code should be useful.
+
 ## Using EPIONCHO-IBM
 
 For a detailed practical guide please see the [Installing and Running
