@@ -9,6 +9,7 @@ process_multiple_runs <- function(files='', outputs_per_year = 4, ov16_indiv = F
   atp_df <- NA
   mf_intensity_df <- NA
   morbidity_df <- NA
+  worm_df <- NA
   oae_incidence_df <- NA
   ov16_trends_df <- NA
   ov16_adj_trends_df <- NA
@@ -70,7 +71,14 @@ process_multiple_runs <- function(files='', outputs_per_year = 4, ov16_indiv = F
       colnames(mf_intensity_df) <- c(
         colnames(tmpRDSData$all_mf_intensity_age_grouped), 
         # paste0("30-", colnames(tmpRDSData$all_mf_intensity_age_grouped)), - TODO: need to update model
-        "Ke", "ABR", "year", 'run_num')
+        "Ke", "ABR", "year", 'run_num'
+      )
+
+      worm_df <- matrix(ncol=(ncol(tmpRDSData$worm_burden_outputs))+4, nrow=total_files*num_vals)
+      colnames(worm_df) <- c(
+        colnames(tmpRDSData$worm_burden_outputs),
+        "Ke", "ABR", "year", 'run_num'
+      )
       
       if (morbidity_runs) {
         morbidity_df <- matrix(ncol=ncol(tmpRDSData$all_morbidity_prevalence_outputs)+4, nrow=total_files*num_vals)
@@ -123,27 +131,33 @@ process_multiple_runs <- function(files='', outputs_per_year = 4, ov16_indiv = F
     mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(tmpRDSData$all_mf_prevalence_age_grouped))] <- tmpRDSData$all_mf_prevalence_age_grouped[selector,]
     # mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),(ncol(tmpRDSData$all_mf_prevalence_age_grouped)+1):(ncol(mf_prev_df)-4)] <- tmpRDSData$all_mf_prevalence_30_age_grouped[selector,]
     mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)-3] <- rep(kE, length(selector))
-    mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)-2] <- tmpRDSData$ABR
     mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)-1] <- tmpRDSData$years[selector]
     mf_prev_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_prev_df)] <- rep(iter, length(selector))
     
     mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(tmpRDSData$all_mf_intensity_age_grouped))] <- tmpRDSData$all_mf_intensity_age_grouped[selector,]
     # mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),(ncol(tmpRDSData$all_mf_intensity_age_grouped)+1):(ncol(mf_intensity_df)-4)] <- tmpRDSData$all_mf_intensity_30_age_grouped[selector,]
     mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)-3] <- rep(kE, length(selector))
-    mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)-2] <- tmpRDSData$ABR
     mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)-1] <- tmpRDSData$years[selector]
     mf_intensity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(mf_intensity_df)] <- rep(iter, length(selector))
+
+    worm_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(tmpRDSData$worm_burden_outputs))] <- tmpRDSData$worm_burden_outputs[selector,]
+    worm_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(worm_df)-3] <- rep(kE, length(selector))
+    worm_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(worm_df)-2] <- tmpRDSData$ABR
+    worm_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(worm_df)-1] <- tmpRDSData$years[selector]
+    worm_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(worm_df)] <- rep(iter, length(selector))
     
     if (morbidity_runs) {
       morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(morbidity_df)-4)] <-tmpRDSData$all_morbidity_prevalence_outputs[selector,]
       morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)-3] <- rep(kE, length(selector))
-      morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)-2] <- tmpRDSData$ABR_recorded[selector]
+      morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)-2] <- tmpRDSData$ABR
       morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)-1] <- tmpRDSData$years[selector]
       morbidity_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(morbidity_df)] <- rep(iter, length(selector))
   
       oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(oae_incidence_df)-4)] <- tmpRDSData$oae_incidence_outputs[selector,]
       oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)-3] <- rep(kE, length(selector))
-      oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)-2] <- tmpRDSData$ABR_recorded[selector]
+      oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)-2] <- tmpRDSData$ABR
       oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)-1] <- tmpRDSData$years[selector]
       oae_incidence_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(oae_incidence_df)] <- rep(iter, length(selector))
     }
@@ -151,13 +165,13 @@ process_multiple_runs <- function(files='', outputs_per_year = 4, ov16_indiv = F
 
     ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(ov16_trends_df)-4)] <- tmpRDSData$ov16_timetrend_outputs[selector,]
     ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)-3] <- rep(kE, length(selector))
-    ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)-2] <- tmpRDSData$ABR
     ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)-1] <- tmpRDSData$years[selector]
     ov16_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_trends_df)] <- rep(iter, length(selector))
     
     ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),1:(ncol(ov16_adj_trends_df)-4)] <- tmpRDSData$ov16_timetrend_outputs_adj[selector,]
     ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)-3] <- rep(kE, length(selector))
-    ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)-2] <- tmpRDSData$ABR_recorded[selector]
+    ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)-2] <- tmpRDSData$ABR
     ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)-1] <- tmpRDSData$years[selector]
     ov16_adj_trends_df[(1+(num_vals*(i-1))):(i*num_vals),ncol(ov16_adj_trends_df)] <- rep(iter, length(selector))
     
@@ -183,8 +197,8 @@ process_multiple_runs <- function(files='', outputs_per_year = 4, ov16_indiv = F
       ifelse(ov16_indiv_df$age <= 75, ceiling(ov16_indiv_df$age/5)*5 - 2.5, 77.5)
     )
   }
-  all_return <- list(mf_prev_df, mf_intensity_df, morbidity_df, oae_incidence_df, ov16_trends_df, ov16_adj_trends_df, ov16_indiv_df, atp_df)
-  names(all_return) <- c("mf_prev_df", "mf_intensity_df", "morbidity_df", "oae_incidence_df", "ov16_trends_df", "ov16_adj_trends_df", "ov16_indiv_df", "atp_df")
+  all_return <- list(mf_prev_df, mf_intensity_df, worm_df, morbidity_df, oae_incidence_df, ov16_trends_df, ov16_adj_trends_df, ov16_indiv_df, atp_df)
+  names(all_return) <- c("mf_prev_df", "mf_intensity_df", "worm_df", "morbidity_df", "oae_incidence_df", "ov16_trends_df", "ov16_adj_trends_df", "ov16_indiv_df", "atp_df")
   return(all_return)
 }
 
@@ -192,6 +206,6 @@ outputs_folder = Sys.getenv("OUTPUT_FOLDER")
 
 processed_file_path = Sys.getenv("PROCESS_DATA_PATH")
 print(outputs_folder)
-print(processed_file_folder)
+print(processed_file_path)
 
 saveRDS(process_multiple_runs(file=paste0(outputs_folder, "/"), morbidity_runs=TRUE), processed_file_path)
