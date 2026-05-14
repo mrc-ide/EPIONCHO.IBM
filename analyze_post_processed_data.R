@@ -217,7 +217,7 @@ all_r_processed_data <- mutate_all_r_data(r_data, all_kEs, abr_vals)
 
 # Save the summarised data. Since it takes a long time, you don't want to sit and wait for the processing again
 # instead you can just load the file
-saveRDS(all_r_processed_data, "path/to/summarised/data.RDS")
+write.csv(all_r_processed_data, "path/to/summarised/data.csv")
 
 
 for (abr_val in abr_vals) {
