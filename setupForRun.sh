@@ -3,13 +3,14 @@ folder="EPIONCHO.IBM"
 outputfolder="output"
 file="all_funcs_combined.R"
 postprocessfile="process_multiple_runs.R"
-helpval="Usage: $0 [-f file to run (default: all_funcs_combined.R)] [-n number of runs] [-c clean output and logs folder] [-m model folder (default: EPIONCHO.IBM)] [-o output folder (default: output)] [-p output prefix (defailt: test)] [-g path to save processed data. Must include filename, and end in .rds] [-b run model and post process]"
+helpval="Usage: $0 [-f file to run (default: all_funcs_combined.R)] [-n number of runs] [-c clean output and logs folder] [-m model folder (default: EPIONCHO.IBM)] [-o output folder (default: output)] [-p output prefix (defailt: test)] [-g path to save processed data. Must include filename, and end in .rds] [-b run model and post process] [-W: Job id to wait for compltion. This should be of the format 12345.pbs-7 or 12345[].pbs-7.]"
 clean=false
 numberofruns=200
 outputprefix="test"
 processdatapath=""
 runandpostprocess=false
-while getopts ":f:m:o:n:cp:g:b" opt; do
+dependonvalue=""
+while getopts ":f:m:o:n:cp:g:W:b" opt; do
   case $opt in
     b) 
       echo "Running model and post-processing"
@@ -25,6 +26,7 @@ while getopts ":f:m:o:n:cp:g:b" opt; do
     o) outputfolder="$OPTARG" ;;
     p) outputprefix="$OPTARG" ;;
     g) processdatapath="$OPTARG" ;;
+    W) dependonvalue="-W depend=afterok:${OPTARG}" ;;
     :)
       if [[ "$OPTARG" == "f" ]]; then
         echo "Error: Option -f requires an argument." >&2
@@ -38,6 +40,12 @@ while getopts ":f:m:o:n:cp:g:b" opt; do
       ;;
   esac
 done
+
+if [[ "$runandpostprocess" == true && -z "$processdatapath" ]]; then
+  echo "Error: -b requires -g to be set." >&2
+  echo $helpval >&2
+  exit 1
+fi
 
 if [[ -n "${processdatapath}" ]]; then
   if [[ "$runandpostprocess" == false ]]; then
@@ -64,16 +72,16 @@ if [[ "$clean" == true ]]; then
     exit 0
 fi
 
-if ! [ -d "${outputfolder}" ]; then
+if ! [ -d "$HOME/${folder}/${outputfolder}" ]; then
     echo "No existing output folder, making a new one"
     mkdir -p $HOME/${folder}/${outputfolder}/
 fi
-if ! [ -d "logs" ]; then
+if ! [ -d "$HOME/${folder}/logs" ]; then
     echo "No existing logs folder, making a new one"
     mkdir -p $HOME/${folder}/logs/
 fi
 
-if ! [ -d "rout" ]; then
+if ! [ -d "$HOME/${folder}/rout" ]; then
     echo "No existing rout folder, making a new one"
     mkdir -p $HOME/${folder}/rout/
 fi
@@ -116,16 +124,19 @@ if [ $(pwd) == "$HOME/${folder}" ]; then
     echo "qsub for processing outputs"
     job_id=$(qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${postprocessfile},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder},PROCESSDATAPATH=${processdatapath}" \
       -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+      $dependonvalue \
       run_process_files.sh)
   elif [[ $numberofruns == "1" ]]; then
     echo "qsub for single run"
     job_id=$(qsub -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder}" \
       -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+      $dependonvalue \
       run.sh)
     exit 0
   else
     job_id=$(qsub -J "$numrunoption" -v "OUTPUTFOLDERNAME=${outputfolder},FILETORUN=${file},OUTPUTPREFIX=${outputprefix},MODELFOLDER=${folder}" \
       -o $HOME/$folder/logs/ -e $HOME/$folder/logs/ \
+      $dependonvalue \
       run.sh)
   fi
   echo "Job ID: $job_id"

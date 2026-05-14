@@ -100,6 +100,10 @@ The other input parameters for setupForRun are described below:
 -p: The prefix you want to label your results in. The default is `test`.
 -g: The path to the output file you want to save your processed data in. This should include the name of the file as well (see example in step 8, must have `.rds` extension). Set this if you want to process the data from files located in `-o`, to combine into a single file.
 -b: Flag to designate if you want to automate running a post-processing job after running your normal model run. No need for any input.
+-W: Job id to wait for compltion. This should be of the format `12345.pbs-7` or `12345[].pbs-7`. 
+
+10,000 is the max number of simulations you can have the cluster run in one job. If you need to run more than this, do everything the same as above. For the first job, use `-n 10000`, and **DO NOT RUN AGGREGATION AT THE SAME TIME** (do not add the `-g` or `-b` flags). 
+Then for the next job, submit using parameters `-W [previous_job_id] -n "10001-15000"`. `previous_job_id`, should be replaced with the job id from the first job you submitted. Replace 15000 with your max iters that is between 10001 and 20000. If you more than 20,000 iterations, repeat the last step but increase the `-n` range with steps of 10,000 till you reach the final iteration number. If you are submitting the final set of jobs, you can then set the `-g` and `-b` flags to post-process the data once the final run completes.
 
 **IMPORTANT:** If you have not run the model in the cluster before, this script will installed anaconda via miniforge, and create a new environment called `my_r_env`, which will be used for running the model. You may need to provide user input in the terminal (typing `y` to accept the install and creation of the conda environment).
 
