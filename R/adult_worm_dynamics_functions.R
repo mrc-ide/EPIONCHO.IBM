@@ -295,7 +295,7 @@ calculate_worm_burden_across_age_groups <- function(
     age_group <- age_groups[[age_group_index]]
     # male
     output_burden_data[age_group_index] <- worm_burden_for_age(
-      main_dat[, male_start:infertile_female_start], main_dat[, 2], age_group[1], age_group[2]
+      main_dat[, male_start:(infertile_female_start-1)], main_dat[, 2], age_group[1], age_group[2]
     )
     # fertile female
     output_burden_data[age_group_index + length(age_groups)] <- worm_burden_for_age(
@@ -303,7 +303,7 @@ calculate_worm_burden_across_age_groups <- function(
     )
     # infertile female
     output_burden_data[age_group_index + (length(age_groups) * 2)] <- worm_burden_for_age(
-      main_dat[, infertile_female_start:fertile_female_start], main_dat[, 2], age_group[1], age_group[2]
+      main_dat[, infertile_female_start:(fertile_female_start-1)], main_dat[, 2], age_group[1], age_group[2]
     )
   }
   return(output_burden_data)
