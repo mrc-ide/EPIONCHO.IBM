@@ -1086,7 +1086,7 @@ ep.equi.sim <- function(time.its,
     any_worms <- (rowSums(all.mats.temp[,worms.start:fw.end]) > 0)
     mating_worm <- ((rowSums(all.mats.temp[,worms.start:nfw.start])) > 0 & (rowSums(all.mats.temp[, fw.start:fw.end]) > 0))
     mating_worm_any_mf <- (mating_worm & (rowSums(all.mats.temp[,mf.start:mf.end]) > 0))
-    combned_seroreversion <- which(
+    serorevert_fast <- ifelse(
       ov16_type_of_seroreverison == "instant",
       mating_worm == FALSE,
       any_worms == FALSE & any_larvae == FALSE
