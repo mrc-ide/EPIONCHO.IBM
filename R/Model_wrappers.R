@@ -1029,7 +1029,7 @@ ep.equi.sim <- function(time.its,
         blidness_dat = all.blind.updated,
         oae_status = OAE,
         N = N,
-        age_groups = append(list(c(5, 81)), output_age_groups)
+        age_groups = append(list(c(min.mont.age, 81)), output_age_groups)
       )
     }
 
@@ -1094,7 +1094,7 @@ ep.equi.sim <- function(time.its,
 
     ov16_seropositive_combined_serorevert <- determine_serostatus(
       exposure_array = mating_worm_any_mf, curr_array = ov16_seropositive_combined_serorevert, do_serorevert="combined",
-      seroreversion_arrays = list("custom_seroreversion_status" = combned_seroreversion)
+      seroreversion_arrays = list("custom_seroreversion_status" = serorevert_fast)
     )
 
     ov16_timetrend_outputs[i, ] <- calculate_seroprevalence_across_age_groups(
