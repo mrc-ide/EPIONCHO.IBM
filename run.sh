@@ -1,8 +1,7 @@
 #PBS -l walltime=01:00:00
 #PBS -l select=1:ncpus=1:mem=5gb
 
-filetorun="${FILETORUN}" # change this as needed
-# outputname="${}" # change this as needed
+filetorun="${FILETORUN}"
 
 export OUTPUT_PREFIX="${OUTPUTPREFIX}"
 export OUTPUT_FOLDER="${OUTPUTFOLDERNAME}"
@@ -30,11 +29,7 @@ cd $TMPDIR
 
 echo "R is about to run"
 
-R CMD BATCH "$TMPDIR/${filetorun}" "$TMPDIR/rout/${filetorun}Output_${PBS_ARRAY_INDEX}.txt"
-
-echo "Copying R runtime files to ${HOME}/${MODELFOLDER}/rout"
-cp -r $TMPDIR/rfils $HOME/${MODELFOLDER}/
-cp -r $TMPDIR/rout $HOME/${MODELFOLDER}/
+R CMD BATCH "$TMPDIR/${filetorun}" "$HOME/${MODELFOLDER}/rout/${filetorun}Output_${PBS_ARRAY_INDEX}.txt"
 
 echo "Copying R output files to ${HOME}/${MODELFOLDER}/${OUTPUT_FOLDER}/"
 cp $TMPDIR/${OUTPUT_FOLDER}/${OUTPUT_PREFIX}_${PBS_ARRAY_INDEX}.rds $HOME/${MODELFOLDER}/${OUTPUT_FOLDER}
