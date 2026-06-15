@@ -228,26 +228,21 @@ ep.equi.sim <- function(
 
 
   # Treatment parameters #
-
-  if(all(is.na(treat.switch)) && (treat.type == "IVM")){
-    lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
-    cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
-    up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
-
-  }
+  # Default = IVM parameters
+  lam.m = 32.4; phi = 19.6 #effects of ivermectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
+  cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
+  up = 0.0096; kap = 1.25 #effects of ivermectin (matt: parameters u (up) and k (kap) define the microfilaricidal effect curve, u = finite effect follwoed by decline (rebound) = k - table G in Supp)
+  min.age.mda = 5
 
   if(all(is.na(treat.switch)) && treat.type == "MOX"){
-    #print("default pars")
-
     lam.m = 462; phi = 4.83 #effects of moxidectin (matt: embryostatic effect - lam.m is the max rate of treatment-induced sterility; phi is the rate of decay of this effect - Table G in Supp)
     cum.infer = 0.345 # permanent infertility in worms due to ivermectin (irreversible sterlising effect- "global") - this could be changed as a macrofilaricidal to 0.9 (90%)
     up = 0.04; kap = 1.82 #effects of Moxidectin from Kura et al. 2023(matt: parameters u (up) and k (kap) define the microfilaricidal effect curve
-
+    min.age.mda = 4
   }
 
   # Exposure parameters #
 
-  # gam.dis = 0.3 #individual level exposure heterogeneity (matt: shape par in gamma dist, K_E)
   gam.dis <- gam.dis.in # when specifying user input (K_E)
   E0 = 0; q = 0; m.exp = 1.08; f.exp = 0.9; age.exp.m = 0.007; age.exp.f = -0.023 #age-dependent exposure to fly bites age.exp.m or .f = alpha_m or alpha_f)
 
@@ -665,11 +660,13 @@ ep.equi.sim <- function(
           lam.m = 32.4; phi = 19.6 # treatment induced embryostatic parameters
           cum.infer= 0.345 # permanent infertility in worms
           up = 0.0096; kap = 1.25 # microfilaricidal effect curve parameters
+          min.age.mda = 5
           print("IVM parameters updated")
         } else if (treat.type == "MOX") {
           lam.m = 462; phi = 4.83 # treatment induced embryostatic parameters
           cum.infer= 0.345 # permanent infertility in worms
           up = 0.04; kap = 1.82 # microfilaricidal effect curve parameters
+          min.age.mda = 4
           print("MOX parameters updated")
         } else {
           print("ERROR - either IVM or MOX not specified in treatment switch vector at this iteration")
@@ -743,7 +740,7 @@ ep.equi.sim <- function(
         }
 
       # specify if individuals are to be treated in this round in compliance.mat (column 6)
-      eligible_out <- check_eligibility(comp.mat = compliance.mat, all.dt = all.mats.cur, minAgeMDA = 5, maxAgeMDA = 80)
+      eligible_out <- check_eligibility(comp.mat = compliance.mat, all.dt = all.mats.cur, minAgeMDA = min.age.mda, maxAgeMDA = 80)
 
       compliance.mat <- eligible_out[[1]] # extract updated compliance matrix
 
