@@ -53,45 +53,47 @@
 #'
 #' @export
 
-ep.equi.sim <- function(time.its,
-                        DT.in = 1 / 366,
-                        days_per_year = 366,
-                        ABR,
-                        N.in=440,
-                        treat.int,
-                        treat.timing,
-                        treat.prob,
-                        treat.prob.variable = NA,
-                        give.treat,
-                        treat.start,
-                        treat.stop,
-                        pnc,
-                        min.mont.age,
-                        vector.control.strt,
-                        vector.control.duration,
-                        vector.control.efficacy,
-                        vector.control.timing = NA,
-                        delta.hz.in=0.186, # these inputs are new (matt) for testing DD
-                        delta.hinf.in=0.003,
-                        c.h.in=0.005,
-                        gam.dis.in=0.3,
-                        Q = 1.2,
-                        k0_in = 0.0054, # 95% CI = (0.0012, 0.0097)
-                        k1_in = 0.1459, # 95% CI = (0.0548, 0.237)
-                        kM.const.toggle = FALSE,
-                        output_age_groups = list(c(0, 5), c(5, 10), c(10, 15), c(15, 20), c(20, 30), c(30, 50), c(50, 81)),
-                        run_equilibrium,
-                        equilibrium,
-                        print_progress = TRUE,
-                        morbidity_module = "YES",
-                        morbidities = c("SevereItch", "RSD", "Atrophy", "HG", "Depig", "Blindness", "VI", "OAE"),
-                        correlated_compliance = "NO",
-                        comp.correlation = 0,
-                        treat.switch = NA,
-                        treat.type = "IVM",
-                        ov16_store_times = c(),
-                        ov16_diagnostic_adjustment = c(0.8, 0.99),
-                        prob_serorevert_fast = 0.5) {
+ep.equi.sim <- function(
+  time.its,
+  DT.in = 1 / 366,
+  days_per_year = 366,
+  ABR,
+  N.in=440,
+  treat.int = 1,
+  treat.timing = NA,
+  treat.prob = 0.65,
+  treat.prob.variable = NA,
+  give.treat = 0,
+  treat.start = -1,
+  treat.stop = -1,
+  pnc = 0.0,
+  min.mont.age = 5,
+  vector.control.strt = NA,
+  vector.control.duration = NA,
+  vector.control.efficacy = 0.0,
+  vector.control.timing = NA,
+  delta.hz.in=0.186, # these inputs are new (matt) for testing DD
+  delta.hinf.in=0.003,
+  c.h.in=0.005,
+  gam.dis.in=0.3,
+  Q = 1.2,
+  k0_in = 0.0054, # 95% CI = (0.0012, 0.0097)
+  k1_in = 0.1459, # 95% CI = (0.0548, 0.237)
+  kM.const.toggle = FALSE,
+  output_age_groups = list(c(0, 5), c(5, 10), c(10, 15), c(15, 20), c(20, 30), c(30, 50), c(50, 81)),
+  run_equilibrium = TRUE,
+  equilibrium = NA,
+  print_progress = TRUE,
+  morbidity_module = "YES",
+  morbidities = c("SevereItch", "RSD", "Atrophy", "HG", "Depig", "Blindness", "VI", "OAE"),
+  correlated_compliance = "NO",
+  comp.correlation = 0,
+  treat.switch = NA,
+  treat.type = "IVM",
+  ov16_store_times = c(),
+  ov16_diagnostic_adjustment = c(0.8, 0.99),
+  prob_serorevert_fast = 0.5
+) {
 
   output_age_groups_as_strings <- rep("", length(output_age_groups))
   for (output_age_group_index in 1:length(output_age_groups)) {
