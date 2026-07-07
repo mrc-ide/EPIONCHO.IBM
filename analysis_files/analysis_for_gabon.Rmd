@@ -226,6 +226,7 @@ spec_plot <- ggplot() +
   )
 spec_plot
 
+### Supplementary Figure 4
 sens_spec_plot <- (sens_plot | spec_plot) + 
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
 sens_spec_plot
@@ -645,7 +646,7 @@ if(run_mfp) {
       (Ke == 0.2 & ABR >= 50)
     )
   
-  
+  ### Supplementary Figure 2
   mfp_vs_abr_plot_weighted <- ggplot(data=mean_weighted_mfp_data) + 
     geom_point(aes(x=ABR, y=mf_prev, color=within_bounds)) +
     geom_text_repel(aes(x=ABR, y=mf_prev, color=within_bounds, label=ABR), hjust = 4, data=mean_weighted_mfp_data %>% filter(within_bounds), show.legend=FALSE) +
@@ -913,6 +914,8 @@ if (use_onchosim) {
   )
 }
 
+
+### Figure 1, with `use_onchosim = TRUE` 
 create_mfp_graph(
   summarize_gabon_multicountry_data,
   mfp_graph_df,
@@ -1044,6 +1047,7 @@ k2_with_ci <- process_resids(resids_k2, TRUE)
 k2_with_ci %>% kable('html', escape=FALSE) %>% kable_classic() %>% print()
 k2_with_ci %>% write.csv(paste0("images/images_", output_version, "/k2_mses_with_ci.csv"), row.names=FALSE)
 
+#### Figure 3
 if (use_onchosim) {
   normalized_mse_plot <- process_resids(
     rbind(
@@ -1138,6 +1142,8 @@ if (use_onchosim) {
       width=4250, height=3000, units="px", dpi=600
     )
 }
+
+############
 
 if ("resids_k3_df.rds" %in% list.files(paste0(overall_data_folder, analysis_folder, "/"))) {
   resids_k3 <- readRDS(paste0(overall_data_folder, analysis_folder, "/resids_k3_df.rds"))
@@ -1261,6 +1267,7 @@ plot_best_hyp <- all_sero_hyp %>%
     )
   )
 
+#### Figure 4, with `use_onchosim = TRUE`
 plot_1 <- ggplot() + geom_point(aes(x=age_groups, y=ov16_prev_rdt*100), alpha=0.5, color="black", size=0.5, data=df1 %>% filter(age_groups > 0)) +
     geom_errorbar(aes(x=age_groups, ymin=(ov16_wilson_lb*100), ymax=(ov16_wilson_ub*100)), width=2.5, alpha=0.5, colour="black", data=df1 %>% filter(age_groups > 0)) +
    geom_line(aes(x=age_groups, y=ov16_prev*100, color=Hypothesis, linetype=Hypothesis), linewidth=0.6, data=plot_best_hyp %>% filter((exposure == "EPIONCHO exposure" & Hypothesis %in% c("H4ii", "H4iii")) | (exposure == "ONCHOSIM exposure" & Hypothesis %in% c("H4ii", "H4iii")))) +
@@ -1296,6 +1303,7 @@ plot_1
 
 ggsave(paste0("images/images_", output_version,"/best_fitting_hyp_using_sampled_diagnostic_performance.svg"), plot_1, width=4250, height=3000, units="px", dpi=600)
 
+#### Supplementary Figure 5 with `use_onchosim = TRUE`
 plot_2 <- ggplot() + geom_point(aes(x=age_groups, y=ov16_prev_rdt*100), alpha=0.5, color="black", size=0.5, data=df1 %>% filter(age_groups > 0)) +
     geom_errorbar(aes(x=age_groups, ymin=(ov16_wilson_lb*100), ymax=(ov16_wilson_ub*100)), width=2.5, alpha=0.5, colour="black", data=df1 %>% filter(age_groups > 0)) +
    geom_line(aes(x=age_groups, y=ov16_prev*100, color=Hypothesis, linetype=Hypothesis), linewidth=0.6, data=plot_best_hyp) +
@@ -1330,5 +1338,65 @@ plot_2 <- ggplot() + geom_point(aes(x=age_groups, y=ov16_prev_rdt*100), alpha=0.
 plot_2
 
 ggsave(paste0("images/images_", output_version,"/all_hyp_using_sampled_diagnostic_performance.svg"), plot_2, width=4250, height=3000, units="px", dpi=600)
+
+#### Supplementary Figures 6 - 8, done with `use_onchosim = FALSE`
+
+supp_sero_hyp <- all_sero_hyp %>% 
+  filter(
+    sens %in% c("40%", "50%", "60%"),
+    exposure == "EPIONCHO exposure"
+  ) %>%
+  mutate(
+    sero_hyp = case_when(
+      grepl("iii", Hypothesis) ~ "(iii)",
+      grepl("ii", Hypothesis) ~ "(ii)",
+      TRUE ~ "(i)"
+    )
+  )
+
+# H1-3/H3 = Blue, H1-2 = Purple, H4 = Red
+for (sero_hyp_val in unique(supp_sero_hyp$sero_hyp)) {
+  print(sero_hyp_val)
+  tmp_supp_sero_hyp <- supp_sero_hyp %>%
+    filter(sero_hyp == sero_hyp_val) %>%
+    mutate(
+      ov16_prev = ifelse(age_groups == 0, 0, ov16_prev),
+      ov16_lower = ifelse(age_groups == 0, 0, ov16_lower),
+      ov16_upper =  ifelse(age_groups == 0, 0, ov16_upper)
+    )
+  sero_hyp_plot <- ggplot() + 
+    geom_point(aes(x=age_groups, y=ov16_prev_rdt*100), alpha=0.5, color="black", size=0.5, data=df1 %>% filter(age_groups > 0)) +
+      geom_errorbar(aes(x=age_groups, ymin=(ov16_wilson_lb*100), ymax=(ov16_wilson_ub*100)), width=2.5, alpha=0.5, colour="black", data=df1 %>% filter(age_groups > 0)) +
+     geom_line(aes(x=age_groups, y=ov16_prev*100, color=Hypothesis), linewidth=0.6, data=tmp_supp_sero_hyp) +
+      geom_ribbon(aes(x=age_groups, ymin=ov16_lower*100, ymax=ov16_upper*100, fill=Hypothesis), color=NA, alpha=0.1, data=tmp_supp_sero_hyp) +
+    scale_fill_manual(name="Hypotheses", values=c("H3ii"="blue", "H1ii-2ii"="purple", "H1i-3i"="blue", "H1iii-3iii"="blue", "H4i"="red", "H4ii"="red", "H4iii"="red")) +
+    scale_color_manual(name="Hypotheses", values=c("H3ii"="blue", "H1ii-2ii"="purple", "H1i-3i"="blue", "H1iii-3iii"="blue", "H4i"="red", "H4ii"="red", "H4iii"="red")) +
+    scale_alpha_continuous(range = c(0.3, 1)) +
+    theme_bw() +
+    facet_grid(sens~spec) +
+    xlab("Age (years)") +
+    ylab("Anti-Ov16 seroprevalence (%)") +
+    ylim(0, 43) +
+    guides(alpha="none", linetype="none", color="none", fill="none") + #guide_legend(nrow=1)) +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      plot.title = element_text(size=10, hjust = 0.5),
+      axis.title.y = element_text(size=10),
+      title = element_text(size=10),
+      legend.text = element_text(size=6),
+      legend.title = element_text(size=8),
+      legend.key.size = unit(0.8, 'lines'),
+      axis.text.y = element_text(size=6),
+      axis.text.x = element_text(size=6),
+      strip.placement = "outside",
+      panel.grid.minor = element_blank(),
+      axis.line.x = element_line(color = "black"),
+      axis.line.y = element_line(color = "black"),
+      strip.text.y = element_text(angle=0),
+      axis.line.y.right = element_blank()
+    )
+  ggsave(paste0("images/images_", output_version,"/point_estimate_diagnostic_seroreversion", sero_hyp_val, ".svg"), sero_hyp_plot, width=4250, height=3000, units="px", dpi=600)
+}
 
 ```

@@ -30,6 +30,7 @@ knitr::knit_hooks$set(timeit = local({
 overall_data_folder = "data/"
 data_folder = "your/folder_name/"
 analysis_folder = "analysis_processed_data/"
+rerun_fit_dist <- FALSE
 
 run_version = "v1"
 knitr::opts_knit$set(root.dir = dirname(getwd()))
@@ -224,27 +225,31 @@ for(mfp in c(70, 75, 85)) {
 
 #### Gamma
 ```{r}
-gamma_shape_start <- list(list(18.9, 7.2/1000), list(15.4, 3.3/1000), list(6.8, .29/1000))
-for(mfp in c(70, 75, 85)) {
-  size <- 500
-  print(paste("MFP:", mfp))
-  target_mfp_str = paste(mfp, "", sep="")
-  target_mfp = (mfp / 100) - 0.005
+if (rerun_fit_dist) {
+  gamma_shape_start <- list(list(18.9, 7.2/1000), list(15.4, 3.3/1000), list(6.8, .29/1000))
+  for(mfp in c(70, 75, 85)) {
+    size <- 500
+    print(paste("MFP:", mfp))
+    target_mfp_str = paste(mfp, "", sep="")
+    target_mfp = (mfp / 100) - 0.005
+    
+    summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
+    print(summarized_abr_mfp)
   
-  summarized_abr_mfp <- data.frame(abr=tmpmfpvals$abr_vals, mfp=tmpmfpvals$mf_prev) %>% group_by(abr) %>% summarise(mfp=mean(mfp), num=count(abr)) %>% as.data.frame()
-  print(summarized_abr_mfp)
-
-  ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
-  xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
-
-  range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval="k3", dist_name = 'gamma', dist_func = dgamma, bin_size = size)
-  print(range_return[[1]])
-  ggsave(paste("images/images_", run_version, "/gamma_abr_dist_", "k3", "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+    ggplot() + geom_line(aes(x=summarized_abr_mfp$abr, summarized_abr_mfp$mfp)) +
+    xlab("ABR") + ylab("MFP") + scale_y_continuous(breaks=seq(target_mfp - 0.005, target_mfp + 0.015, 0.005)) + scale_x_continuous(breaks=seq(0, 50000, 500))
+  
+    range_return <- getRangeOfABR(summarized_abr_mfp, target_mfp, raw_data=raw_data_vals, kval="k3", dist_name = 'gamma', dist_func = dgamma, bin_size = size)
+    print(range_return[[1]])
+    ggsave(paste("images/images_", run_version, "/gamma_abr_dist_", "k3", "_", target_mfp_str, ".png", sep=""), range_return[[1]], width=5000, height = 4000, units="px", dpi=600)
+  }
 }
 ```
 
 #### Final Sims
 ```{r}
+#### Supplementary Figure 3
+
 #k3
 gamma_vals <- list(c(21.98, 0.0092), c(14.82, 0.0037), c(7.37, 0.00037))
 

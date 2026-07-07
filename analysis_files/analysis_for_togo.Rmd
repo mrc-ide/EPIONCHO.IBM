@@ -276,7 +276,7 @@ spec_plot <- ggplot() +
     panel.grid.minor = element_blank()
   )
 spec_plot
-
+#### Supplementary Figure 9
 sens_spec_plot <- (sens_plot | spec_plot) + 
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
 sens_spec_plot
@@ -1509,6 +1509,7 @@ combined_raw_resids <- process_resids_pref(raw_resids_df, TRUE, combine_prefectu
     )
   )
 
+#### Figure 6 
 combined_heat_map <- ggplot(
   data = combined_raw_resids
 ) +
@@ -1555,6 +1556,13 @@ combined_heat_map <- ggplot(
   xlab("") +
   ylab("")
 combined_heat_map
+ggsave(
+  paste0("images/images_", run_version, "/togo_combined_normalized_mse.svg"),
+  combined_heat_map,
+  width=4250, height=3000, units="px", dpi=600
+)
+
+##########
 
 prefecture_raw_resids <- process_resids_pref(raw_resids_df, TRUE, return_raw=TRUE) %>%
   mutate(
@@ -1642,12 +1650,6 @@ prefecture_heat_map <- ggplot(
   ylab("")
 prefecture_heat_map
 
-
-ggsave(
-  paste0("images/images_", run_version, "/togo_combined_normalized_mse.svg"),
-  combined_heat_map,
-  width=4250, height=3000, units="px", dpi=600
-)
 
 
 ```
@@ -1843,13 +1845,14 @@ makePrefectureBarSensSpecBestFit <- function(original_data, projection_df_list, 
   ggsave(paste("images/images_", run_version, "/togo_sens_spec_analysis_bar_", descriptor, ".svg", sep=""), plot, units="in", height=5, width=6, dpi=300)
 }
 
+#### Figure 5
 makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, TRUE, "both_all_ages_best_vc", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, hyps=c("H4ii", "H4iii"))
 
 makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, TRUE, "both_all_ages_best_vc_dist_sens_spec", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, use_dist_sens_spec=TRUE, hyps=c("H4ii", "H4iii"))
-
-makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, FALSE, "both_under_10_best_vc", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, hyps=c("H4ii", "H4iii"))
-
-makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, FALSE, "both_under_10_best_vc_dist_sens_spec", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, use_dist_sens_spec=TRUE, hyps=c("H4ii", "H4iii"))
+# 
+# makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, FALSE, "both_under_10_best_vc", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, hyps=c("H4ii", "H4iii"))
+# 
+# makePrefectureBarSensSpecBestFit(groupedVillageData, k3_instant_seroreversion_simulation_summary_combined_sens_spec_list, FALSE, "both_under_10_best_vc_dist_sens_spec", k3_gradual_seroreversion_simulation_summary_combined_sens_spec_list, use_dist_sens_spec=TRUE, hyps=c("H4ii", "H4iii"))
 
 ```
 
@@ -2008,6 +2011,7 @@ if ("togo_combined_best_fit_data.rds" %in% list.files(paste0(overall_data_folder
 best_fit_sens <- as.numeric(str_split(tail(names(best_fit_vc), 1), "_")[[1]][1]) * 100
 best_fit_spec <- as.numeric(str_split(tail(names(best_fit_vc), 1), "_")[[1]][2]) * 100
 
+#### Figure 7
 makeAgeGroupGraphsSensSpecBestFit(togoOv16Data, lapply(best_fit_vc, function(x) {filter(x, sero_type != "H4i" & age_groups != 2.5)}), "best_vc_all", "~sens_spec", "", "Sensitivity, Specificity", best_fit_sens_spec = paste0(best_fit_sens, "%, ", round(best_fit_spec), "%"))
 
 best_fit_vc_h4ii <- lapply(best_fit_vc, function(df) {
