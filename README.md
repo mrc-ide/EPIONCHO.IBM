@@ -38,6 +38,8 @@ The analysis done in the paper follows the following steps:
 5. Running simulations for Togo
 6. Analysing simulations for Togo
 
+If you just want to recreate the main plots (Figures 1, 4, 5, and 7) in the paper, or look at the underlying data for those plots, see section [Recreate Main Figs](#recreate-main-figs) below.
+
 ## How to Replicate the Analysis
 
 Running the full analysis will take a significantly long time, even when done on high performance clusters. To overcome that, the processed data from running the model are already provided. The processed data is located in [Zenodo](must-add-link). Download the [data.zip](must-add-link) file, and save it in the root directory of the project. Then unzip it. There should now be a `data/` folder, with the following subfolders: `model_processed_data/`, `model_processed_data_onchosim/`, `analysis_processed_data/`, `analysis_processed_data_onchosim/`, and `analysis_processed_data_oti_100/`. Next, download the Gabon data from the following link: https://data.mendeley.com/datasets/vtvmrzs9ch/2. Be sure to save it in the same `data` folder as above. Finally, run [analysis_for_gabon.Rmd](analysis_files/analysis_for_gabon.Rmd) to reproduce the analysis for Gabon, and run [analysis_for_togo.Rmd](analysis_files/analysis_for_togo.Rmd) to reproduce the analysis for Togo. Note that while the scripts are running, input may be required (usually typing `1` in the console) to allow the script to create folders for the outputs.
@@ -84,3 +86,9 @@ Additionally, change `test_output_folder/test_mfp_abr_output_folder/` to a path 
 - Step 5: For the simulations for Togo, the model code to be run is located in [all_funcs_combined_togo.R](all_funcs_combined_togo.R). This script needs to be run a total of 13,500 times, each time providing a new iter value from 1-13,500. Be sure to create the `raw_data/togo_output/` folder path.
 
 - Step 6: Once the model simulations are complete, run [processDataTogo.R](processDataTogo.R) to process the data in a format expected by the analysis code. Once the data has finished processing, run [analysis_for_togo.Rmd](analysis_files/analysis_for_togo.Rmd) to produce the results for Togo.
+
+## Recreate Main Figs
+
+The data for figs 1, 4, 5, and 7 can be found in the zip file [data_for_plots_only.zip](data/data_for_plots_only.zip), which is in the data folder. The files will contain names that describe whether it is the processed model data or the processed observed data for each figure. 
+
+To recreate the plots with this data, you can use the script in the analysis files folder called [plot_figs_1_4_5_7.R](analysis_files/plot_figs_1_4_5_7.R).
