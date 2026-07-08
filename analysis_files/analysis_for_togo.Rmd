@@ -45,7 +45,7 @@ analysis_folder = "analysis_processed_data/"
 
 run_version = "v1"
 
-use_oti_100 <- TRUE
+use_oti_100 <- FALSE
 if (use_oti_100) {
   run_version = paste0(run_version, "_oti_100")
   analysis_folder = "analysis_processed_data_oti_100/"
@@ -1548,7 +1548,11 @@ combined_heat_map <- ggplot(
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
     panel.grid.major.y = element_blank(),
-    panel.grid.minor.y = element_blank()
+    panel.grid.minor.y = element_blank(),
+    text = element_text(size = 5.5),
+    axis.title = element_text(size = 6),
+    legend.text = element_text(size = 5),
+    legend.title = element_text(size = 6)
   ) +
   guides(
     fill=guide_colorbar(title.position = "top", title.hjust=0.5)
@@ -1560,6 +1564,11 @@ ggsave(
   paste0("images/images_", run_version, "/togo_combined_normalized_mse.svg"),
   combined_heat_map,
   width=4250, height=3000, units="px", dpi=600
+)
+ggsave(
+  paste0("images/images_", run_version, "/togo_combined_normalized_mse.pdf"),
+  combined_heat_map,
+  width=175, height=110.5, units="mm", dpi=600
 )
 
 ##########
@@ -1792,24 +1801,27 @@ makePrefectureBarSensSpecBestFit <- function(original_data, projection_df_list, 
     ) +
     theme_bw() +
     theme(
-        plot.title = element_text(size=10, hjust = 0.5),
-        axis.title.y = element_text(size=10),
-        title = element_text(size=10),
-        legend.text = element_text(size=6),
-        legend.title = element_text(size=8),
-        legend.key.size = unit(0.8, 'lines'),
-        legend.position = "bottom",
-        legend.direction = "horizontal",
-        axis.text.y = element_text(size=6),
-        axis.text.x = element_text(size=6, angle=70, vjust=0.5),
-        strip.placement = "outside",
-        panel.border = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        axis.line.x = element_line(color = "black"),
-        axis.line.y = element_line(color = "black"),
-        strip.text.y = element_text(angle=0),
-        axis.line.y.right = element_blank()
+      plot.title = element_text(size=10, hjust = 0.5),
+      axis.title.y = element_text(size=6),
+      axis.title.x = element_text(size=6),
+      title = element_text(size=10),
+      text = element_text(size = 5.5),
+      legend.text = element_text(size=5),
+      legend.title = element_text(size=6),
+      legend.key.size = unit(0.8, 'lines'),
+      legend.position = "bottom",
+      legend.direction = "horizontal",
+      axis.text.y = element_text(size=5),
+      axis.text.x = element_text(size=5),
+      strip.placement = "outside",
+      panel.border = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      axis.line.x = element_line(color = "black"),
+      axis.line.y = element_line(color = "black"),
+      strip.text.y = element_text(angle=0, size = 5),
+      strip.text.x = element_text(angle=0, size = 5),
+      axis.line.y.right = element_blank()
     ) +
     geom_segment(aes(x=0.55, xend=1.45, y=-5, yend=-5), color="black", size=0.1) +
     geom_segment(aes(x=0.55, xend=0.55, y=0, yend=-5), color="black", size=0.1) +
@@ -1843,6 +1855,7 @@ makePrefectureBarSensSpecBestFit <- function(original_data, projection_df_list, 
   }
   print(plot)
   ggsave(paste("images/images_", run_version, "/togo_sens_spec_analysis_bar_", descriptor, ".svg", sep=""), plot, units="in", height=5, width=6, dpi=300)
+  ggsave(paste("images/images_", run_version, "/togo_sens_spec_analysis_bar_", descriptor, ".pdf", sep=""), plot, width=175, height=110.5, units="mm", dpi=300)
 }
 
 #### Figure 5
@@ -1930,23 +1943,27 @@ makeAgeGroupGraphsSensSpecBestFit <- function(originalData, projection_df_list, 
       theme_bw() +
       theme(
         plot.title = element_text(size=10, hjust = 0.5),
-        axis.title.y = element_text(size=10),
+        axis.title.y = element_text(size=6),
+        axis.title.x = element_text(size=6),
         title = element_text(size=10),
-        legend.text = element_text(size=6),
-        legend.title = element_text(size=8),
+        legend.text = element_text(size=5),
+        legend.title = element_text(size=6),
         legend.key.size = unit(0.8, 'lines'),
         legend.position = "bottom",
         legend.direction = "horizontal",
-        axis.text.y = element_text(size=6),
-        axis.text.x = element_text(size=6),
+        axis.text.y = element_text(size=5),
+        axis.text.x = element_text(size=5),
         strip.placement = "outside",
         panel.grid.minor = element_blank(),
         axis.line.x = element_line(color = "black"),
         axis.line.y = element_line(color = "black"),
-        strip.text.y = element_text(angle=0),
-        axis.line.y.right = element_blank()
+        strip.text.y = element_text(angle=0, size=5),
+        strip.text.x = element_text(size=5),
+        axis.line.y.right = element_blank(),
+        text = element_text(size = 5.5)
       )
     ggsave(paste("images/images_", run_version, "/togo_sens_spec_analysis_", descriptor, ".svg", sep=""), p1, units="in", height=4, width=5.5, dpi=300)
+    ggsave(paste("images/images_", run_version, "/togo_sens_spec_analysis_", descriptor, ".pdf", sep=""), p1, width=175, height=110.5, units="mm", dpi=300)
     print(p1)
 }
 

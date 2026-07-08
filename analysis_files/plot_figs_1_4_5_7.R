@@ -15,7 +15,13 @@ make_fig_1 <- function(actual_data, projection_data) {
     scale_y_continuous(breaks=seq(0, 20, 5), limits=c(0, 20.25)) +
     theme_bw() +
     theme(
-      panel.grid.minor.x = element_blank()
+      panel.grid.minor.x = element_blank(),
+      text = element_text(size = 5.5),
+      axis.text = element_text(size = 5),
+      axis.title = element_text(size = 6),
+      strip.text = element_text(size = 5),
+      legend.text = element_text(size = 5),
+      legend.title = element_text(size = 6)
     ) +
     guides(color="none") +
     facet_wrap(~exposure)
@@ -64,18 +70,20 @@ make_fig_4 <- function(observed_data, model_data) {
       legend.position = "bottom",
       legend.direction = "horizontal",
       plot.title = element_text(size=10, hjust = 0.5),
-      axis.title.y = element_text(size=10),
+      axis.title.y = element_text(size=6),
+      axis.title.x = element_text(size=6),
       title = element_text(size=10),
-      legend.text = element_text(size=6),
-      legend.title = element_text(size=8),
+      legend.text = element_text(size=5),
+      legend.title = element_text(size=6),
       legend.key.size = unit(0.8, 'lines'),
-      axis.text.y = element_text(size=6),
-      axis.text.x = element_text(size=6),
+      axis.text.y = element_text(size=5),
+      axis.text.x = element_text(size=5),
       strip.placement = "outside",
       panel.grid.minor = element_blank(),
       axis.line.x = element_line(color = "black"),
       axis.line.y = element_line(color = "black"),
-      strip.text.y = element_text(angle=0),
+      strip.text.y = element_text(angle=0, size = 5),
+      strip.text.x = element_text(size = 5),
       axis.line.y.right = element_blank()
     )
   print(ov16_plot)
@@ -128,22 +136,25 @@ make_fig_5 <- function(combined_df_2, descriptor="", hyps=c("H4i", "H4iii")) {
     theme_bw() +
     theme(
       plot.title = element_text(size=10, hjust = 0.5),
-      axis.title.y = element_text(size=10),
+      axis.title.y = element_text(size=6),
+      axis.title.x = element_text(size=6),
       title = element_text(size=10),
-      legend.text = element_text(size=6),
-      legend.title = element_text(size=8),
+      text = element_text(size = 5.5),
+      legend.text = element_text(size=5),
+      legend.title = element_text(size=6),
       legend.key.size = unit(0.8, 'lines'),
       legend.position = "bottom",
       legend.direction = "horizontal",
-      axis.text.y = element_text(size=6),
-      axis.text.x = element_text(size=6, angle=70, vjust=0.5),
+      axis.text.y = element_text(size=5),
+      axis.text.x = element_text(size=5),
       strip.placement = "outside",
       panel.border = element_blank(),
       panel.grid.major.x = element_blank(),
       panel.grid.minor.x = element_blank(),
       axis.line.x = element_line(color = "black"),
       axis.line.y = element_line(color = "black"),
-      strip.text.y = element_text(angle=0),
+      strip.text.y = element_text(angle=0, size = 5),
+      strip.text.x = element_text(angle=0, size = 5),
       axis.line.y.right = element_blank()
     ) +
     geom_segment(aes(x=0.55, xend=1.45, y=-5, yend=-5), color="black", size=0.1) +
@@ -213,21 +224,24 @@ make_fig_7 <- function(originalData, tmp_projection_data, descriptor, facet_valu
     theme_bw() +
     theme(
       plot.title = element_text(size=10, hjust = 0.5),
-      axis.title.y = element_text(size=10),
+      axis.title.y = element_text(size=6),
+      axis.title.x = element_text(size=6),
       title = element_text(size=10),
-      legend.text = element_text(size=6),
-      legend.title = element_text(size=8),
+      legend.text = element_text(size=5),
+      legend.title = element_text(size=6),
       legend.key.size = unit(0.8, 'lines'),
       legend.position = "bottom",
       legend.direction = "horizontal",
-      axis.text.y = element_text(size=6),
-      axis.text.x = element_text(size=6),
+      axis.text.y = element_text(size=5),
+      axis.text.x = element_text(size=5),
       strip.placement = "outside",
       panel.grid.minor = element_blank(),
       axis.line.x = element_line(color = "black"),
       axis.line.y = element_line(color = "black"),
-      strip.text.y = element_text(angle=0),
-      axis.line.y.right = element_blank()
+      strip.text.y = element_text(angle=0, size=5),
+      strip.text.x = element_text(size=5),
+      axis.line.y.right = element_blank(),
+      text = element_text(size = 5.5)
     )
   print(p1)
 }
